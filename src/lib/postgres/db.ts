@@ -1,7 +1,7 @@
 import { PrismaClient } from '@/generated/prisma'
 import { PrismaPg } from '@prisma/adapter-pg'
 
-const connectionString = 'postgresql://postgres:pass1234@192.168.1.170:5432/limesurveydb'
+const connectionString = 'postgresql://postgres:pass1234@192.168.1.80:5432/limesurveydb'
 
 const adapter = new PrismaPg({ connectionString })
 

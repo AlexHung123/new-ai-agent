@@ -9,6 +9,7 @@ import {
   Settings,
   Plus,
   ArrowLeft,
+  LayoutGrid,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useSelectedLayoutSegments } from 'next/navigation';
@@ -36,6 +37,12 @@ const Sidebar = ({ children }: { children: React.ReactNode }) => {
       href: '/',
       active: segments.length === 0 || segments.includes('c'),
       label: 'Home',
+    },
+    {
+      icon: LayoutGrid,
+      href: '/agents',
+      active: segments.includes('agents'),
+      label: 'All Agents',
     },
     {
       icon: BookOpenText,

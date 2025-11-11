@@ -107,7 +107,7 @@ const config = {
       "value": "prisma-client-js"
     },
     "output": {
-      "value": "/Users/alexhung/Projects/Perplexica/src/generated/prisma",
+      "value": "D:\\Projects\\new-ai-agent\\src\\generated\\prisma",
       "fromEnvVar": null
     },
     "config": {
@@ -116,12 +116,12 @@ const config = {
     "binaryTargets": [
       {
         "fromEnvVar": null,
-        "value": "darwin-arm64",
+        "value": "windows",
         "native": true
       }
     ],
     "previewFeatures": [],
-    "sourceFilePath": "/Users/alexhung/Projects/Perplexica/prisma/schema.prisma",
+    "sourceFilePath": "D:\\Projects\\new-ai-agent\\prisma\\schema.prisma",
     "isCustomOutput": true
   },
   "relativeEnvPaths": {

@@ -2,7 +2,8 @@ import {
   Globe,
   Book,
   UsersRound,
-  NotepadText
+  NotepadText,
+  Database
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -16,6 +17,12 @@ import { useChat } from '@/lib/hooks/useChat';
 
 const focusModes = [
   {
+    key: 'agentData',
+    title: 'Agent Data',
+    description: 'Chat With Agent Date',
+    icon: <Database size={16} />,
+  },
+  {
     key: 'agentGuide',
     title: 'Agent Guide',
     description: 'Chat With Agent Guide',
@@ -27,7 +34,7 @@ const focusModes = [
     description: 'Chat With Agent SFC',
     icon: <UsersRound size={16} />,
   },
-   {
+  {
     key: 'agentSurvey',
     title: 'Agent Survey',
     description: 'Chat With Agent Survey',

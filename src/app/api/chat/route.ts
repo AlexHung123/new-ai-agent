@@ -13,6 +13,7 @@ import prompts from '@/lib/prompts';
 import path from 'path';
 import fs from 'fs';
 import { getLimeSurveySummaryBySid } from '@/lib/postgres/limeSurvery';
+import { splitSurvey } from '@/lib/utils/splitSurvey';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -345,13 +346,10 @@ export const POST = async (req: Request) => {
     }
 
     let freeTextOnlyStr = ''
-    console.log(body.focusMode);
     if (body.focusMode === 'agentSurvey') {
       const surveyData = await getLimeSurveySummaryBySid(message.content);
       const data: Survey = (surveyData[0]["result_json"]) as unknown as Survey;
       const { freeTextOnly } = splitSurvey(data); 
-      console.log('---');
-      console.log(freeTextOnly);  
       freeTextOnlyStr = JSON.stringify(freeTextOnly);  
     }
 
@@ -399,7 +397,4 @@ export const POST = async (req: Request) => {
     );
   }
 };
-function splitSurvey(data: Survey): { freeTextOnly: any; } {
-  throw new Error('Function not implemented.');
-}
 

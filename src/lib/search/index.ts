@@ -29,4 +29,13 @@ export const searchHandlers: Record<string, MetaSearchAgent> = {
     rerankThreshold: 0,
     searchWeb: false,
   }),
+  agentData: new MetaSearchAgent({
+    activeEngines: [],
+    queryGeneratorPrompt: '',
+    queryGeneratorFewShots: [],
+    responsePrompt: prompts.dataPrompt,
+    rerank: true,
+    rerankThreshold: 0,
+    searchWeb: false,
+  }),
 };

@@ -22,13 +22,6 @@ export async function getLimeSurveySummaryBySid(sid: string) {
     // const prismaClient = await getPrisma();
     
     const tableName = `lime_survey_${sid}`;
-
-    const surveyData: any[] = await prisma.$queryRawUnsafe(
-      `SELECT * FROM ${tableName}`
-    );
-
-    console.log('-----');
-    console.log(surveyData);
     
     // Get column information
     const columns: any[] = await prisma.$queryRawUnsafe(
@@ -45,6 +38,7 @@ export async function getLimeSurveySummaryBySid(sid: string) {
         WHERE q.sid = ${sid}
             AND q.parent_qid = 0
             AND l10n.question NOT LIKE '%填表人資料%'
+            and l10n.question LIKE '%意見%'
         ),
         sgqa AS (
         SELECT 
