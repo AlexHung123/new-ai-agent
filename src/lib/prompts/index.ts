@@ -1,13 +1,9 @@
-import {
-  webSearchResponsePrompt,
-  webSearchRetrieverFewShots,
-  webSearchRetrieverPrompt,
-} from './webSearch';
-import { writingAssistantPrompt } from './writingAssistant';
+import { guidePrompt } from './agentGuide';
+import { sfcPrompt } from './agentSFC';
+import { surveyPrompt } from './agentSurvey';
 
 export default {
-  webSearchResponsePrompt,
-  webSearchRetrieverPrompt,
-  webSearchRetrieverFewShots,
-  writingAssistantPrompt,
+  sfcPrompt,
+  guidePrompt,
+  surveyPrompt
 };

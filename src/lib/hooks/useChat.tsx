@@ -21,7 +21,6 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { getSuggestions } from '../actions';
 import { MinimalProvider } from '../models/types';
-import { getAutoMediaSearch } from '../config/clientRegistry';
 
 export type Section = {
   userMessage: UserMessage;
@@ -611,20 +610,6 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         ]);
 
         setLoading(false);
-
-        const lastMsg = messagesRef.current[messagesRef.current.length - 1];
-
-        const autoMediaSearch = getAutoMediaSearch();
-
-        if (autoMediaSearch) {
-          document
-            .getElementById(`search-images-${lastMsg.messageId}`)
-            ?.click();
-
-          document
-            .getElementById(`search-videos-${lastMsg.messageId}`)
-            ?.click();
-        }
 
         /* Check if there are sources after message id's index and no suggestions */
 

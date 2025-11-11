@@ -16,23 +16,6 @@ const OptimizationModes = [
     description: 'Prioritize speed and get the quickest possible answer.',
     icon: <Zap size={16} className="text-[#FF9800]" />,
   },
-  {
-    key: 'balanced',
-    title: 'Balanced',
-    description: 'Find the right balance between speed and accuracy',
-    icon: <Sliders size={16} className="text-[#4CAF50]" />,
-  },
-  {
-    key: 'quality',
-    title: 'Quality (Soon)',
-    description: 'Get the most thorough and accurate answer',
-    icon: (
-      <Star
-        size={16}
-        className="text-[#2196F3] dark:text-[#BBDEFB] fill-[#BBDEFB] dark:fill-[#2196F3]"
-      />
-    ),
-  },
 ];
 
 const Optimization = () => {

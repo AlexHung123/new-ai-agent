@@ -9,6 +9,10 @@ import { searchHandlers } from '@/lib/search';
 import { z } from 'zod';
 import ModelRegistry from '@/lib/models/registry';
 import { ModelWithProvider } from '@/lib/models/types';
+import prompts from '@/lib/prompts';
+import path from 'path';
+import fs from 'fs';
+import { getLimeSurveySummaryBySid } from '@/lib/postgres/limeSurvery';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -71,6 +75,17 @@ const bodySchema = z.object({
 
 type Message = z.infer<typeof messageSchema>;
 type Body = z.infer<typeof bodySchema>;
+
+
+export type RatingItem = { count: number; value: string };
+export type FreeTextItem = { answer: string };
+
+export type Group = RatingItem[] | FreeTextItem[];
+
+export type Survey = Record<string, Group>;
+
+export type RatingsOnly = Record<string, RatingItem[]>;
+export type FreeTextOnly = Record<string, FreeTextItem[]>;
 
 const safeValidateBody = (data: unknown) => {
   const result = bodySchema.safeParse(data);
@@ -280,6 +295,67 @@ export const POST = async (req: Request) => {
       }
     });
 
+        // Enhance history for writingAssistant mode
+    if (body.focusMode === 'agentGuide') {
+      const systemInstruction = prompts.guidePrompt;
+      
+      // Read training guide content
+      let trainingGuideContent = '';
+      try {
+        const trainingGuidePath = path.join(process.cwd(), 'uploads', 'training_guide.md');
+        trainingGuideContent = fs.readFileSync(trainingGuidePath, 'utf8');
+      } catch (error) {
+        console.warn('Could not read training_guide.md:', error);
+      }
+      
+      // Combine system instruction and training guide content as one AIMessage
+      let combinedContent = systemInstruction;
+      
+      if (trainingGuideContent.trim()) {
+        combinedContent = trainingGuideContent + '\n\n' + systemInstruction;
+      }
+      
+      history.unshift(new AIMessage({
+        content: combinedContent
+      }));
+    }
+
+    if (body.focusMode === 'agentSFC') {
+      const systemInstruction = prompts.sfcPrompt;
+      
+      // Read sfc content
+      let sfcContent = '';
+      try {
+        const sfcPath = path.join(process.cwd(), 'uploads', 'sfc.md');
+        sfcContent = fs.readFileSync(sfcPath, 'utf8');
+      } catch (error) {
+        console.warn('Could not read sfc.md:', error);
+      }
+      
+      // Combine system instruction and training guide content as one AIMessage
+      let combinedContent = systemInstruction;
+      
+      if (sfcContent.trim()) {
+        combinedContent = systemInstruction + '\n\n' + sfcContent;
+      }
+      
+      history.unshift(new AIMessage({
+        content: combinedContent
+      }));
+    }
+
+    let freeTextOnlyStr = ''
+    console.log(body.focusMode);
+    if (body.focusMode === 'agentSurvey') {
+      const surveyData = await getLimeSurveySummaryBySid(message.content);
+      const data: Survey = (surveyData[0]["result_json"]) as unknown as Survey;
+      const { freeTextOnly } = splitSurvey(data); 
+      console.log('---');
+      console.log(freeTextOnly);  
+      freeTextOnlyStr = JSON.stringify(freeTextOnly);  
+    }
+
+
     const handler = searchHandlers[body.focusMode];
 
     if (!handler) {
@@ -292,7 +368,7 @@ export const POST = async (req: Request) => {
     }
 
     const stream = await handler.searchAndAnswer(
-      message.content,
+      body.focusMode !== 'agentSurvey' ? message.content : freeTextOnlyStr,
       history,
       llm,
       embedding,
@@ -323,3 +399,7 @@ export const POST = async (req: Request) => {
     );
   }
 };
+function splitSurvey(data: Survey): { freeTextOnly: any; } {
+  throw new Error('Function not implemented.');
+}
+
