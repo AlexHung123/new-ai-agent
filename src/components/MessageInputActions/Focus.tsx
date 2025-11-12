@@ -19,25 +19,25 @@ const focusModes = [
   {
     key: 'agentData',
     title: 'Agent Data',
-    description: 'Chat With Agent Date',
+    description: 'Your assistant for retrieving training data',
     icon: <Database size={16} />,
   },
   {
     key: 'agentGuide',
     title: 'Agent Guide',
-    description: 'Chat With Agent Guide',
+    description: 'You assistant on training policy',
     icon: <Book size={16} />,
   },
   {
     key: 'agentSFC',
     title: 'Agent SFC',
-    description: 'Chat With Agent SFC',
+    description: 'Your assistant for analyzing SFC meetings',
     icon: <UsersRound size={16} />,
   },
   {
     key: 'agentSurvey',
     title: 'Agent Survey',
-    description: 'Chat With Agent Survey',
+    description: 'Your assistant for analyzing class survey',
     icon: <NotepadText size={16} />,
   },
 ];

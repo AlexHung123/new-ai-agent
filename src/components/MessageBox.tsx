@@ -130,7 +130,7 @@ const MessageBox = ({
                         initialMessage={section.assistantMessage.content}
                         section={section}
                       />
-                      <button
+                      {/* <button
                         onClick={() => {
                           if (speechStatus === 'started') {
                             stop();
@@ -145,7 +145,7 @@ const MessageBox = ({
                         ) : (
                           <Volume2 size={18} />
                         )}
-                      </button>
+                      </button> */}
                     </div>
                   </div>
                 )}

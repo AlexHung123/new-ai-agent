@@ -8,28 +8,28 @@ const focusModes = [
   {
     key: 'agentData',
     title: 'Agent Data',
-    description: 'Chat With Agent Date',
+    description: 'Your assistant for retrieving training data',
     icon: <Database size={20} />,
     image: '/agent_data.png',
   },
   {
     key: 'agentGuide',
     title: 'Agent Guide',
-    description: 'Chat With Agent Guide',
+    description: 'You assistant on training policy',
     icon: <Book size={20} />,
     image: '/agent_guide.png',
   },
   {
     key: 'agentSFC',
     title: 'Agent SFC',
-    description: 'Chat With Agent SFC',
+    description: 'Your assistant for analyzing SFC meetings',
     icon: <UsersRound size={20} />,
     image: '/agent_sfc.png',
   },
   {
     key: 'agentSurvey',
     title: 'Agent Survey',
-    description: 'Chat With Agent Survey',
+    description: 'Your assistant for analyzing SFC meetings',
     icon: <NotepadText size={20} />,
     image: '/agent_survey.png',
   },
@@ -47,8 +47,8 @@ const AgentsPage = () => {
   return (
     <div className="p-4 md:p-6">
       <div className="mb-4 md:mb-6">
-        <h1 className="text-lg md:text-xl font-semibold text-black dark:text-white">All Agents</h1>
-        <p className="text-sm text-black/60 dark:text-white/60">選擇一個 Agent 開始對話</p>
+        <h1 className="text-lg md:text-xl font-semibold text-black dark:text-white">AI Agents</h1>
+        <p className="text-sm text-black/60 dark:text-white/60">Please select an AI agent as your assistant.</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
@@ -73,7 +73,7 @@ const AgentsPage = () => {
               <div className="min-w-0">
                 <div className="font-medium text-black dark:text-white">{mode.title}</div>
                 <div className="text-xs text-black/60 dark:text-white/60 truncate">{mode.description}</div>
-                <div className="mt-1 text-[10px] text-black/50 dark:text-white/50">點擊進入</div>
+                {/* <div className="mt-1 text-[10px] text-black/50 dark:text-white/50">點擊進入</div> */}
               </div>
             </div>            
           </button>
