@@ -1,15 +1,15 @@
 services:
-  perplexica:
-    image: itzcrazykns1337/perplexica:latest
+  aiagent:
+    image: itms-ai-agent:v1
     ports:
-      - '3000:3000'
+      - '3001:3000'
     volumes:
-      - data:/home/perplexica/data
-      - uploads:/home/perplexica/uploads
+      - data:/home/aiagent/data
+      - uploads:/home/aiagent/uploads
     restart: unless-stopped
 
 volumes:
   data:
-    name: 'perplexica-data'
+    name: 'aiagent-data'
   uploads:
-    name: 'perplexica-uploads'
+    name: 'aiagent-uploads'

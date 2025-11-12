@@ -204,6 +204,8 @@ class SurveyAgent implements MetaSearchAgentType {
           // Remove "# Summary\n- Processed at: YYYY-MM-DD" pattern from subsequent summaries
           // Match the pattern with optional whitespace and date variations
           const summaryHeaderPattern = /^# Summary\s*\n\s*-\s*Processed at:\s*[^\n]+\s*\n\s*/i;
+        //   const summaryHeaderPattern =/^(?mi)#\s*Summary\s*\n-\s*Processed at:\s*(\d{4}-\d{2}-\d{2})\s*\n\s*##\s*Questions\s*\n/;
+
           return summary.replace(summaryHeaderPattern, '').trim();
         });
 

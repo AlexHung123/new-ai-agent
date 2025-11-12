@@ -41,7 +41,8 @@ const AgentsPage = () => {
 
   const handleSelect = (key: string) => {
     setFocusMode(key);
-    router.push('/');
+    // Use window.location to force a full page reload and start fresh
+    window.location.href = '/';
   };
 
   return (

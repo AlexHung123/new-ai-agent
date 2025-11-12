@@ -1,60 +1,60 @@
-# Update Perplexica to the latest version
+# Update aiagent to the latest version
 
-To update Perplexica to the latest version, follow these steps:
+To update aiagent to the latest version, follow these steps:
 
 ## For Docker users (Using pre-built images)
 
 Simply pull the latest image and restart your container:
 
 ```bash
-docker pull itzcrazykns1337/perplexica:latest
-docker stop perplexica
-docker rm perplexica
-docker run -d -p 3000:3000 -v perplexica-data:/home/perplexica/data -v perplexica-uploads:/home/perplexica/uploads --name perplexica itzcrazykns1337/perplexica:latest
+docker pull itzcrazykns1337/aiagent:latest
+docker stop aiagent
+docker rm aiagent
+docker run -d -p 3000:3000 -v aiagent-data:/home/aiagent/data -v aiagent-uploads:/home/aiagent/uploads --name aiagent itzcrazykns1337/aiagent:latest
 ```
 
 For slim version:
 
 ```bash
-docker pull itzcrazykns1337/perplexica:slim-latest
-docker stop perplexica
-docker rm perplexica
-docker run -d -p 3000:3000 -e SEARXNG_API_URL=http://your-searxng-url:8080 -v perplexica-data:/home/perplexica/data -v perplexica-uploads:/home/perplexica/uploads --name perplexica itzcrazykns1337/perplexica:slim-latest
+docker pull itzcrazykns1337/aiagent:slim-latest
+docker stop aiagent
+docker rm aiagent
+docker run -d -p 3000:3000 -e SEARXNG_API_URL=http://your-searxng-url:8080 -v aiagent-data:/home/aiagent/data -v aiagent-uploads:/home/aiagent/uploads --name aiagent itzcrazykns1337/aiagent:slim-latest
 ```
 
 Once updated, go to http://localhost:3000 and verify the latest changes. Your settings are preserved automatically.
 
 ## For Docker users (Building from source)
 
-1. Navigate to your Perplexica directory and pull the latest changes:
+1. Navigate to your aiagent directory and pull the latest changes:
 
    ```bash
-   cd Perplexica
+   cd aiagent
    git pull origin master
    ```
 
 2. Rebuild the Docker image:
 
    ```bash
-   docker build -t perplexica .
+   docker build -t aiagent .
    ```
 
 3. Stop and remove the old container, then start the new one:
 
    ```bash
-   docker stop perplexica
-   docker rm perplexica
-   docker run -p 3000:3000 -p 8080:8080 --name perplexica perplexica
+   docker stop aiagent
+   docker rm aiagent
+   docker run -p 3000:3000 -p 8080:8080 --name aiagent aiagent
    ```
 
 4. Once the command completes, go to http://localhost:3000 and verify the latest changes.
 
 ## For non-Docker users
 
-1. Navigate to your Perplexica directory and pull the latest changes:
+1. Navigate to your aiagent directory and pull the latest changes:
 
    ```bash
-   cd Perplexica
+   cd aiagent
    git pull origin master
    ```
 
