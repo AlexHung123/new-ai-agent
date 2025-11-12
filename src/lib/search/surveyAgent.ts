@@ -156,10 +156,8 @@ class SurveyAgent implements MetaSearchAgentType {
           return;
         }
 
-        // Step 2: Loop through each question and generate summary
-        const summaries: string[] = [];
-        
-        for (const question of questionKeys) {
+        // Step 2: Process all questions concurrently
+        const summaryPromises = questionKeys.map(async (question) => {
           const answers = freeTextOnly[question];
           
           try {
@@ -174,20 +172,45 @@ class SurveyAgent implements MetaSearchAgentType {
               systemInstructions,
             );
             
-            if (summary) {
-              summaries.push(summary);
-            }
+            return summary || null;
           } catch (error) {
             console.error(`Error processing question "${question}":`, error);
-            // Continue with other questions even if one fails
-            summaries.push(`Error processing question "${question}": ${error instanceof Error ? error.message : String(error)}`);
+            // Return error message instead of throwing
+            return `Error processing question "${question}": ${error instanceof Error ? error.message : String(error)}`;
           }
-        }
+        });
+        
+        // Wait for all promises to settle (either resolve or reject)
+        const summaryResults = await Promise.allSettled(summaryPromises);
+        
+        // Extract summaries from settled promises
+        const summaries: string[] = summaryResults
+          .map((result, index) => {
+            if (result.status === 'fulfilled' && result.value) {
+              return result.value;
+            } else if (result.status === 'rejected') {
+              return `Error processing question "${questionKeys[index]}": ${result.reason}`;
+            }
+            return null;
+          })
+          .filter((summary): summary is string => summary !== null);
 
-        // Step 3: Combine all summaries with '\n\n'
-        const combinedSummary = summaries.join('\n\n');
+        // Step 3: Remove duplicate "# Summary\n- Processed at: YYYY-MM-DD" from all summaries except the first one
+        const processedSummaries = summaries.map((summary, index) => {
+          if (index === 0) {
+            // Keep the first summary as is
+            return summary;
+          }
+          // Remove "# Summary\n- Processed at: YYYY-MM-DD" pattern from subsequent summaries
+          // Match the pattern with optional whitespace and date variations
+          const summaryHeaderPattern = /^# Summary\s*\n\s*-\s*Processed at:\s*[^\n]+\s*\n\s*/i;
+          return summary.replace(summaryHeaderPattern, '').trim();
+        });
 
-        // Step 4: Return the response similar to MetaSearchAgent
+        // Step 4: Combine all summaries with '\n\n'
+        const combinedSummary = processedSummaries.join('\n\n');
+
+        // Step 5: Return the response similar to MetaSearchAgent
         // Stream the combined summary as response chunks
         const chunkSize = 100; // Emit in chunks for streaming effect
         for (let i = 0; i < combinedSummary.length; i += chunkSize) {

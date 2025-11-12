@@ -38,7 +38,7 @@ class ConfigManager {
         ],
         required: false,
         description: 'Choose between light and dark layouts for the app.',
-        default: 'dark',
+        default: 'light',
         scope: 'client',
       },
       {
