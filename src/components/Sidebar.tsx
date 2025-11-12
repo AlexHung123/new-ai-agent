@@ -41,7 +41,7 @@ const Sidebar = ({ children }: { children: React.ReactNode }) => {
       icon: LayoutGrid,
       href: '/agents',
       active: segments.includes('agents'),
-      label: 'All Agents',
+      label: 'Agents',
     },
     {
       icon: BookOpenText,
@@ -54,7 +54,7 @@ const Sidebar = ({ children }: { children: React.ReactNode }) => {
   return (
     <div>
       <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-[72px] lg:flex-col border-r border-light-200 dark:border-dark-200">
-        <div className="flex grow flex-col items-center gap-y-5 overflow-y-auto bg-light-secondary dark:bg-dark-secondary px-2 py-8 shadow-sm shadow-light-200/10 dark:shadow-black/25">
+        <div className="flex grow flex-col items-center gap-y-5 overflow-y-auto px-2 py-8 shadow-sm shadow-light-200/10 dark:shadow-black/25" style={{ backgroundColor: '#0071CD' }}>
           {/* <a
             className="p-2.5 rounded-full bg-light-200 text-black/70 dark:bg-dark-200 dark:text-white/70 hover:opacity-70 hover:scale-105 tansition duration-200"
             href="/"
@@ -93,7 +93,7 @@ const Sidebar = ({ children }: { children: React.ReactNode }) => {
                       link.active
                         ? 'text-black/80 dark:text-white/80'
                         : 'text-black/60 dark:text-white/60',
-                      'text-[10px]',
+                      'text-xs font-bold',
                     )}
                   >
                     {link.label}
@@ -106,7 +106,7 @@ const Sidebar = ({ children }: { children: React.ReactNode }) => {
         </div>
       </div>
 
-      <div className="fixed bottom-0 w-full z-50 flex flex-row items-center gap-x-6 bg-light-secondary dark:bg-dark-secondary px-4 py-4 shadow-sm lg:hidden">
+      <div className="fixed bottom-0 w-full z-50 flex flex-row items-center gap-x-6 px-4 py-4 shadow-sm lg:hidden" style={{ backgroundColor: '#0071CD' }}>
         {navLinks.map((link, i) => (
           <Link
             href={link.href}
@@ -122,7 +122,7 @@ const Sidebar = ({ children }: { children: React.ReactNode }) => {
               <div className="absolute top-0 -mt-4 h-1 w-full rounded-b-lg bg-black dark:bg-white" />
             )}
             <link.icon />
-            <p className="text-xs">{link.label}</p>
+            <p className="text-sm font-bold">{link.label}</p>
           </Link>
         ))}
       </div>

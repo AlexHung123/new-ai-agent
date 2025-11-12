@@ -2,11 +2,11 @@ import { PrismaClient } from '@/generated/prisma'
 import { PrismaPg } from '@prisma/adapter-pg'
 
 // First database connection (LimeSurvey)
-const limesurveyConnectionString = 'postgresql://postgres:pass1234@192.168.1.80:5432/limesurveydb'
+const limesurveyConnectionString = 'postgresql://limesurvey:1rmE!161@192.168.8.31:5432/limesurveydb'
 const limesurveyAdapter = new PrismaPg({ connectionString: limesurveyConnectionString })
 
 // Second database connection
-const secondaryConnectionString = 'postgresql://postgres:pass1234@192.168.1.127:5432/itmsdb' // Update with your actual connection string
+const secondaryConnectionString = 'postgresql://postgres:In9*Xf8;@192.168.8.13:5000/itmsdb' // Update with your actual connection string
 const secondaryAdapter = new PrismaPg({ connectionString: secondaryConnectionString })
 
 declare global {
