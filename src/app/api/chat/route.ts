@@ -12,8 +12,6 @@ import { ModelWithProvider } from '@/lib/models/types';
 import prompts from '@/lib/prompts';
 import path from 'path';
 import fs from 'fs';
-import { getLimeSurveySummaryBySid } from '@/lib/postgres/limeSurvery';
-import { splitSurvey } from '@/lib/utils/splitSurvey';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -345,15 +343,6 @@ export const POST = async (req: Request) => {
       }));
     }
 
-    let freeTextOnlyStr = ''
-    if (body.focusMode === 'agentSurvey') {
-      const surveyData = await getLimeSurveySummaryBySid(message.content);
-      const data: Survey = (surveyData[0]["result_json"]) as unknown as Survey;
-      const { freeTextOnly } = splitSurvey(data); 
-      freeTextOnlyStr = JSON.stringify(freeTextOnly);  
-    }
-
-
     const handler = searchHandlers[body.focusMode];
 
     if (!handler) {
@@ -366,7 +355,7 @@ export const POST = async (req: Request) => {
     }
 
     const stream = await handler.searchAndAnswer(
-      body.focusMode !== 'agentSurvey' ? message.content : freeTextOnlyStr,
+      message.content,
       history,
       llm,
       embedding,

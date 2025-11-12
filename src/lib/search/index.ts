@@ -1,7 +1,9 @@
-import MetaSearchAgent from '@/lib/search/metaSearchAgent';
+import MetaSearchAgent, { MetaSearchAgentType } from '@/lib/search/metaSearchAgent';
+import DataAgent from '@/lib/search/dataAgent';
+import SurveyAgent from '@/lib/search/surveyAgent';
 import prompts from '../prompts';
 
-export const searchHandlers: Record<string, MetaSearchAgent> = {
+export const searchHandlers: Record<string, MetaSearchAgentType> = {
   agentGuide: new MetaSearchAgent({
     activeEngines: [],
     queryGeneratorPrompt: '',
@@ -20,22 +22,6 @@ export const searchHandlers: Record<string, MetaSearchAgent> = {
     rerankThreshold: 0,
     searchWeb: false,
   }),
-  agentSurvey: new MetaSearchAgent({
-    activeEngines: [],
-    queryGeneratorPrompt: '',
-    queryGeneratorFewShots: [],
-    responsePrompt: prompts.surveyPrompt,
-    rerank: true,
-    rerankThreshold: 0,
-    searchWeb: false,
-  }),
-  agentData: new MetaSearchAgent({
-    activeEngines: [],
-    queryGeneratorPrompt: '',
-    queryGeneratorFewShots: [],
-    responsePrompt: prompts.dataPrompt,
-    rerank: true,
-    rerankThreshold: 0,
-    searchWeb: false,
-  }),
+  agentSurvey: new SurveyAgent(),
+  agentData: new DataAgent(),
 };
