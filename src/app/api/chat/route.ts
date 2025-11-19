@@ -294,55 +294,6 @@ export const POST = async (req: Request) => {
       }
     });
 
-        // Enhance history for writingAssistant mode
-    if (body.focusMode === 'agentGuide') {
-      const systemInstruction = prompts.guidePrompt;
-      
-      // Read training guide content
-      let trainingGuideContent = '';
-      try {
-        const trainingGuidePath = path.join(process.cwd(), 'uploads', 'training_guide.md');
-        trainingGuideContent = fs.readFileSync(trainingGuidePath, 'utf8');
-      } catch (error) {
-        console.warn('Could not read training_guide.md:', error);
-      }
-      
-      // Combine system instruction and training guide content as one AIMessage
-      let combinedContent = systemInstruction;
-      
-      if (trainingGuideContent.trim()) {
-        combinedContent = trainingGuideContent + '\n\n' + systemInstruction;
-      }
-      
-      history.unshift(new AIMessage({
-        content: combinedContent
-      }));
-    }
-
-    if (body.focusMode === 'agentSFC') {
-      const systemInstruction = prompts.sfcPrompt;
-      
-      // Read sfc content
-      let sfcContent = '';
-      try {
-        const sfcPath = path.join(process.cwd(), 'uploads', 'sfc.md');
-        sfcContent = fs.readFileSync(sfcPath, 'utf8');
-      } catch (error) {
-        console.warn('Could not read sfc.md:', error);
-      }
-      
-      // Combine system instruction and training guide content as one AIMessage
-      let combinedContent = systemInstruction;
-      
-      if (sfcContent.trim()) {
-        combinedContent = systemInstruction + '\n\n' + sfcContent;
-      }
-      
-      history.unshift(new AIMessage({
-        content: combinedContent
-      }));
-    }
-
     const handler = searchHandlers[body.focusMode];
 
     if (!handler) {

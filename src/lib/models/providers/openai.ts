@@ -163,6 +163,9 @@ class OpenAIProvider extends BaseModelProvider<OpenAIConfig> {
       configuration: {
         baseURL: this.config.baseURL,
       },
+      // modelKwargs: {
+      //   cache_prompt: true,
+      // },
     });
   }
 
