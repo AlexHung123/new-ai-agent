@@ -38,7 +38,6 @@ export async function getLimeSurveySummaryBySid(sid: string) {
         WHERE q.sid = ${sid}
             AND q.parent_qid = 0
             AND l10n.question NOT LIKE '%填表人資料%'
-            and l10n.question LIKE '%意見%'
         ),
         sgqa AS (
         SELECT 

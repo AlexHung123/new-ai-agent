@@ -9,9 +9,6 @@ import { searchHandlers } from '@/lib/search';
 import { z } from 'zod';
 import ModelRegistry from '@/lib/models/registry';
 import { ModelWithProvider } from '@/lib/models/types';
-import prompts from '@/lib/prompts';
-import path from 'path';
-import fs from 'fs';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

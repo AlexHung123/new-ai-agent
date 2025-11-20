@@ -1,15 +1,17 @@
 services:
   aiagent:
-    image: itms-ai-agent:v1
+    image: itms-ai-agent:v4
     ports:
-      - '3001:3000'
+      - '8080:3000'
     volumes:
-      - data:/home/aiagent/data
-      - uploads:/home/aiagent/uploads
+      # - data:/home/aiagent/data
+      # - uploads:/home/aiagent/uploads
+      - /d/Projects/temp/data:/home/aiagent/data
+      - /d/Projects/temp/uploads:/home/aiagent/uploads
     restart: unless-stopped
 
-volumes:
-  data:
-    name: 'aiagent-data'
-  uploads:
-    name: 'aiagent-uploads'
+# volumes:
+#   data:
+#     name: 'aiagent-data'
+#   uploads:
+#     name: 'aiagent-uploads'
