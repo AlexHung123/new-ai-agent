@@ -24,7 +24,7 @@ const ModelProvider = ({
     modelKey: string,
   ) => {
     try {
-      const res = await fetch(`/api/providers/${modelProvider.id}/models`, {
+      const res = await fetch(`/itms/ai/api/providers/${modelProvider.id}/models`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',

@@ -10,28 +10,28 @@ const focusModes = [
     title: 'Agent Data',
     description: 'Your assistant for retrieving training data',
     icon: <Database size={20} />,
-    image: '/agent_data.png',
+    image: '/itms/ai/agent_data.png',
   },
   {
     key: 'agentGuide',
     title: 'Agent Guide',
     description: 'You assistant on training policy',
     icon: <Book size={20} />,
-    image: '/agent_guide.png',
+    image: '/itms/ai/agent_guide.png',
   },
   {
     key: 'agentSFC',
     title: 'Agent SFC',
     description: 'Your assistant for analyzing SFC meetings',
     icon: <UsersRound size={20} />,
-    image: '/agent_sfc.png',
+    image: '/itms/ai/agent_sfc.png',
   },
   {
     key: 'agentSurvey',
     title: 'Agent Survey',
     description: 'Your assistant for analyzing SFC meetings',
     icon: <NotepadText size={20} />,
-    image: '/agent_survey.png',
+    image: '/itms/ai/agent_survey.png',
   },
 ];
 
@@ -42,7 +42,7 @@ const AgentsPage = () => {
   const handleSelect = (key: string) => {
     setFocusMode(key);
     // Use window.location to force a full page reload and start fresh
-    window.location.href = '/';
+    window.location.href = '/itms/ai/';
   };
 
   return (

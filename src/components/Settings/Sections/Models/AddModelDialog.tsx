@@ -23,7 +23,7 @@ const AddModel = ({
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch(`/api/providers/${providerId}/models`, {
+      const res = await fetch(`/itms/ai/api/providers/${providerId}/models`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

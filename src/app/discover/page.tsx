@@ -45,7 +45,7 @@ const Page = () => {
   const fetchArticles = async (topic: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/discover?topic=${topic}`, {
+      const res = await fetch(`/itms/ai/api/discover?topic=${topic}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

@@ -1,6 +1,6 @@
 services:
   aiagent:
-    image: itms-ai-agent:v4
+    image: itms-ai-agent:v5
     ports:
       - '8080:3000'
     volumes:
@@ -9,7 +9,8 @@ services:
       - /d/Projects/temp/data:/home/aiagent/data
       - /d/Projects/temp/uploads:/home/aiagent/uploads
     restart: unless-stopped
-
+    environment:
+      - BASE_PATH=/itms/ai
 # volumes:
 #   data:
 #     name: 'aiagent-data'

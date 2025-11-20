@@ -11,10 +11,10 @@ aiagent's codebase is organized as follows:
 - **UI Components and Pages**:
   - **Components (`src/components`)**: Reusable UI components.
   - **Pages and Routes (`src/app`)**: Next.js app directory structure with page components.
-    - Main app routes include: home (`/`), chat (`/c`), discover (`/discover`), library (`/library`), and settings (`/settings`).
+    - Main app routes include: home (`/`), chat (`/itms/ai/c`), discover (`/discover`), library (`/library`), and settings (`/settings`).
   - **API Routes (`src/app/api`)**: API endpoints implemented with Next.js API routes.
-    - `/api/chat`: Handles chat interactions.
-    - `/api/search`: Provides direct access to aiagent's search capabilities.
+    - `/itms/ai/api/chat`: Handles chat interactions.
+    - `/itms/ai/api/search`: Provides direct access to aiagent's search capabilities.
     - Other endpoints for models, files, and suggestions.
 - **Backend Logic (`src/lib`)**: Contains all the backend functionality including search, database, and API logic.
   - The search functionality is present inside `src/lib/search` directory.
@@ -27,7 +27,7 @@ aiagent's codebase is organized as follows:
 
 aiagent exposes several API endpoints for programmatic access, including:
 
-- **Search API**: Access aiagent's advanced search capabilities directly via the `/api/search` endpoint. For detailed documentation, see `docs/api/search.md`.
+- **Search API**: Access aiagent's advanced search capabilities directly via the `/itms/ai/api/search` endpoint. For detailed documentation, see `docs/api/search.md`.
 
 ## Setting Up Your Environment
 

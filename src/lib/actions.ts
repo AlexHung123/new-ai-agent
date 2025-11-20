@@ -4,7 +4,7 @@ export const getSuggestions = async (chatHistory: Message[]) => {
   const chatModel = localStorage.getItem('chatModelKey');
   const chatModelProvider = localStorage.getItem('chatModelProviderId');
 
-  const res = await fetch(`/api/suggestions`, {
+  const res = await fetch(`/itms/ai/api/suggestions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

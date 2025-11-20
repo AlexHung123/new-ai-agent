@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  basePath: '/itms/ai',
   output: 'standalone',
   devIndicators: false,
   images: {

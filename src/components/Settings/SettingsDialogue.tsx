@@ -73,7 +73,7 @@ const SettingsDialogue = ({
     if (isOpen) {
       const fetchConfig = async () => {
         try {
-          const res = await fetch('/api/config', {
+          const res = await fetch('/itms/ai/api/config', {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',

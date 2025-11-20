@@ -40,7 +40,7 @@ const UpdateProvider = ({
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch(`/api/providers/${modelProvider.id}`, {
+      const res = await fetch(`/itms/ai/api/providers/${modelProvider.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

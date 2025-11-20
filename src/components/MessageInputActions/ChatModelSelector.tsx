@@ -23,7 +23,7 @@ const ModelSelector = () => {
     const loadProviders = async () => {
       try {
         setIsLoading(true);
-        const res = await fetch('/api/providers');
+        const res = await fetch('/itms/ai/api/providers');
 
         if (!res.ok) {
           throw new Error('Failed to fetch providers');

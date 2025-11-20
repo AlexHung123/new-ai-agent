@@ -29,7 +29,7 @@ const DeleteChat = ({
   const handleDelete = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/chats/${chatId}`, {
+      const res = await fetch(`/itms/ai/api/chats/${chatId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -45,7 +45,7 @@ const DeleteChat = ({
       setChats(newChats);
 
       if (redirect) {
-        window.location.href = '/';
+        window.location.href = '/itms/ai/';
       }
     } catch (err: any) {
       toast.error(err.message);

@@ -21,7 +21,7 @@ const Page = () => {
     const fetchChats = async () => {
       setLoading(true);
 
-      const res = await fetch(`/api/chats`, {
+      const res = await fetch(`/itms/ai/api/chats`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -85,7 +85,7 @@ const Page = () => {
               key={i}
             >
               <Link
-                href={`/c/${chat.id}`}
+                href={`/itms/ai/c/${chat.id}`}
                 className="text-black dark:text-white lg:text-xl font-medium truncate transition duration-200 hover:text-[#24A0ED] dark:hover:text-[#24A0ED] cursor-pointer"
               >
                 {chat.title}

@@ -94,7 +94,7 @@ const checkConfig = async (
       'embeddingModelProviderId',
     );
 
-    const res = await fetch(`/api/providers`, {
+    const res = await fetch(`/itms/ai/api/providers`, {
       headers: {
         'Content-Type': 'application/json',
       },
@@ -184,7 +184,7 @@ const loadMessages = async (
   setFiles: (files: File[]) => void,
   setFileIds: (fileIds: string[]) => void,
 ) => {
-  const res = await fetch(`/api/chats/${chatId}`, {
+  const res = await fetch(`/itms/ai/api/chats/${chatId}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -540,7 +540,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     setMessageAppeared(false);
 
     if (messages.length <= 1) {
-      window.history.replaceState(null, '', `/c/${chatId}`);
+      window.history.replaceState(null, '', `/itms/ai/c/${chatId}`);
     }
 
     let recievedMessage = '';
@@ -660,7 +660,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
 
     const messageIndex = messages.findIndex((m) => m.messageId === messageId);
 
-    const res = await fetch('/api/chat', {
+    const res = await fetch('/itms/ai/api/chat', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

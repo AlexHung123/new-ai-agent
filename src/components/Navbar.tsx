@@ -233,7 +233,7 @@ const Navbar = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center min-w-0">
             <a
-              href="/"
+              href="/itms/ai/"
               className="lg:hidden mr-3 p-2 -ml-2 rounded-lg hover:bg-light-secondary dark:hover:bg-dark-secondary transition-colors duration-200"
             >
               <Edit size={18} className="text-black/70 dark:text-white/70" />

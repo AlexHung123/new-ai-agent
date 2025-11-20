@@ -39,7 +39,7 @@ const Attach = () => {
     data.append('embedding_model_provider_id', embeddingModelProvider!);
     data.append('embedding_model_key', embeddingModel!);
 
-    const res = await fetch(`/api/uploads`, {
+    const res = await fetch(`/itms/ai/api/uploads`, {
       method: 'POST',
       body: data,
     });

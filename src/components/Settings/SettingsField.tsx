@@ -36,7 +36,7 @@ const SettingsSelect = ({
           setTheme(newValue);
         }
       } else {
-        const res = await fetch('/api/config', {
+        const res = await fetch('/itms/ai/api/config', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -107,7 +107,7 @@ const SettingsInput = ({
       if (field.scope === 'client') {
         localStorage.setItem(field.key, newValue);
       } else {
-        const res = await fetch('/api/config', {
+        const res = await fetch('/itms/ai/api/config', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -183,7 +183,7 @@ const SettingsTextarea = ({
       if (field.scope === 'client') {
         localStorage.setItem(field.key, newValue);
       } else {
-        const res = await fetch('/api/config', {
+        const res = await fetch('/itms/ai/api/config', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -259,7 +259,7 @@ const SettingsSwitch = ({
       if (field.scope === 'client') {
         localStorage.setItem(field.key, String(newValue));
       } else {
-        const res = await fetch('/api/config', {
+        const res = await fetch('/itms/ai/api/config', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

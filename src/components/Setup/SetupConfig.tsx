@@ -28,7 +28,7 @@ const SetupConfig = ({
     const fetchProviders = async () => {
       try {
         setIsLoading(true);
-        const res = await fetch('/api/providers');
+        const res = await fetch('/itms/ai/api/providers');
         if (!res.ok) throw new Error('Failed to fetch providers');
 
         const data = await res.json();
@@ -49,7 +49,7 @@ const SetupConfig = ({
   const handleFinish = async () => {
     try {
       setIsFinishing(true);
-      const res = await fetch('/api/config/setup-complete', {
+      const res = await fetch('/itms/ai/api/config/setup-complete', {
         method: 'POST',
       });
 
