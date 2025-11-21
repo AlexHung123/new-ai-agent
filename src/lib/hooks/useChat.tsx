@@ -540,7 +540,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     setMessageAppeared(false);
 
     if (messages.length <= 1) {
-      window.history.replaceState(null, '', `/itms/ai/c/${chatId}`);
+      window.history.replaceState(null, '', `/c/${chatId}`);
     }
 
     let recievedMessage = '';

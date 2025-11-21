@@ -54,48 +54,31 @@ const Sidebar = ({ children }: { children: React.ReactNode }) => {
   return (
     <div>
       <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-[72px] lg:flex-col border-r border-light-200 dark:border-dark-200">
-        <div className="flex grow flex-col items-center gap-y-5 overflow-y-auto px-2 py-8 shadow-sm shadow-light-200/10 dark:shadow-black/25" style={{ backgroundColor: '#0071CD' }}>
+        <div className="flex grow flex-col items-center gap-y-5 overflow-y-auto py-8 shadow-sm shadow-light-200/10 dark:shadow-black/25" style={{ backgroundColor: '#0071CD' }}>
           {/* <a
             className="p-2.5 rounded-full bg-light-200 text-black/70 dark:bg-dark-200 dark:text-white/70 hover:opacity-70 hover:scale-105 tansition duration-200"
             href="/"
           >
             <Plus size={19} className="cursor-pointer" />
           </a> */}
-          <div className="flex-1 flex items-center">
+          <div className="flex-1 flex items-center w-full">
             <VerticalIconContainer>
               {navLinks.map((link, i) => (
                 <Link
                   key={i}
                   href={link.href}
                   className={cn(
-                    'relative flex flex-col items-center justify-center space-y-0.5 cursor-pointer w-full py-2 rounded-lg',
+                    'relative flex flex-col items-center justify-center space-y-0.5 cursor-pointer w-full py-3 transition duration-200',
                     link.active
-                      ? 'text-black/70 dark:text-white/70 '
-                      : 'text-black/60 dark:text-white/60',
+                      ? 'bg-[#5BA8D9] text-white'
+                      : 'text-white/70 hover:bg-white/10',
                   )}
                 >
-                  <div
-                    className={cn(
-                      link.active && 'bg-light-200 dark:bg-dark-200',
-                      'group rounded-lg hover:bg-light-200 hover:dark:bg-dark-200 transition duration-200',
-                    )}
-                  >
-                    <link.icon
-                      size={25}
-                      className={cn(
-                        !link.active && 'group-hover:scale-105',
-                        'transition duration:200 m-1.5',
-                      )}
-                    />
-                  </div>
-                  <p
-                    className={cn(
-                      link.active
-                        ? 'text-black/80 dark:text-white/80'
-                        : 'text-black/60 dark:text-white/60',
-                      'text-xs font-bold',
-                    )}
-                  >
+                  <link.icon
+                    size={25}
+                    className="m-1.5"
+                  />
+                  <p className="text-xs font-bold">
                     {link.label}
                   </p>
                 </Link>
@@ -112,15 +95,12 @@ const Sidebar = ({ children }: { children: React.ReactNode }) => {
             href={link.href}
             key={i}
             className={cn(
-              'relative flex flex-col items-center space-y-1 text-center w-full',
+              'relative flex flex-col items-center space-y-1 text-center w-full py-2 rounded-lg transition duration-200',
               link.active
-                ? 'text-black dark:text-white'
-                : 'text-black dark:text-white/70',
+                ? 'bg-[#5BA8D9] text-white'
+                : 'text-white/70 hover:bg-white/10',
             )}
           >
-            {link.active && (
-              <div className="absolute top-0 -mt-4 h-1 w-full rounded-b-lg bg-black dark:bg-white" />
-            )}
             <link.icon />
             <p className="text-sm font-bold">{link.label}</p>
           </Link>

@@ -37,7 +37,7 @@ const focusModes = [
   {
     key: 'agentSurvey',
     title: 'Agent Survey',
-    description: 'Your assistant for analyzing class survey',
+    description: 'Your assistant for analyzing survey response',
     icon: <NotepadText size={16} />,
   },
 ];

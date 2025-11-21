@@ -85,7 +85,7 @@ const Page = () => {
               key={i}
             >
               <Link
-                href={`/itms/ai/c/${chat.id}`}
+                href={`/c/${chat.id}`}
                 className="text-black dark:text-white lg:text-xl font-medium truncate transition duration-200 hover:text-[#24A0ED] dark:hover:text-[#24A0ED] cursor-pointer"
               >
                 {chat.title}

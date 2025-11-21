@@ -29,7 +29,7 @@ const focusModes = [
   {
     key: 'agentSurvey',
     title: 'Agent Survey',
-    description: 'Your assistant for analyzing SFC meetings',
+    description: 'Your assistant for analyzing survey response',
     icon: <NotepadText size={20} />,
     image: '/itms/ai/agent_survey.png',
   },
