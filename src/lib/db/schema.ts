@@ -6,6 +6,7 @@ export const messages = sqliteTable('messages', {
   id: integer('id').primaryKey(),
   role: text('type', { enum: ['assistant', 'user', 'source'] }).notNull(),
   chatId: text('chatId').notNull(),
+  userId: text('userId').notNull(),
   createdAt: text('createdAt')
     .notNull()
     .default(sql`CURRENT_TIMESTAMP`),
@@ -28,6 +29,7 @@ interface File {
 export const chats = sqliteTable('chats', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
+  userId: text('userId').notNull(),
   createdAt: text('createdAt').notNull(),
   focusMode: text('focusMode').notNull(),
   files: text('files', { mode: 'json' })

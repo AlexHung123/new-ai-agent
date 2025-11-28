@@ -21,6 +21,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { getSuggestions } from '../actions';
 import { MinimalProvider } from '../models/types';
+import { initializeUserId, getUserIdFromStorage } from '../utils/userId';
 
 export type Section = {
   userMessage: UserMessage;
@@ -41,6 +42,7 @@ type ChatContext = {
   fileIds: string[];
   focusMode: string;
   chatId: string | undefined;
+  userId: string | null;
   optimizationMode: string;
   isMessagesLoaded: boolean;
   loading: boolean;
@@ -176,6 +178,7 @@ const checkConfig = async (
 
 const loadMessages = async (
   chatId: string,
+  userId: string,
   setMessages: (messages: Message[]) => void,
   setIsMessagesLoaded: (loaded: boolean) => void,
   setChatHistory: (history: [string, string][]) => void,
@@ -184,7 +187,7 @@ const loadMessages = async (
   setFiles: (files: File[]) => void,
   setFileIds: (fileIds: string[]) => void,
 ) => {
-  const res = await fetch(`/itms/ai/api/chats/${chatId}`, {
+  const res = await fetch(`/itms/ai/api/chats/${chatId}?userId=${userId}`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -236,6 +239,7 @@ const loadMessages = async (
 export const chatContext = createContext<ChatContext>({
   chatHistory: [],
   chatId: '',
+  userId: null,
   fileIds: [],
   files: [],
   focusMode: '',
@@ -266,6 +270,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   const searchParams = useSearchParams();
   const initialMessage = searchParams.get('q');
 
+  const [userId, setUserId] = useState<string | null>(null);
   const [chatId, setChatId] = useState<string | undefined>(params.chatId);
   const [newChatCreated, setNewChatCreated] = useState(false);
 
@@ -437,6 +442,10 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       setIsConfigReady,
       setHasError,
     );
+    
+    // Initialize userId from URL or localStorage
+    const initializedUserId = initializeUserId(searchParams);
+    setUserId(initializedUserId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -462,12 +471,14 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     if (
       chatId &&
+      userId &&
       !newChatCreated &&
       !isMessagesLoaded &&
       messages.length === 0
     ) {
       loadMessages(
         chatId,
+        userId,
         setMessages,
         setIsMessagesLoaded,
         setChatHistory,
@@ -482,7 +493,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       setChatId(crypto.randomBytes(20).toString('hex'));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatId, isMessagesLoaded, newChatCreated, messages.length]);
+  }, [chatId, userId, isMessagesLoaded, newChatCreated, messages.length]);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -535,7 +546,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     messageId,
     rewrite = false,
   ) => {
-    if (loading || !message) return;
+    if (loading || !message || !userId) return;
     setLoading(true);
     setMessageAppeared(false);
 
@@ -673,6 +684,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
           content: message,
         },
         chatId: chatId!,
+        userId: userId,
         files: fileIds,
         focusMode: focusMode,
         optimizationMode: optimizationMode,
@@ -729,6 +741,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         fileIds,
         focusMode,
         chatId,
+        userId,
         hasError,
         isMessagesLoaded,
         isReady,

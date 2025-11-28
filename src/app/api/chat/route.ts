@@ -47,6 +47,7 @@ const embeddingModelSchema: z.ZodType<ModelWithProvider> = z.object({
 
 const bodySchema = z.object({
   message: messageSchema,
+  userId: z.string().min(1, 'User ID is required'),
   optimizationMode: z.enum(['speed', 'balanced', 'quality'], {
     errorMap: () => ({
       message: 'Optimization mode must be one of: speed, balanced, quality',
@@ -107,6 +108,7 @@ const handleEmitterEvents = async (
   writer: WritableStreamDefaultWriter,
   encoder: TextEncoder,
   chatId: string,
+  userId: string,
 ) => {
   let receivedMessage = '';
   const aiMessageId = crypto.randomBytes(7).toString('hex');
@@ -141,6 +143,7 @@ const handleEmitterEvents = async (
       db.insert(messagesSchema)
         .values({
           chatId: chatId,
+          userId: userId,
           messageId: sourceMessageId,
           role: 'source',
           sources: parsedData.data,
@@ -163,6 +166,7 @@ const handleEmitterEvents = async (
       .values({
         content: receivedMessage,
         chatId: chatId,
+        userId: userId,
         messageId: aiMessageId,
         role: 'assistant',
         createdAt: new Date().toString(),
@@ -188,6 +192,7 @@ const handleHistorySave = async (
   humanMessageId: string,
   focusMode: string,
   files: string[],
+  userId: string,
 ) => {
   const chat = await db.query.chats.findFirst({
     where: eq(chats.id, message.chatId),
@@ -201,6 +206,7 @@ const handleHistorySave = async (
       .values({
         id: message.chatId,
         title: message.content,
+        userId: userId,
         createdAt: new Date().toString(),
         focusMode: focusMode,
         files: fileData,
@@ -224,6 +230,7 @@ const handleHistorySave = async (
       .values({
         content: message.content,
         chatId: message.chatId,
+        userId: userId,
         messageId: humanMessageId,
         role: 'user',
         createdAt: new Date().toString(),
@@ -316,8 +323,8 @@ export const POST = async (req: Request) => {
     const writer = responseStream.writable.getWriter();
     const encoder = new TextEncoder();
 
-    handleEmitterEvents(stream, writer, encoder, message.chatId);
-    handleHistorySave(message, humanMessageId, body.focusMode, body.files);
+    handleEmitterEvents(stream, writer, encoder, message.chatId, body.userId);
+    handleHistorySave(message, humanMessageId, body.focusMode, body.files, body.userId);
 
     return new Response(responseStream.readable, {
       headers: {

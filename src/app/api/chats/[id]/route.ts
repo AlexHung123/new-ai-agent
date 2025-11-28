@@ -8,6 +8,15 @@ export const GET = async (
 ) => {
   try {
     const { id } = await params;
+    const { searchParams } = new URL(req.url);
+    const userId = searchParams.get('userId');
+
+    if (!userId) {
+      return Response.json(
+        { message: 'userId is required' },
+        { status: 400 },
+      );
+    }
 
     const chatExists = await db.query.chats.findFirst({
       where: eq(chats.id, id),
@@ -15,6 +24,14 @@ export const GET = async (
 
     if (!chatExists) {
       return Response.json({ message: 'Chat not found' }, { status: 404 });
+    }
+
+    // Validate that the chat belongs to the requesting user
+    if (chatExists.userId !== userId) {
+      return Response.json(
+        { message: 'Unauthorized access to chat' },
+        { status: 403 },
+      );
     }
 
     const chatMessages = await db.query.messages.findMany({
@@ -43,6 +60,15 @@ export const DELETE = async (
 ) => {
   try {
     const { id } = await params;
+    const { searchParams } = new URL(req.url);
+    const userId = searchParams.get('userId');
+
+    if (!userId) {
+      return Response.json(
+        { message: 'userId is required' },
+        { status: 400 },
+      );
+    }
 
     const chatExists = await db.query.chats.findFirst({
       where: eq(chats.id, id),
@@ -50,6 +76,14 @@ export const DELETE = async (
 
     if (!chatExists) {
       return Response.json({ message: 'Chat not found' }, { status: 404 });
+    }
+
+    // Validate that the chat belongs to the requesting user
+    if (chatExists.userId !== userId) {
+      return Response.json(
+        { message: 'Unauthorized to delete this chat' },
+        { status: 403 },
+      );
     }
 
     await db.delete(chats).where(eq(chats.id, id)).execute();
