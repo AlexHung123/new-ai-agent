@@ -1,6 +1,8 @@
 import EmptyChatMessageInput from './EmptyChatMessageInput';
 import SettingsButtonMobile from '@/components/Settings/SettingsButtonMobile';
 import { useChat } from '@/lib/hooks/useChat';
+import AgentCard from './AgentCard';
+import { motion } from 'framer-motion';
 
 const EmptyChat = () => {
   const { focusMode } = useChat();
@@ -16,6 +18,15 @@ const EmptyChat = () => {
 
   return (
     <div className="relative">
+      <motion.div
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.2, duration: 0.5, ease: 'easeOut' }}
+        className="fixed left-20 top-24 z-30 ml-4 hidden xl:block"
+      >
+        <AgentCard />
+      </motion.div>
+
       <div className="absolute w-full flex flex-row items-center justify-end mr-5 mt-5">
         <SettingsButtonMobile />
       </div>
