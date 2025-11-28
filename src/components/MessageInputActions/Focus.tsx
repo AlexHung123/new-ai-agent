@@ -1,9 +1,5 @@
 import {
   Globe,
-  Book,
-  UsersRound,
-  NotepadText,
-  Database
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -14,33 +10,7 @@ import {
 } from '@headlessui/react';
 import { Fragment } from 'react';
 import { useChat } from '@/lib/hooks/useChat';
-
-const focusModes = [
-  {
-    key: 'agentData',
-    title: 'Agent Data',
-    description: 'Your assistant for retrieving training data',
-    icon: <Database size={16} />,
-  },
-  {
-    key: 'agentGuide',
-    title: 'Agent Guide',
-    description: 'You assistant on training policy',
-    icon: <Book size={16} />,
-  },
-  {
-    key: 'agentSFC',
-    title: 'Agent SFC',
-    description: 'Your assistant for analyzing SFC meetings',
-    icon: <UsersRound size={16} />,
-  },
-  {
-    key: 'agentSurvey',
-    title: 'Agent Survey',
-    description: 'Your assistant for analyzing survey response',
-    icon: <NotepadText size={16} />,
-  },
-];
+import { focusModes } from '@/lib/agents';
 
 const Focus = () => {
   const { focusMode, setFocusMode } = useChat();
@@ -53,7 +23,10 @@ const Focus = () => {
       >
         {focusMode !== 'webSearch' ? (
           <div className="flex flex-row items-center space-x-1">
-            {focusModes.find((mode) => mode.key === focusMode)?.icon}
+            {(() => {
+              const mode = focusModes.find((mode) => mode.key === focusMode);
+              return mode ? <mode.icon size={16} /> : null;
+            })()}
           </div>
         ) : (
           <div className="flex flex-row items-center space-x-1">
@@ -91,7 +64,7 @@ const Focus = () => {
                       : 'text-black dark:text-white',
                   )}
                 >
-                  {mode.icon}
+                  <mode.icon size={16} />
                   <p className="text-sm font-medium">{mode.title}</p>
                 </div>
                 <p className="text-black/70 dark:text-white/70 text-xs">

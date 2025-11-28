@@ -1,39 +1,8 @@
 'use client';
-import { Book, Database, NotepadText, UsersRound } from 'lucide-react';
 import { useChat } from '@/lib/hooks/useChat';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-
-const focusModes = [
-  {
-    key: 'agentData',
-    title: 'Agent Data',
-    description: 'Your assistant for retrieving training data',
-    icon: <Database size={20} />,
-    image: '/itms/ai/agent_data.png',
-  },
-  {
-    key: 'agentGuide',
-    title: 'Agent Guide',
-    description: 'You assistant on training policy',
-    icon: <Book size={20} />,
-    image: '/itms/ai/agent_guide.png',
-  },
-  {
-    key: 'agentSFC',
-    title: 'Agent SFC',
-    description: 'Your assistant for analyzing SFC meetings',
-    icon: <UsersRound size={20} />,
-    image: '/itms/ai/agent_sfc.png',
-  },
-  {
-    key: 'agentSurvey',
-    title: 'Agent Survey',
-    description: 'Your assistant for analyzing survey response',
-    icon: <NotepadText size={20} />,
-    image: '/itms/ai/agent_survey.png',
-  },
-];
+import { focusModes } from '@/lib/agents';
 
 const AgentsPage = () => {
   const { setFocusMode } = useChat();
@@ -70,7 +39,7 @@ const AgentsPage = () => {
               />
             </div>
             <div className="min-w-0 flex items-start gap-2">
-              <div className="shrink-0 text-[#24A0ED]">{mode.icon}</div>
+              <div className="shrink-0 text-[#24A0ED]"><mode.icon size={20} /></div>
               <div className="min-w-0">
                 <div className="font-medium text-black dark:text-white">{mode.title}</div>
                 <div className="text-xs text-black/60 dark:text-white/60 truncate">{mode.description}</div>
