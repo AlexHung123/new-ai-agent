@@ -3,6 +3,7 @@
 import { Document } from '@langchain/core/documents';
 import Navbar from './Navbar';
 import Chat from './Chat';
+import AgentCard from './AgentCard';
 import EmptyChat from './EmptyChat';
 import { Settings } from 'lucide-react';
 import Link from 'next/link';
@@ -75,6 +76,9 @@ const ChatWindow = () => {
       <div>
         {messages.length > 0 ? (
           <>
+            <div className="hidden xl:block fixed left-20 top-24 z-30 ml-4">
+              <AgentCard />
+            </div>
             <Navbar />
             <Chat />
           </>
