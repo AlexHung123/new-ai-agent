@@ -3,6 +3,7 @@
 import DeleteChat from '@/components/DeleteChat';
 import { cn, formatTimeDifference } from '@/lib/utils';
 import { getUserIdFromStorage } from '@/lib/utils/userId';
+import { getAuthHeaders } from '@/lib/utils/auth';
 import { BookOpenText, ClockIcon, Delete, ScanEye } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -29,11 +30,9 @@ const Page = () => {
         return;
       }
 
-      const res = await fetch(`/itms/ai/api/chats?userId=${userId}`, {
+      const res = await fetch(`/itms/ai/api/chats`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
       });
 
       const data = await res.json();

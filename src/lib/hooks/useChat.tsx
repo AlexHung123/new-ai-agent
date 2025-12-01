@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { getSuggestions } from '../actions';
 import { MinimalProvider } from '../models/types';
 import { initializeUserId } from '../utils/userId';
+import { initializeAuthToken, getAuthToken, getAuthHeaders } from '../utils/auth';
 
 export type Section = {
   userMessage: UserMessage;
@@ -187,11 +188,9 @@ const loadMessages = async (
   setFiles: (files: File[]) => void,
   setFileIds: (fileIds: string[]) => void,
 ) => {
-  const res = await fetch(`/itms/ai/api/chats/${chatId}?userId=${userId}`, {
+  const res = await fetch(`/itms/ai/api/chats/${chatId}`, {
     method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(),
   });
 
   if (res.status === 404) {
@@ -442,7 +441,9 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       setIsConfigReady,
       setHasError,
     );
-    // Initialize userId from URL or localStorage
+    // Initialize authentication token from URL or localStorage
+    initializeAuthToken(searchParams);
+    // Initialize userId from URL or localStorage (backward compatibility)
     const initializedUserId = initializeUserId(searchParams);
     setUserId(initializedUserId);
     // eslint-disable-next-line react-hooks/exhaustive-deps

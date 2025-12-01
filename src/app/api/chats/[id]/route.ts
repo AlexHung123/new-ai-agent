@@ -8,13 +8,13 @@ export const GET = async (
 ) => {
   try {
     const { id } = await params;
-    const { searchParams } = new URL(req.url);
-    const userId = searchParams.get('userId');
+    // Get userId from middleware (verified from token)
+    const userId = req.headers.get('x-user-id');
 
     if (!userId) {
       return Response.json(
-        { message: 'userId is required' },
-        { status: 400 },
+        { message: 'Unauthorized - Authentication required' },
+        { status: 401 },
       );
     }
 
@@ -60,13 +60,13 @@ export const DELETE = async (
 ) => {
   try {
     const { id } = await params;
-    const { searchParams } = new URL(req.url);
-    const userId = searchParams.get('userId');
+    // Get userId from middleware (verified from token)
+    const userId = req.headers.get('x-user-id');
 
     if (!userId) {
       return Response.json(
-        { message: 'userId is required' },
-        { status: 400 },
+        { message: 'Unauthorized - Authentication required' },
+        { status: 401 },
       );
     }
 

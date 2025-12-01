@@ -3,11 +3,13 @@ import { prismaSecondary } from '@/lib/postgres/db';
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.nextUrl.searchParams.get('userId');
+    // Get userId from middleware (verified from token)
+    const userId = request.headers.get('x-user-id');
+    
     if (!userId) {
       return NextResponse.json(
-        { error: 'userId is required' },
-        { status: 400 }
+        { error: 'Unauthorized - Authentication required' },
+        { status: 401 }
       );
     }
 

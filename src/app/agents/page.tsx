@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { getUserIdFromStorage } from '@/lib/utils/userId';
+import { getAuthHeaders } from '@/lib/utils/auth';
 
 const AgentsPage = () => {
   const { setFocusMode } = useChat();
@@ -25,7 +26,9 @@ const AgentsPage = () => {
           return;
         }
 
-        const response = await fetch(`/itms/ai/api/permissions?userId=${userId}`);
+        const response = await fetch(`/itms/ai/api/permissions`, {
+          headers: getAuthHeaders(),
+        });
         
         if (!response.ok) {
           throw new Error('Failed to fetch permissions');
