@@ -69,7 +69,7 @@ const EmptyChatMessageInput = () => {
           <div className="flex flex-row items-center space-x-2">
             <div className="flex flex-row items-center space-x-1">
               <ModelSelector />
-              <Focus />
+              {/* <Focus /> */}
               <Attach />
             </div>
             <button

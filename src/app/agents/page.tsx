@@ -5,9 +5,55 @@ import Image from 'next/image';
 import { focusModes } from '@/lib/agents';
 import { motion } from 'framer-motion';
 import { ArrowRight, Sparkles } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { getUserIdFromStorage } from '@/lib/utils/userId';
 
 const AgentsPage = () => {
   const { setFocusMode } = useChat();
+  const [userPermissions, setUserPermissions] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filteredModes, setFilteredModes] = useState(focusModes);
+
+  useEffect(() => {
+    const fetchPermissions = async () => {
+      try {
+        const userId = getUserIdFromStorage();
+        
+        if (!userId) {
+          console.warn('No userId found in storage');
+          setLoading(false);
+          return;
+        }
+
+        const response = await fetch(`/itms/ai/api/permissions?userId=${userId}`);
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch permissions');
+        }
+
+        const data = await response.json();
+        setUserPermissions(data.permissions || []);
+        
+        // Filter agents based on permissions
+        const filtered = focusModes.filter(mode => {
+          if (!mode.permissionCode) {
+            return true; // Show agents without permission requirements
+          }
+          return data.permissions?.includes(mode.permissionCode);
+        });
+        
+        setFilteredModes(filtered);
+      } catch (error) {
+        console.error('Error fetching permissions:', error);
+        // On error, show all agents as fallback
+        setFilteredModes(focusModes);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPermissions();
+  }, []);
 
   const handleSelect = (key: string) => {
     setFocusMode(key);
@@ -29,6 +75,28 @@ const AgentsPage = () => {
     hidden: { opacity: 0, y: 20 },
     show: { opacity: 1, y: 0 }
   };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
+          <p className="text-black/60 dark:text-white/60">Loading agents...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (filteredModes.length === 0) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <p className="text-xl text-black/60 dark:text-white/60">No agents available for your account.</p>
+          <p className="mt-2 text-sm text-black/40 dark:text-white/40">Please contact your administrator for access.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-screen w-full">
@@ -73,7 +141,7 @@ const AgentsPage = () => {
           animate="show"
           className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3"
         >
-          {focusModes.map((mode) => (
+          {filteredModes.map((mode) => (
             <motion.button
               key={mode.key}
               variants={item}

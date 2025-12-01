@@ -7,6 +7,7 @@ export interface AgentMode {
   description: string;
   icon: LucideIcon;
   image: string;
+  permissionCode?: string;
 }
 
 export const focusModes: AgentMode[] = [
@@ -16,6 +17,7 @@ export const focusModes: AgentMode[] = [
     description: 'Your assistant for retrieving training data',
     icon: Database,
     image: '/itms/ai/agent_data.png',
+    permissionCode: 'chatDataAgent:execute',
   },
   {
     key: 'agentGuide',
@@ -23,6 +25,7 @@ export const focusModes: AgentMode[] = [
     description: 'You assistant on training policy',
     icon: Book,
     image: '/itms/ai/agent_guide.png',
+    permissionCode: 'chatGuideAgent:execute',
   },
   {
     key: 'agentSFC',
@@ -30,6 +33,7 @@ export const focusModes: AgentMode[] = [
     description: 'Your assistant for analyzing SFC meetings',
     icon: UsersRound,
     image: '/itms/ai/agent_sfc.png',
+    permissionCode: 'chatSfcAgent:execute',
   },
   {
     key: 'agentSurvey',
@@ -37,5 +41,6 @@ export const focusModes: AgentMode[] = [
     description: 'Your assistant for analyzing survey response',
     icon: NotepadText,
     image: '/itms/ai/agent_survey.png',
+    permissionCode: 'chatSurveyAgent:execute',
   },
 ];

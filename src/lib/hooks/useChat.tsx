@@ -21,7 +21,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { getSuggestions } from '../actions';
 import { MinimalProvider } from '../models/types';
-import { initializeUserId, getUserIdFromStorage } from '../utils/userId';
+import { initializeUserId } from '../utils/userId';
 
 export type Section = {
   userMessage: UserMessage;
@@ -442,7 +442,6 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       setIsConfigReady,
       setHasError,
     );
-    
     // Initialize userId from URL or localStorage
     const initializedUserId = initializeUserId(searchParams);
     setUserId(initializedUserId);
