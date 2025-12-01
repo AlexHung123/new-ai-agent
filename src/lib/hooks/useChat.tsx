@@ -673,9 +673,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
 
     const res = await fetch('/itms/ai/api/chat', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify({
         content: message,
         message: {
@@ -684,7 +682,6 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
           content: message,
         },
         chatId: chatId!,
-        userId: userId,
         files: fileIds,
         focusMode: focusMode,
         optimizationMode: optimizationMode,

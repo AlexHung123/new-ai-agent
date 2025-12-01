@@ -47,7 +47,8 @@ const embeddingModelSchema: z.ZodType<ModelWithProvider> = z.object({
 
 const bodySchema = z.object({
   message: messageSchema,
-  userId: z.string().min(1, 'User ID is required'),
+  // userId is now provided by middleware from verified token, not from client
+  userId: z.string().optional(),
   optimizationMode: z.enum(['speed', 'balanced', 'quality'], {
     errorMap: () => ({
       message: 'Optimization mode must be one of: speed, balanced, quality',
@@ -251,6 +252,16 @@ const handleHistorySave = async (
 
 export const POST = async (req: Request) => {
   try {
+    // Get userId from middleware (verified from token)
+    const userId = req.headers.get('x-user-id');
+    
+    if (!userId) {
+      return Response.json(
+        { message: 'Unauthorized - Authentication required' },
+        { status: 401 },
+      );
+    }
+    
     const reqBody = (await req.json()) as Body;
 
     const parseBody = safeValidateBody(reqBody);
@@ -323,8 +334,8 @@ export const POST = async (req: Request) => {
     const writer = responseStream.writable.getWriter();
     const encoder = new TextEncoder();
 
-    handleEmitterEvents(stream, writer, encoder, message.chatId, body.userId);
-    handleHistorySave(message, humanMessageId, body.focusMode, body.files, body.userId);
+    handleEmitterEvents(stream, writer, encoder, message.chatId, userId);
+    handleHistorySave(message, humanMessageId, body.focusMode, body.files, userId);
 
     return new Response(responseStream.readable, {
       headers: {
