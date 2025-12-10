@@ -2,7 +2,7 @@
 
 import DeleteChat from '@/components/DeleteChat';
 import { cn, formatTimeDifference } from '@/lib/utils';
-import { getUserIdFromStorage } from '@/lib/utils/userId';
+// import { getUserIdFromStorage } from '@/lib/utils/userId';
 import { getAuthHeaders } from '@/lib/utils/auth';
 import { BookOpenText, ClockIcon, Delete, ScanEye } from 'lucide-react';
 import Link from 'next/link';
@@ -23,12 +23,12 @@ const Page = () => {
     const fetchChats = async () => {
       setLoading(true);
 
-      const userId = getUserIdFromStorage();
-      if (!userId) {
-        console.error('No userId found in localStorage');
-        setLoading(false);
-        return;
-      }
+      // const userId = getUserIdFromStorage();
+      // if (!userId) {
+      //   console.error('No userId found in localStorage');
+      //   setLoading(false);
+      //   return;
+      // }
 
       const res = await fetch(`/itms/ai/api/chats`, {
         method: 'GET',

@@ -67,3 +67,40 @@ export const getAuthHeaders = (): HeadersInit => {
     'Authorization': `Bearer ${token}`,
   };
 };
+
+/**
+ * Extract userId from JWT token (client-side, unsafe decode)
+ * WARNING: Only for display/UI purposes, NOT for security
+ * Server always verifies the token and extracts userId securely
+ */
+export const extractUserIdFromToken = (): string | null => {
+  const token = getAuthToken();
+  
+  if (!token) {
+    return null;
+  }
+  
+  try {
+    // Decode JWT token without verification (just for reading)
+    // JWT format: header.payload.signature
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      return null;
+    }
+    
+    // Decode the payload (base64url decode)
+    const payload = JSON.parse(
+      atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'))
+    );
+    
+    // Extract userId from 'id' field
+    if (!payload || !payload.id) {
+      return null;
+    }
+    
+    return String(payload.id);
+  } catch (error) {
+    console.error('Failed to decode token:', error);
+    return null;
+  }
+};

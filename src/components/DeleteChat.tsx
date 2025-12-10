@@ -11,7 +11,7 @@ import {
 import { Fragment, useState } from 'react';
 import { toast } from 'sonner';
 import { Chat } from '@/app/library/page';
-import { getUserIdFromStorage } from '@/lib/utils/userId';
+// import { getUserIdFromStorage } from '@/lib/utils/userId';
 import { getAuthHeaders } from '@/lib/utils/auth';
 
 const DeleteChat = ({
@@ -31,10 +31,10 @@ const DeleteChat = ({
   const handleDelete = async () => {
     setLoading(true);
     try {
-      const userId = getUserIdFromStorage();
-      if (!userId) {
-        throw new Error('User ID not found');
-      }
+      // const userId = getUserIdFromStorage();
+      // if (!userId) {
+      //   throw new Error('User ID not found');
+      // }
 
       const res = await fetch(`/itms/ai/api/chats/${chatId}`, {
         method: 'DELETE',

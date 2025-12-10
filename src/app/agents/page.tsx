@@ -6,7 +6,7 @@ import { focusModes } from '@/lib/agents';
 import { motion } from 'framer-motion';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { getUserIdFromStorage } from '@/lib/utils/userId';
+// import { getUserIdFromStorage } from '@/lib/utils/userId';
 import { getAuthHeaders } from '@/lib/utils/auth';
 
 const AgentsPage = () => {
@@ -18,20 +18,23 @@ const AgentsPage = () => {
   useEffect(() => {
     const fetchPermissions = async () => {
       try {
-        const userId = getUserIdFromStorage();
+        // const userId = getUserIdFromStorage();
         
-        if (!userId) {
-          console.warn('No userId found in storage');
-          setLoading(false);
-          return;
-        }
+        // if (!userId) {
+        //   console.warn('No userId found in storage');
+        //   setLoading(false);
+        //   return;
+        // }
 
         const response = await fetch(`/itms/ai/api/permissions`, {
           headers: getAuthHeaders(),
         });
         
         if (!response.ok) {
-          throw new Error('Failed to fetch permissions');
+          // console.error('Failed to fetch permissions');
+          setUserPermissions([]);
+          setFilteredModes([]);
+          return;
         }
 
         const data = await response.json();
@@ -44,12 +47,15 @@ const AgentsPage = () => {
           }
           return data.permissions?.includes(mode.permissionCode);
         });
+
+        console.log('Filtered modes:', filtered);
         
         setFilteredModes(filtered);
       } catch (error) {
         console.error('Error fetching permissions:', error);
-        // On error, show all agents as fallback
-        setFilteredModes(focusModes);
+        // On error, set permissions to empty array and show no agents
+        setUserPermissions([]);
+        setFilteredModes([]);
       } finally {
         setLoading(false);
       }

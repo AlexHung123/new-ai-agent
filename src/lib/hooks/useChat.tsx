@@ -21,8 +21,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { getSuggestions } from '../actions';
 import { MinimalProvider } from '../models/types';
-import { initializeUserId } from '../utils/userId';
-import { initializeAuthToken, getAuthToken, getAuthHeaders } from '../utils/auth';
+import { initializeAuthToken, getAuthToken, getAuthHeaders, extractUserIdFromToken } from '../utils/auth';
 
 export type Section = {
   userMessage: UserMessage;
@@ -443,9 +442,9 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     );
     // Initialize authentication token from URL or localStorage
     initializeAuthToken(searchParams);
-    // Initialize userId from URL or localStorage (backward compatibility)
-    const initializedUserId = initializeUserId(searchParams);
-    setUserId(initializedUserId);
+    // Extract userId from the auth token (JWT payload)
+    const extractedUserId = extractUserIdFromToken();
+    setUserId(extractedUserId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
