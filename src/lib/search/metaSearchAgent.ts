@@ -79,7 +79,8 @@ class MetaSearchAgent implements MetaSearchAgentType {
           );
 
           return sortedDocs;
-        })
+        }
+      )
           .withConfig({
             runName: 'FinalSourceRetriever',
           })

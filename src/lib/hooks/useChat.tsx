@@ -441,7 +441,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       setHasError,
     );
     // Initialize authentication token from URL or localStorage
-    initializeAuthToken(searchParams);
+    // initializeAuthToken(searchParams);
     // Extract userId from the auth token (JWT payload)
     const extractedUserId = extractUserIdFromToken();
     setUserId(extractedUserId);

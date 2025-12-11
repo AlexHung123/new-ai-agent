@@ -16,7 +16,7 @@ class DataAgent implements MetaSearchAgentType {
       queryGeneratorPrompt: '',
       queryGeneratorFewShots: [],
       responsePrompt: prompts.dataPrompt,
-      rerank: true,
+      rerank: false,
       rerankThreshold: 0,
       searchWeb: false,
     });

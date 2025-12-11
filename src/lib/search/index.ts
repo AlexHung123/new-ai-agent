@@ -1,6 +1,7 @@
 import MetaSearchAgent, { MetaSearchAgentType } from '@/lib/search/metaSearchAgent';
 import DataAgent from '@/lib/search/dataAgent';
 import SurveyAgent from '@/lib/search/surveyAgent';
+import SfcAgent from '@/lib/search/sfcAgent';
 import prompts from '../prompts';
 
 export const searchHandlers: Record<string, MetaSearchAgentType> = {
@@ -9,19 +10,20 @@ export const searchHandlers: Record<string, MetaSearchAgentType> = {
     queryGeneratorPrompt: '',
     queryGeneratorFewShots: [],
     responsePrompt: prompts.guidePrompt,
-    rerank: true,
+    rerank: false,
     rerankThreshold: 0,
     searchWeb: false,
   }),
-  agentSFC: new MetaSearchAgent({
-    activeEngines: [],
-    queryGeneratorPrompt: '',
-    queryGeneratorFewShots: [],
-    responsePrompt: prompts.sfcPrompt,
-    rerank: true,
-    rerankThreshold: 0,
-    searchWeb: false,
-  }),
+  // agentSFC: new MetaSearchAgent({
+  //   activeEngines: [],
+  //   queryGeneratorPrompt: '',
+  //   queryGeneratorFewShots: [],
+  //   responsePrompt: prompts.sfcPrompt,
+  //   rerank: false,
+  //   rerankThreshold: 0,
+  //   searchWeb: false,
+  // }),
+  agentSFC: new SfcAgent(),
   agentSurvey: new SurveyAgent(),
   agentData: new DataAgent(),
 };

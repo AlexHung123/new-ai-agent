@@ -28,9 +28,6 @@ export async function verifyTokenEdge(token: string): Promise<VerifiedUser> {
     const { payload } = await jwtVerify(token, secret, {
       algorithms: ['HS256'], // Standard JWT algorithm
     });
-
-
-    console.log('[Auth] Token payload:', payload);
     
     return {
       userId: String(payload.id), // Your token uses 'id' field for userId

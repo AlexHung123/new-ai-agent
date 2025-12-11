@@ -6,32 +6,37 @@ import { focusModes } from '@/lib/agents';
 import { motion } from 'framer-motion';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { useState, useEffect } from 'react';
-// import { getUserIdFromStorage } from '@/lib/utils/userId';
-import { getAuthHeaders } from '@/lib/utils/auth';
+import { useSearchParams } from 'next/navigation';
+import { initializeAuthToken, getAuthHeaders } from '@/lib/utils/auth';
 
 const AgentsPage = () => {
   const { setFocusMode } = useChat();
+  const searchParams = useSearchParams();
   const [userPermissions, setUserPermissions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [filteredModes, setFilteredModes] = useState(focusModes);
+  const [tokenReady, setTokenReady] = useState(false);
+
+  // Initialize token from URL on component mount
+  useEffect(() => {
+    initializeAuthToken(searchParams);
+    setTokenReady(true);
+  }, [searchParams]);
 
   useEffect(() => {
+    // Wait for token to be initialized before fetching permissions
+    if (!tokenReady) {
+      return;
+    }
+
     const fetchPermissions = async () => {
       try {
-        // const userId = getUserIdFromStorage();
-        
-        // if (!userId) {
-        //   console.warn('No userId found in storage');
-        //   setLoading(false);
-        //   return;
-        // }
-
         const response = await fetch(`/itms/ai/api/permissions`, {
           headers: getAuthHeaders(),
         });
         
         if (!response.ok) {
-          // console.error('Failed to fetch permissions');
+          console.error('Failed to fetch permissions:', response.status, response.statusText);
           setUserPermissions([]);
           setFilteredModes([]);
           return;
@@ -62,7 +67,7 @@ const AgentsPage = () => {
     };
 
     fetchPermissions();
-  }, []);
+  }, [tokenReady]);
 
   const handleSelect = (key: string) => {
     setFocusMode(key);

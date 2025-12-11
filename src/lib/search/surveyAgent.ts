@@ -18,7 +18,7 @@ class SurveyAgent implements MetaSearchAgentType {
       queryGeneratorPrompt: '',
       queryGeneratorFewShots: [],
       responsePrompt: prompts.surveyPrompt,
-      rerank: true,
+      rerank: false,
       rerankThreshold: 0,
       searchWeb: false,
     });
