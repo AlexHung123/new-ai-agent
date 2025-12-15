@@ -2,6 +2,7 @@ import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import type { Embeddings } from '@langchain/core/embeddings';
 import { BaseMessage } from '@langchain/core/messages';
 import eventEmitter from 'events';
+import { Converter } from 'opencc-js';
 import MetaSearchAgent, { MetaSearchAgentType } from './metaSearchAgent';
 import configManager from '../config';
 
@@ -45,6 +46,15 @@ class SfcAgent implements MetaSearchAgentType {
   ): Promise<string> {
     return new Promise(async (resolve, reject) => {
       try {
+        // Check if the question is wrapped in quotes
+        const trimmedQuestion = userQuestion.trim();
+        if (trimmedQuestion.startsWith('"') && trimmedQuestion.endsWith('"')) {
+          // Extract the content between quotes and return directly
+          const keyword = trimmedQuestion.slice(1, -1).trim();
+          resolve(keyword);
+          return;
+        }
+
         const keywordPrompt = `你是一個「主題關鍵詞抽取助手」，專門為 RAG 檢索系統從使用者查詢中抽取**唯一核心主題**，用於全文與向量檢索。
 
 ## 任務
@@ -143,6 +153,64 @@ ${userQuestion}`;
   }
 
   /**
+   * Extract highlighted keywords from simplified Chinese highlight text
+   */
+  private extractHighlightedKeywords(highlight: string): string[] {
+    if (!highlight) return [];
+    
+    const keywords: string[] = [];
+    const regex = /<em>(.*?)<\/em>/g;
+    let match;
+    
+    while ((match = regex.exec(highlight)) !== null) {
+      if (match[1] && match[1].trim()) {
+        keywords.push(match[1].trim());
+      }
+    }
+    
+    return keywords;
+  }
+
+  /**
+   * Convert simplified Chinese keyword to traditional Chinese
+   * Using opencc-js library for accurate conversion
+   */
+  private simplifiedToTraditional(text: string): string {
+    // Use OpenCC converter: Simplified Chinese to Traditional Chinese (Taiwan)
+    const converter = Converter({ from: 'cn', to: 'tw' });
+    return converter(text);
+  }
+
+  /**
+   * Add <em> tags to content based on highlighted keywords
+   */
+  private highlightContentKeywords(content: string, highlight: string): string {
+    if (!highlight || !content) return content;
+    
+    // Extract keywords from simplified Chinese highlight
+    const simplifiedKeywords = this.extractHighlightedKeywords(highlight);
+    
+    if (simplifiedKeywords.length === 0) return content;
+    
+    let highlightedContent = content;
+    
+    // Convert simplified keywords to traditional and highlight them in content
+    for (const simplifiedKeyword of simplifiedKeywords) {
+      const traditionalKeyword = this.simplifiedToTraditional(simplifiedKeyword);
+      
+      // Use regex to match the keyword (case insensitive for better matching)
+      // Escape special regex characters in the keyword
+      const escapedKeyword = traditionalKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(escapedKeyword, 'g');
+      
+      // Replace with <em> tags
+      highlightedContent = highlightedContent.replace(regex, `<span style="color:red;">${traditionalKeyword}</span>`);
+    }
+    
+    return highlightedContent;
+  }
+
+  /**
    * Extract chunks from RAGFlow response
    */
   private extractChunks(ragflowResponse: any): string {
@@ -169,6 +237,11 @@ ${userQuestion}`;
             .replace(/文件來源:[^\n]*/g, '') // Remove "文件來源: ..."
             .trim();
           
+          // Add <em> tags based on highlight field
+          if (chunk.highlight) {
+            content = this.highlightContentKeywords(content, chunk.highlight);
+          }
+          
           return content;
         })
         .filter((content: string) => content.length > 0)
@@ -179,38 +252,6 @@ ${userQuestion}`;
       console.error('Error extracting chunks:', error);
       return '處理檢索結果時發生錯誤';
     }
-  }
-
-  /**
-   * Analyze user question with LLM using retrieved chunks
-   */
-  private async analyzeWithChunks(
-    userQuestion: string,
-    chunks: string,
-    history: BaseMessage[],
-    llm: BaseChatModel,
-    embeddings: Embeddings,
-    optimizationMode: 'speed' | 'balanced' | 'quality',
-    fileIds: string[],
-    systemInstructions: string,
-  ): Promise<eventEmitter> {
-    // Prepare the context with chunks
-    const contextPrompt = `根據以下檢索到的資料，請回答用戶的問題：
-
-${chunks}
-
-用戶原始問題：${userQuestion}`;
-
-    // Use MetaSearchAgent to generate response
-    return await this.metaSearchAgent.searchAndAnswer(
-      contextPrompt,
-      history,
-      llm,
-      embeddings,
-      optimizationMode,
-      fileIds,
-      systemInstructions,
-    );
   }
 
   async searchAndAnswer(
