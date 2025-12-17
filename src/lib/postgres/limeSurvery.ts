@@ -102,24 +102,26 @@ export async function getLimeSurveySummaryBySid(sid: string) {
         FROM arr_counts
         GROUP BY qtext
         ),
-        text_answers AS (
-        SELECT 
-            t.qtext,
-            jsonb_agg(jsonb_build_object('answer', t.ans) ORDER BY t.seq) AS jarr
-        FROM (
-            SELECT 
+         text_answers AS (
+    SELECT
+        t.qtext,
+        COALESCE(
+            jsonb_agg(to_jsonb(t.ans) ORDER BY t.seq),
+            '[]'::jsonb
+        ) AS jarr
+    FROM (
+        SELECT
             fc.qtext,
             rj.rowjson ->> fc.colname AS ans,
             r.id AS seq
-            FROM flat_cols fc
-            JOIN ${tableName} r ON TRUE
-            CROSS JOIN LATERAL row_to_json(r) AS rj(rowjson)
-            WHERE fc.type IN ('T','Q')
-            AND (rj.rowjson ->> fc.colname) IS NOT NULL
-            AND LENGTH(rj.rowjson ->> fc.colname) > 0
-        ) t
-        GROUP BY t.qtext
-        ),
+        FROM flat_cols fc
+        JOIN ${tableName} r ON TRUE
+        CROSS JOIN LATERAL row_to_json(r) AS rj(rowjson)
+        WHERE fc.type IN ('T','Q')
+          AND NULLIF(rj.rowjson ->> fc.colname, '') IS NOT NULL
+    ) t
+    GROUP BY t.qtext
+),
         merged AS (
         SELECT qtext, jarr FROM arr_json
         UNION ALL

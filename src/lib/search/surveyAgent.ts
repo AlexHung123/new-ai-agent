@@ -24,62 +24,6 @@ class SurveyAgent implements MetaSearchAgentType {
     });
   }
 
-  /**
-   * Get summary for a single question using MetaSearchAgent
-   */
-  private async getQuestionSummary(
-    question: string,
-    answers: { answer: string }[],
-    history: BaseMessage[],
-    llm: BaseChatModel,
-    embeddings: Embeddings,
-    optimizationMode: 'speed' | 'balanced' | 'quality',
-    fileIds: string[],
-    systemInstructions: string,
-  ): Promise<string> {
-    return new Promise(async (resolve, reject) => {
-      try {
-        // Format the question and answers as JSON for the MetaSearchAgent
-        const questionData = {
-          [question]: answers,
-        };
-        const questionJson = JSON.stringify(questionData);
-
-        let summaryResponse = '';
-        const emitter = await this.metaSearchAgent.searchAndAnswer(
-          questionJson,
-          history,
-          llm,
-          embeddings,
-          optimizationMode,
-          fileIds,
-          systemInstructions,
-        );
-
-        emitter.on('data', (data: string) => {
-          try {
-            const parsedData = JSON.parse(data);
-            if (parsedData.type === 'response') {
-              summaryResponse += parsedData.data;
-            }
-          } catch (e) {
-            // Ignore parse errors
-          }
-        });
-
-        emitter.on('end', () => {
-          resolve(summaryResponse.trim());
-        });
-
-        emitter.on('error', (error) => {
-          reject(error);
-        });
-      } catch (error) {
-        reject(error);
-      }
-    });
-  }
-
   async searchAndAnswer(
     message: string,
     history: BaseMessage[],
@@ -101,7 +45,7 @@ class SurveyAgent implements MetaSearchAgentType {
         console.log('--------');
         console.log('surveyId', surveyId);
         console.log('surveyIdInt', surveyIdInt);
-        
+
         if (isNaN(surveyIdInt) || surveyIdInt.toString() !== surveyId) {
           console.log('--------');
           console.log('Please provide limeSurvery ID');
@@ -136,9 +80,8 @@ class SurveyAgent implements MetaSearchAgentType {
           });
           return;
         }
-        
-        const data: Survey = (surveyData[0]['result_json']) as unknown as Survey;
-        const { freeTextOnly } = splitSurvey(data);
+
+        const freeTextOnly = surveyData[0]['result_json'] as unknown as Record<string, string[]>;
 
         // Check if there are any free text questions
         const questionKeys = Object.keys(freeTextOnly);
@@ -156,14 +99,19 @@ class SurveyAgent implements MetaSearchAgentType {
           return;
         }
 
-        // Step 2: Process all questions concurrently
-        const summaryPromises = questionKeys.map(async (question) => {
+        // Step 2: Process all questions sequentially
+        for (const question of questionKeys) {
           const answers = freeTextOnly[question];
-          
+
           try {
-            const summary = await this.getQuestionSummary(
-              question,
-              answers,
+            // Format the question and answers as JSON for the MetaSearchAgent
+            const questionData = {
+              [question]: answers,
+            };
+            const questionJson = JSON.stringify(questionData);
+
+            const innerEmitter = await this.metaSearchAgent.searchAndAnswer(
+              questionJson,
               history,
               llm,
               embeddings,
@@ -171,59 +119,49 @@ class SurveyAgent implements MetaSearchAgentType {
               fileIds,
               systemInstructions,
             );
-            
-            return summary || null;
+
+            // Wait for this question's stream to complete before moving to the next
+            await new Promise<void>((resolve) => {
+              innerEmitter.on('data', (data: string) => {
+                // Pipe the data directly to the main emitter
+                emitter.emit('data', data);
+              });
+
+              innerEmitter.on('end', () => {
+                resolve();
+              });
+
+              innerEmitter.on('error', (error) => {
+                console.error(`Error processing question "${question}":`, error);
+                emitter.emit(
+                  'data',
+                  JSON.stringify({
+                    type: 'response',
+                    data: `\n\nError processing question "${question}": ${error instanceof Error ? error.message : String(error)}\n\n`,
+                  }),
+                );
+                resolve(); // Continue to next question even on error
+              });
+            });
+
+            // Add separation between questions
+            emitter.emit(
+              'data',
+              JSON.stringify({
+                type: 'response',
+                data: '\n\n',
+              }),
+            );
           } catch (error) {
-            console.error(`Error processing question "${question}":`, error);
-            // Return error message instead of throwing
-            return `Error processing question "${question}": ${error instanceof Error ? error.message : String(error)}`;
+            console.error(`Error in loop for question "${question}":`, error);
+            emitter.emit(
+              'data',
+              JSON.stringify({
+                type: 'response',
+                data: `\n\nError processing question "${question}": ${error instanceof Error ? error.message : String(error)}\n\n`,
+              }),
+            );
           }
-        });
-        
-        // Wait for all promises to settle (either resolve or reject)
-        const summaryResults = await Promise.allSettled(summaryPromises);
-        
-        // Extract summaries from settled promises
-        const summaries: string[] = summaryResults
-          .map((result, index) => {
-            if (result.status === 'fulfilled' && result.value) {
-              return result.value;
-            } else if (result.status === 'rejected') {
-              return `Error processing question "${questionKeys[index]}": ${result.reason}`;
-            }
-            return null;
-          })
-          .filter((summary): summary is string => summary !== null);
-
-        // Step 3: Remove duplicate "# Summary\n- Processed at: YYYY-MM-DD" from all summaries except the first one
-        const processedSummaries = summaries.map((summary, index) => {
-          if (index === 0) {
-            // Keep the first summary as is
-            return summary;
-          }
-          // Remove "# Summary\n- Processed at: YYYY-MM-DD" pattern from subsequent summaries
-          // Match the pattern with optional whitespace and date variations
-          const summaryHeaderPattern = /^# Summary\s*\n\s*-\s*Processed at:\s*[^\n]+\s*\n\s*/i;
-        //   const summaryHeaderPattern =/^(?mi)#\s*Summary\s*\n-\s*Processed at:\s*(\d{4}-\d{2}-\d{2})\s*\n\s*##\s*Questions\s*\n/;
-
-          return summary.replace(summaryHeaderPattern, '').trim();
-        });
-
-        // Step 4: Combine all summaries with '\n\n'
-        const combinedSummary = processedSummaries.join('\n\n');
-
-        // Step 5: Return the response similar to MetaSearchAgent
-        // Stream the combined summary as response chunks
-        const chunkSize = 100; // Emit in chunks for streaming effect
-        for (let i = 0; i < combinedSummary.length; i += chunkSize) {
-          const chunk = combinedSummary.slice(i, i + chunkSize);
-          emitter.emit(
-            'data',
-            JSON.stringify({
-              type: 'response',
-              data: chunk,
-            }),
-          );
         }
 
         emitter.emit('end');
