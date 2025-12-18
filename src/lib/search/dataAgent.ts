@@ -168,6 +168,7 @@ class DataAgent implements MetaSearchAgentType {
     optimizationMode: 'speed' | 'balanced' | 'quality',
     fileIds: string[],
     systemInstructions: string,
+    signal?: AbortSignal,
   ): Promise<string | null> {
     return new Promise(async (resolve) => {
       let sqlResponse = '';
@@ -179,6 +180,7 @@ class DataAgent implements MetaSearchAgentType {
         optimizationMode,
         fileIds,
         systemInstructions,
+        signal,
       );
 
       emitter.on('data', (data: string) => {
@@ -237,12 +239,20 @@ class DataAgent implements MetaSearchAgentType {
     optimizationMode: 'speed' | 'balanced' | 'quality',
     fileIds: string[],
     systemInstructions: string,
+    signal?: AbortSignal,
   ): Promise<eventEmitter> {
     const emitter = new eventEmitter();
+
+    if (signal) {
+        signal.addEventListener('abort', () => {
+            emitter.emit('end');
+        });
+    }
 
     // Execute asynchronously
     (async () => {
       try {
+        if (signal?.aborted) return;
         // Step 1: Get SQL statement from MetaSearchAgent
         const sql = await this.getSqlFromMetaSearchAgent(
           message,
@@ -252,6 +262,7 @@ class DataAgent implements MetaSearchAgentType {
           optimizationMode,
           fileIds,
           systemInstructions,
+          signal,
         );
         if (!sql) {
           emitter.emit(
@@ -289,6 +300,7 @@ class DataAgent implements MetaSearchAgentType {
         // Stream the HTML table as response chunks
         const chunkSize = 100; // Emit in chunks for streaming effect
         for (let i = 0; i < htmlTable.length; i += chunkSize) {
+          if (signal?.aborted) break;
           const chunk = htmlTable.slice(i, i + chunkSize);
           emitter.emit(
             'data',
@@ -300,7 +312,10 @@ class DataAgent implements MetaSearchAgentType {
         }
 
         emitter.emit('end');
-      } catch (error) {
+      } catch (error: any) {
+        if (error.name === 'AbortError') {
+            return;
+        }
         emitter.emit(
           'data',
           JSON.stringify({

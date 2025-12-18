@@ -32,12 +32,20 @@ class SurveyAgent implements MetaSearchAgentType {
     optimizationMode: 'speed' | 'balanced' | 'quality',
     fileIds: string[],
     systemInstructions: string,
+    signal?: AbortSignal,
   ): Promise<eventEmitter> {
     const emitter = new eventEmitter();
+
+    if (signal) {
+        signal.addEventListener('abort', () => {
+            emitter.emit('end');
+        });
+    }
 
     // Execute asynchronously
     (async () => {
       try {
+        if (signal?.aborted) return;
         // Validate input: check if message can be cast as an integer
         const surveyId = message.trim();
         const surveyIdInt = parseInt(surveyId, 10);
@@ -101,6 +109,7 @@ class SurveyAgent implements MetaSearchAgentType {
 
         // Step 2: Process all questions sequentially
         for (const question of questionKeys) {
+          if (signal?.aborted) break;
           const answers = freeTextOnly[question];
 
           try {
@@ -118,6 +127,7 @@ class SurveyAgent implements MetaSearchAgentType {
               optimizationMode,
               fileIds,
               systemInstructions,
+              signal,
             );
 
             // Wait for this question's stream to complete before moving to the next
@@ -165,7 +175,10 @@ class SurveyAgent implements MetaSearchAgentType {
         }
 
         emitter.emit('end');
-      } catch (error) {
+      } catch (error: any) {
+        if (error.name === 'AbortError') {
+            return;
+        }
         setImmediate(() => {
           emitter.emit(
             'data',

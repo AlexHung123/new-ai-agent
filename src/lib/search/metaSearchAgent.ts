@@ -27,6 +27,7 @@ export interface MetaSearchAgentType {
     optimizationMode: 'speed' | 'balanced' | 'quality',
     fileIds: string[],
     systemInstructions: string,
+    signal?: AbortSignal,
   ) => Promise<eventEmitter>;
 }
 
@@ -276,6 +277,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
     optimizationMode: 'speed' | 'balanced' | 'quality',
     fileIds: string[],
     systemInstructions: string,
+    signal?: AbortSignal,
   ) {
     const emitter = new eventEmitter();
 
@@ -294,10 +296,17 @@ class MetaSearchAgent implements MetaSearchAgentType {
       },
       {
         version: 'v1',
+        signal: signal,
       },
     );
 
     this.handleStream(stream, emitter);
+
+    if (signal) {
+      signal.addEventListener('abort', () => {
+        emitter.emit('end');
+      });
+    }
 
     return emitter;
   }

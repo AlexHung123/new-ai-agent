@@ -64,6 +64,7 @@ type ChatContext = {
   rewrite: (messageId: string) => void;
   setChatModelProvider: (provider: ChatModelProvider) => void;
   setEmbeddingModelProvider: (provider: EmbeddingModelProvider) => void;
+  stop: () => void;
 };
 
 export interface File {
@@ -261,6 +262,7 @@ export const chatContext = createContext<ChatContext>({
   setOptimizationMode: () => {},
   setChatModelProvider: () => {},
   setEmbeddingModelProvider: () => {},
+  stop: () => {},
 });
 
 export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
@@ -311,6 +313,17 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   const [isReady, setIsReady] = useState(false);
 
   const messagesRef = useRef<Message[]>([]);
+
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const stop = () => {
+    console.log('stop called');
+    if (abortControllerRef.current) {
+      console.log('Aborting request');
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+  };
 
   const chatTurns = useMemo((): ChatTurn[] => {
     return messages.filter(
@@ -540,17 +553,24 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConfigReady, isReady, initialMessage]);
 
-  const sendMessage: ChatContext['sendMessage'] = async (
-  message,
-  messageId,
-  rewrite = false,
-) => {
-  if (loading || !message || !userId) return;
-  setLoading(true);
-  setMessageAppeared(false);
-
-  if (messages.length <= 1) {
-    window.history.replaceState(null, '', `/c/${chatId}`);
+    const sendMessage: ChatContext['sendMessage'] = async (
+      message,
+      messageId,
+      rewrite = false,
+    ) => {
+      if (loading || !message || !userId) return;
+      console.log('sendMessage started');
+      setLoading(true);
+      setMessageAppeared(false);
+  
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+      console.log('AbortController created', controller.signal);
+  
+      if (messages.length <= 1) {    window.history.replaceState(null, '', `/itms/ai/c/${chatId}`);
   }
 
   let recievedMessage = '';
@@ -561,6 +581,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   let isTyping = false;
   let typingInterval: NodeJS.Timeout | null = null;
   let currentMessageId: string | null = null;
+  let isCancelled = false;
 
   messageId = messageId ?? crypto.randomBytes(7).toString('hex');
 
@@ -643,6 +664,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const messageHandler = async (data: any) => {
+    if (isCancelled) return;
     if (data.type === 'error') {
       toast.error(data.data);
       setLoading(false);
@@ -741,43 +763,43 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
 
   const messageIndex = messages.findIndex((m) => m.messageId === messageId);
 
-  const res = await fetch('/itms/ai/api/chat', {
-    method: 'POST',
-    headers: getAuthHeaders(),
-    body: JSON.stringify({
-      content: message,
-      message: {
-        messageId: messageId,
-        chatId: chatId!,
-        content: message,
-      },
-      chatId: chatId!,
-      files: fileIds,
-      focusMode: focusMode,
-      optimizationMode: optimizationMode,
-      history: rewrite
-        ? chatHistory.slice(0, messageIndex === -1 ? undefined : messageIndex)
-        : chatHistory,
-      chatModel: {
-        key: chatModelProvider.key,
-        providerId: chatModelProvider.providerId,
-      },
-      embeddingModel: {
-        key: embeddingModelProvider.key,
-        providerId: embeddingModelProvider.providerId,
-      },
-      systemInstructions: localStorage.getItem('systemInstructions'),
-    }),
-  });
-
-  if (!res.body) throw new Error('No response body');
-
-  const reader = res.body?.getReader();
-  const decoder = new TextDecoder('utf-8');
-
-  let partialChunk = '';
-
   try {
+    const res = await fetch('/itms/ai/api/chat', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        content: message,
+        message: {
+          messageId: messageId,
+          chatId: chatId!,
+          content: message,
+        },
+        chatId: chatId!,
+        files: fileIds,
+        focusMode: focusMode,
+        optimizationMode: optimizationMode,
+        history: rewrite
+          ? chatHistory.slice(0, messageIndex === -1 ? undefined : messageIndex)
+          : chatHistory,
+        chatModel: {
+          key: chatModelProvider.key,
+          providerId: chatModelProvider.providerId,
+        },
+        embeddingModel: {
+          key: embeddingModelProvider.key,
+          providerId: embeddingModelProvider.providerId,
+        },
+        systemInstructions: localStorage.getItem('systemInstructions'),
+      }),
+      signal: controller.signal,
+    });
+
+    if (!res.body) throw new Error('No response body');
+    const reader = res.body?.getReader();
+    const decoder = new TextDecoder('utf-8');
+
+    let partialChunk = '';
+
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
@@ -789,18 +811,31 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         for (const msg of messages) {
           if (!msg.trim()) continue;
           const json = JSON.parse(msg);
-          messageHandler(json);
+          messageHandler(json).catch((e) =>
+            console.error('Message handler error:', e),
+          );
         }
         partialChunk = '';
       } catch (error) {
         console.warn('Incomplete JSON, waiting for next chunk...');
       }
     }
+  } catch (err: any) {
+    if (err.name === 'AbortError' || controller.signal.aborted) {
+      console.log('AbortError caught');
+      // Ignore AbortError
+    } else {
+      console.error('SendMessage error:', err);
+      throw err;
+    }
   } finally {
+    isCancelled = true;
+    console.log('finally block reached. Clearing interval and setting loading false');
     // 🆕 確保清理定時器
     if (typingInterval) {
       clearInterval(typingInterval);
     }
+    setLoading(false);
   }
 };
 
@@ -1020,6 +1055,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         chatModelProvider,
         embeddingModelProvider,
         setEmbeddingModelProvider,
+        stop,
       }}
     >
       {children}

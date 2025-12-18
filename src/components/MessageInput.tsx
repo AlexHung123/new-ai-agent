@@ -1,12 +1,12 @@
 import { cn } from '@/lib/utils';
-import { ArrowUp } from 'lucide-react';
+import { ArrowUp, Square } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import AttachSmall from './MessageInputActions/AttachSmall';
 import { useChat } from '@/lib/hooks/useChat';
 
 const MessageInput = () => {
-  const { loading, sendMessage } = useChat();
+  const { loading, sendMessage, stop } = useChat();
 
   const [message, setMessage] = useState('');
   const [textareaRows, setTextareaRows] = useState(1);
@@ -78,10 +78,23 @@ const MessageInput = () => {
       {mode === 'single' && (
         <div className="flex flex-row items-center space-x-4">
           <button
-            disabled={message.trim().length === 0 || loading}
+            disabled={message.trim().length === 0 && !loading}
+            onClick={(e) => {
+              e.preventDefault();
+              if (loading) {
+                stop();
+              } else {
+                sendMessage(message);
+                setMessage('');
+              }
+            }}
             className="bg-[#24A0ED] text-white disabled:text-black/50 dark:disabled:text-white/50 hover:bg-opacity-85 transition duration-100 disabled:bg-[#e0e0dc79] dark:disabled:bg-[#ececec21] rounded-full p-2"
           >
-            <ArrowUp className="bg-background" size={17} />
+            {loading ? (
+              <Square className="bg-background" fill="white" size={17} />
+            ) : (
+              <ArrowUp className="bg-background" size={17} />
+            )}
           </button>
         </div>
       )}
@@ -90,10 +103,23 @@ const MessageInput = () => {
           <AttachSmall />
           <div className="flex flex-row items-center space-x-4">
             <button
-              disabled={message.trim().length === 0 || loading}
+              disabled={message.trim().length === 0 && !loading}
+              onClick={(e) => {
+                e.preventDefault();
+                if (loading) {
+                  stop();
+                } else {
+                  sendMessage(message);
+                  setMessage('');
+                }
+              }}
               className="bg-[#24A0ED] text-white text-black/50 dark:disabled:text-white/50 hover:bg-opacity-85 transition duration-100 disabled:bg-[#e0e0dc79] dark:disabled:bg-[#ececec21] rounded-full p-2"
             >
-              <ArrowUp className="bg-background" size={17} />
+              {loading ? (
+                <Square className="bg-background" fill="white" size={17} />
+              ) : (
+                <ArrowUp className="bg-background" size={17} />
+              )}
             </button>
           </div>
         </div>

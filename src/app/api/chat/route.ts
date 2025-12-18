@@ -110,11 +110,17 @@ const handleEmitterEvents = async (
   encoder: TextEncoder,
   chatId: string,
   userId: string,
+  signal: AbortSignal,
 ) => {
   let receivedMessage = '';
   const aiMessageId = crypto.randomBytes(7).toString('hex');
 
+  signal.addEventListener('abort', () => {
+    writer.close();
+  });
+
   stream.on('data', (data) => {
+    if (signal.aborted) return;
     const parsedData = JSON.parse(data);
     if (parsedData.type === 'response') {
       writer.write(
@@ -262,7 +268,15 @@ export const POST = async (req: Request) => {
       );
     }
     
-    const reqBody = (await req.json()) as Body;
+    let reqBody: Body;
+    try {
+      reqBody = (await req.json()) as Body;
+    } catch (e) {
+      return Response.json(
+        { message: 'Invalid request body' },
+        { status: 400 },
+      );
+    }
 
     const parseBody = safeValidateBody(reqBody);
     if (!parseBody.success) {
@@ -328,13 +342,14 @@ export const POST = async (req: Request) => {
       body.optimizationMode,
       body.files,
       body.systemInstructions as string,
+      req.signal,
     );
 
     const responseStream = new TransformStream();
     const writer = responseStream.writable.getWriter();
     const encoder = new TextEncoder();
 
-    handleEmitterEvents(stream, writer, encoder, message.chatId, userId);
+    handleEmitterEvents(stream, writer, encoder, message.chatId, userId, req.signal);
     handleHistorySave(message, humanMessageId, body.focusMode, body.files, userId);
 
     return new Response(responseStream.readable, {

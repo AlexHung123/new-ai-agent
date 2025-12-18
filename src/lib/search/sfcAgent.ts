@@ -43,6 +43,7 @@ class SfcAgent implements MetaSearchAgentType {
   private async extractKeyword(
     userQuestion: string,
     llm: BaseChatModel,
+    signal?: AbortSignal,
   ): Promise<string> {
     return new Promise(async (resolve, reject) => {
       try {
@@ -99,7 +100,7 @@ class SfcAgent implements MetaSearchAgentType {
 ${userQuestion}`;
 
         let keywordResponse = '';
-        const stream = await llm.stream(keywordPrompt);
+        const stream = await llm.stream(keywordPrompt, { signal });
 
         for await (const chunk of stream) {
           keywordResponse += chunk.content;
@@ -115,7 +116,7 @@ ${userQuestion}`;
   /**
    * Query RAGFlow API for relevant chunks
    */
-  private async queryRAGFlow(keyword: string): Promise<any> {
+  private async queryRAGFlow(keyword: string, signal?: AbortSignal): Promise<any> {
     try {
       // Get RAGFlow configuration from config.json
       const ragflowConfig = configManager.getConfig('ragflow', {});
@@ -132,6 +133,7 @@ ${userQuestion}`;
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`,
         },
+        signal,
         body: JSON.stringify({
           question: keyword,
           dataset_ids: datasetIds,
@@ -262,12 +264,21 @@ ${userQuestion}`;
     optimizationMode: 'speed' | 'balanced' | 'quality',
     fileIds: string[],
     systemInstructions: string,
+    signal?: AbortSignal,
   ): Promise<eventEmitter> {
     const emitter = new eventEmitter();
+
+    if (signal) {
+        signal.addEventListener('abort', () => {
+            emitter.emit('end');
+        });
+    }
 
     // Execute asynchronously
     (async () => {
       try {
+        if (signal?.aborted) return;
+
         // Step 1: Extract keyword from user question
         emitter.emit(
           'data',
@@ -277,7 +288,7 @@ ${userQuestion}`;
           }),
         );
 
-        const keyword = await this.extractKeyword(message, llm);
+        const keyword = await this.extractKeyword(message, llm, signal);
         if (keyword === '未找到相關資料') {
           emitter.emit(
             'data',
@@ -291,7 +302,7 @@ ${userQuestion}`;
         }
 
         // Step 2: Query RAGFlow API
-        const ragflowResponse = await this.queryRAGFlow(keyword);
+        const ragflowResponse = await this.queryRAGFlow(keyword, signal);
 
         // Step 3: Extract chunks from response
         const chunks = this.extractChunks(ragflowResponse);
@@ -308,6 +319,8 @@ ${userQuestion}`;
           return;
         }
 
+        if (signal?.aborted) return;
+
         // Return chunks directly without analysis
         emitter.emit(
           'data',
@@ -319,7 +332,10 @@ ${userQuestion}`;
 
         emitter.emit('end');
 
-      } catch (error) {
+      } catch (error: any) {
+        if (error.name === 'AbortError') {
+            return;
+        }
         setImmediate(() => {
           emitter.emit(
             'data',
