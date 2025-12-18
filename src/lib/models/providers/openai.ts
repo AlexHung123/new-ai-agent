@@ -9,6 +9,7 @@ import { getConfiguredModelProviderById } from '@/lib/config/serverRegistry';
 interface OpenAIConfig {
   apiKey: string;
   baseURL: string;
+  baseURLLlamaCPP?: string;
 }
 
 const defaultChatModels: Model[] = [
@@ -111,6 +112,15 @@ const providerConfigFields: UIConfigField[] = [
     env: 'OPENAI_BASE_URL',
     scope: 'server',
   },
+  {
+    type: 'string',
+    name: 'Base URL (LlamaCPP)',
+    key: 'baseURLLlamaCPP',
+    description: 'The base URL for LlamaCPP (optional override)',
+    required: false,
+    placeholder: 'http://localhost:8080/v1',
+    scope: 'server',
+  },
 ];
 
 class OpenAIProvider extends BaseModelProvider<OpenAIConfig> {
@@ -156,16 +166,18 @@ class OpenAIProvider extends BaseModelProvider<OpenAIConfig> {
       );
     }
 
+    const baseURL =
+      key === 'qwen3-next-80b-a3b-instruct-mlx' && this.config.baseURLLlamaCPP
+        ? this.config.baseURLLlamaCPP
+        : this.config.baseURL;
+
     return new ChatOpenAI({
       apiKey: this.config.apiKey,
       temperature: 0.7,
       model: key,
       configuration: {
-        baseURL: this.config.baseURL,
+        baseURL,
       },
-      // modelKwargs: {
-      //   cache_prompt: true,
-      // },
     });
   }
 
@@ -199,6 +211,9 @@ class OpenAIProvider extends BaseModelProvider<OpenAIConfig> {
     return {
       apiKey: String(raw.apiKey),
       baseURL: String(raw.baseURL),
+      baseURLLlamaCPP: raw.baseURLLlamaCPP
+        ? String(raw.baseURLLlamaCPP)
+        : undefined,
     };
   }
 

@@ -541,171 +541,243 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   }, [isConfigReady, isReady, initialMessage]);
 
   const sendMessage: ChatContext['sendMessage'] = async (
-    message,
-    messageId,
-    rewrite = false,
-  ) => {
-    if (loading || !message || !userId) return;
-    setLoading(true);
-    setMessageAppeared(false);
+  message,
+  messageId,
+  rewrite = false,
+) => {
+  if (loading || !message || !userId) return;
+  setLoading(true);
+  setMessageAppeared(false);
 
-    if (messages.length <= 1) {
-      window.history.replaceState(null, '', `/c/${chatId}`);
-    }
+  if (messages.length <= 1) {
+    window.history.replaceState(null, '', `/c/${chatId}`);
+  }
 
-    let recievedMessage = '';
-    let added = false;
+  let recievedMessage = '';
+  let added = false;
 
-    messageId = messageId ?? crypto.randomBytes(7).toString('hex');
+  // 🆕 打字機效果的緩衝隊列和控制變量
+  let charBuffer: string[] = [];
+  let isTyping = false;
+  let typingInterval: NodeJS.Timeout | null = null;
+  let currentMessageId: string | null = null;
 
-    setMessages((prevMessages) => [
-      ...prevMessages,
-      {
-        content: message,
-        messageId: messageId,
-        chatId: chatId!,
-        role: 'user',
-        createdAt: new Date(),
-      },
-    ]);
+  messageId = messageId ?? crypto.randomBytes(7).toString('hex');
 
-    const messageHandler = async (data: any) => {
-      if (data.type === 'error') {
-        toast.error(data.data);
-        setLoading(false);
+  setMessages((prevMessages) => [
+    ...prevMessages,
+    {
+      content: message,
+      messageId: messageId,
+      chatId: chatId!,
+      role: 'user',
+      createdAt: new Date(),
+    },
+  ]);
+
+  // 🆕 逐字顯示函數
+  const startTyping = (msgId: string) => {
+    if (isTyping) return;
+    
+    isTyping = true;
+    currentMessageId = msgId;
+
+    const typeNextChar = () => {
+      if (charBuffer.length === 0) {
+        isTyping = false;
+        if (typingInterval) {
+          clearInterval(typingInterval);
+          typingInterval = null;
+        }
         return;
       }
 
-      if (data.type === 'sources') {
+      // 一次處理多個字符以提高速度（可調整）
+      const charsToAdd = charBuffer.splice(0, 3).join('');
+      
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (msg.messageId === msgId && msg.role === 'assistant') {
+            return { ...msg, content: msg.content + charsToAdd };
+          }
+          return msg;
+        }),
+      );
+    };
+
+    // 使用 setInterval 而非 requestAnimationFrame 以獲得更精確的控制
+    typingInterval = setInterval(typeNextChar, 20); // 20ms = 每秒50字符
+  };
+
+  // 🆕 添加字符到緩衝區
+  const addToBuffer = (text: string, msgId: string) => {
+    charBuffer.push(...text.split('')); // 將文本拆分成單個字符
+    
+    if (!isTyping) {
+      startTyping(msgId);
+    }
+  };
+
+  // 🆕 清空緩衝區並立即顯示剩餘內容
+  const flushBuffer = (msgId: string) => {
+    if (typingInterval) {
+      clearInterval(typingInterval);
+      typingInterval = null;
+    }
+    
+    if (charBuffer.length > 0) {
+      const remaining = charBuffer.join('');
+      charBuffer = [];
+      
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (msg.messageId === msgId && msg.role === 'assistant') {
+            return { ...msg, content: msg.content + remaining };
+          }
+          return msg;
+        }),
+      );
+    }
+    
+    isTyping = false;
+  };
+
+  const messageHandler = async (data: any) => {
+    if (data.type === 'error') {
+      toast.error(data.data);
+      setLoading(false);
+      // 🆕 清空緩衝區
+      if (currentMessageId) flushBuffer(currentMessageId);
+      return;
+    }
+
+    if (data.type === 'sources') {
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        {
+          messageId: data.messageId,
+          chatId: chatId!,
+          role: 'source',
+          sources: data.data,
+          createdAt: new Date(),
+        },
+      ]);
+      if (data.data.length > 0) {
+        setMessageAppeared(true);
+      }
+    }
+
+    if (data.type === 'message') {
+      if (!added) {
+        // 第一次收到消息，創建空的 assistant 消息
         setMessages((prevMessages) => [
           ...prevMessages,
           {
+            content: '', // 🆕 初始為空，通過打字機效果填充
             messageId: data.messageId,
             chatId: chatId!,
-            role: 'source',
-            sources: data.data,
+            role: 'assistant',
             createdAt: new Date(),
           },
         ]);
-        if (data.data.length > 0) {
-          setMessageAppeared(true);
-        }
+        added = true;
+        setMessageAppeared(true);
+      }
+      
+      // 🆕 將新數據添加到緩衝區而不是直接更新狀態
+      addToBuffer(data.data, data.messageId);
+      recievedMessage += data.data;
+    }
+
+    if (data.type === 'messageEnd') {
+      // 🆕 確保所有緩衝內容都已顯示
+      if (currentMessageId) {
+        flushBuffer(currentMessageId);
       }
 
-      if (data.type === 'message') {
-        if (!added) {
-          setMessages((prevMessages) => [
-            ...prevMessages,
+      setChatHistory((prevHistory) => [
+        ...prevHistory,
+        ['human', message],
+        ['assistant', recievedMessage],
+      ]);
+
+      setLoading(false);
+
+      /* Check if there are sources after message id's index and no suggestions */
+
+      const userMessageIndex = messagesRef.current.findIndex(
+        (msg) => msg.messageId === messageId && msg.role === 'user',
+      );
+
+      const sourceMessage = messagesRef.current.find(
+        (msg, i) => i > userMessageIndex && msg.role === 'source',
+      ) as SourceMessage | undefined;
+
+      const suggestionMessageIndex = messagesRef.current.findIndex(
+        (msg, i) => i > userMessageIndex && msg.role === 'suggestion',
+      );
+
+      if (
+        sourceMessage &&
+        sourceMessage.sources.length > 0 &&
+        suggestionMessageIndex == -1
+      ) {
+        const suggestions = await getSuggestions(messagesRef.current);
+        setMessages((prev) => {
+          return [
+            ...prev,
             {
-              content: data.data,
-              messageId: data.messageId,
+              role: 'suggestion',
+              suggestions: suggestions,
               chatId: chatId!,
-              role: 'assistant',
               createdAt: new Date(),
+              messageId: crypto.randomBytes(7).toString('hex'),
             },
-          ]);
-          added = true;
-          setMessageAppeared(true);
-        } else {
-          setMessages((prev) =>
-            prev.map((message) => {
-              if (
-                message.messageId === data.messageId &&
-                message.role === 'assistant'
-              ) {
-                return { ...message, content: message.content + data.data };
-              }
-
-              return message;
-            }),
-          );
-        }
-        recievedMessage += data.data;
+          ];
+        });
       }
+    }
+  };
 
-      if (data.type === 'messageEnd') {
-        setChatHistory((prevHistory) => [
-          ...prevHistory,
-          ['human', message],
-          ['assistant', recievedMessage],
-        ]);
+  const messageIndex = messages.findIndex((m) => m.messageId === messageId);
 
-        setLoading(false);
-
-        /* Check if there are sources after message id's index and no suggestions */
-
-        const userMessageIndex = messagesRef.current.findIndex(
-          (msg) => msg.messageId === messageId && msg.role === 'user',
-        );
-
-        const sourceMessage = messagesRef.current.find(
-          (msg, i) => i > userMessageIndex && msg.role === 'source',
-        ) as SourceMessage | undefined;
-
-        const suggestionMessageIndex = messagesRef.current.findIndex(
-          (msg, i) => i > userMessageIndex && msg.role === 'suggestion',
-        );
-
-        if (
-          sourceMessage &&
-          sourceMessage.sources.length > 0 &&
-          suggestionMessageIndex == -1
-        ) {
-          const suggestions = await getSuggestions(messagesRef.current);
-          setMessages((prev) => {
-            return [
-              ...prev,
-              {
-                role: 'suggestion',
-                suggestions: suggestions,
-                chatId: chatId!,
-                createdAt: new Date(),
-                messageId: crypto.randomBytes(7).toString('hex'),
-              },
-            ];
-          });
-        }
-      }
-    };
-
-    const messageIndex = messages.findIndex((m) => m.messageId === messageId);
-
-    const res = await fetch('/itms/ai/api/chat', {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({
-        content: message,
-        message: {
-          messageId: messageId,
-          chatId: chatId!,
-          content: message,
-        },
+  const res = await fetch('/itms/ai/api/chat', {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({
+      content: message,
+      message: {
+        messageId: messageId,
         chatId: chatId!,
-        files: fileIds,
-        focusMode: focusMode,
-        optimizationMode: optimizationMode,
-        history: rewrite
-          ? chatHistory.slice(0, messageIndex === -1 ? undefined : messageIndex)
-          : chatHistory,
-        chatModel: {
-          key: chatModelProvider.key,
-          providerId: chatModelProvider.providerId,
-        },
-        embeddingModel: {
-          key: embeddingModelProvider.key,
-          providerId: embeddingModelProvider.providerId,
-        },
-        systemInstructions: localStorage.getItem('systemInstructions'),
-      }),
-    });
+        content: message,
+      },
+      chatId: chatId!,
+      files: fileIds,
+      focusMode: focusMode,
+      optimizationMode: optimizationMode,
+      history: rewrite
+        ? chatHistory.slice(0, messageIndex === -1 ? undefined : messageIndex)
+        : chatHistory,
+      chatModel: {
+        key: chatModelProvider.key,
+        providerId: chatModelProvider.providerId,
+      },
+      embeddingModel: {
+        key: embeddingModelProvider.key,
+        providerId: embeddingModelProvider.providerId,
+      },
+      systemInstructions: localStorage.getItem('systemInstructions'),
+    }),
+  });
 
-    if (!res.body) throw new Error('No response body');
+  if (!res.body) throw new Error('No response body');
 
-    const reader = res.body?.getReader();
-    const decoder = new TextDecoder('utf-8');
+  const reader = res.body?.getReader();
+  const decoder = new TextDecoder('utf-8');
 
-    let partialChunk = '';
+  let partialChunk = '';
 
+  try {
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
@@ -724,7 +796,200 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         console.warn('Incomplete JSON, waiting for next chunk...');
       }
     }
-  };
+  } finally {
+    // 🆕 確保清理定時器
+    if (typingInterval) {
+      clearInterval(typingInterval);
+    }
+  }
+};
+
+
+  // const sendMessage: ChatContext['sendMessage'] = async (
+  //   message,
+  //   messageId,
+  //   rewrite = false,
+  // ) => {
+  //   if (loading || !message || !userId) return;
+  //   setLoading(true);
+  //   setMessageAppeared(false);
+
+  //   if (messages.length <= 1) {
+  //     window.history.replaceState(null, '', `/c/${chatId}`);
+  //   }
+
+  //   let recievedMessage = '';
+  //   let added = false;
+
+  //   messageId = messageId ?? crypto.randomBytes(7).toString('hex');
+
+  //   setMessages((prevMessages) => [
+  //     ...prevMessages,
+  //     {
+  //       content: message,
+  //       messageId: messageId,
+  //       chatId: chatId!,
+  //       role: 'user',
+  //       createdAt: new Date(),
+  //     },
+  //   ]);
+
+  //   const messageHandler = async (data: any) => {
+  //     if (data.type === 'error') {
+  //       toast.error(data.data);
+  //       setLoading(false);
+  //       return;
+  //     }
+
+  //     if (data.type === 'sources') {
+  //       setMessages((prevMessages) => [
+  //         ...prevMessages,
+  //         {
+  //           messageId: data.messageId,
+  //           chatId: chatId!,
+  //           role: 'source',
+  //           sources: data.data,
+  //           createdAt: new Date(),
+  //         },
+  //       ]);
+  //       if (data.data.length > 0) {
+  //         setMessageAppeared(true);
+  //       }
+  //     }
+
+  //     if (data.type === 'message') {
+  //       if (!added) {
+  //         setMessages((prevMessages) => [
+  //           ...prevMessages,
+  //           {
+  //             content: data.data,
+  //             messageId: data.messageId,
+  //             chatId: chatId!,
+  //             role: 'assistant',
+  //             createdAt: new Date(),
+  //           },
+  //         ]);
+  //         added = true;
+  //         setMessageAppeared(true);
+  //       } else {
+  //         setMessages((prev) =>
+  //           prev.map((message) => {
+  //             if (
+  //               message.messageId === data.messageId &&
+  //               message.role === 'assistant'
+  //             ) {
+  //               return { ...message, content: message.content + data.data };
+  //             }
+
+  //             return message;
+  //           }),
+  //         );
+  //       }
+  //       recievedMessage += data.data;
+  //     }
+
+  //     if (data.type === 'messageEnd') {
+  //       setChatHistory((prevHistory) => [
+  //         ...prevHistory,
+  //         ['human', message],
+  //         ['assistant', recievedMessage],
+  //       ]);
+
+  //       setLoading(false);
+
+  //       /* Check if there are sources after message id's index and no suggestions */
+
+  //       const userMessageIndex = messagesRef.current.findIndex(
+  //         (msg) => msg.messageId === messageId && msg.role === 'user',
+  //       );
+
+  //       const sourceMessage = messagesRef.current.find(
+  //         (msg, i) => i > userMessageIndex && msg.role === 'source',
+  //       ) as SourceMessage | undefined;
+
+  //       const suggestionMessageIndex = messagesRef.current.findIndex(
+  //         (msg, i) => i > userMessageIndex && msg.role === 'suggestion',
+  //       );
+
+  //       if (
+  //         sourceMessage &&
+  //         sourceMessage.sources.length > 0 &&
+  //         suggestionMessageIndex == -1
+  //       ) {
+  //         const suggestions = await getSuggestions(messagesRef.current);
+  //         setMessages((prev) => {
+  //           return [
+  //             ...prev,
+  //             {
+  //               role: 'suggestion',
+  //               suggestions: suggestions,
+  //               chatId: chatId!,
+  //               createdAt: new Date(),
+  //               messageId: crypto.randomBytes(7).toString('hex'),
+  //             },
+  //           ];
+  //         });
+  //       }
+  //     }
+  //   };
+
+  //   const messageIndex = messages.findIndex((m) => m.messageId === messageId);
+
+  //   const res = await fetch('/itms/ai/api/chat', {
+  //     method: 'POST',
+  //     headers: getAuthHeaders(),
+  //     body: JSON.stringify({
+  //       content: message,
+  //       message: {
+  //         messageId: messageId,
+  //         chatId: chatId!,
+  //         content: message,
+  //       },
+  //       chatId: chatId!,
+  //       files: fileIds,
+  //       focusMode: focusMode,
+  //       optimizationMode: optimizationMode,
+  //       history: rewrite
+  //         ? chatHistory.slice(0, messageIndex === -1 ? undefined : messageIndex)
+  //         : chatHistory,
+  //       chatModel: {
+  //         key: chatModelProvider.key,
+  //         providerId: chatModelProvider.providerId,
+  //       },
+  //       embeddingModel: {
+  //         key: embeddingModelProvider.key,
+  //         providerId: embeddingModelProvider.providerId,
+  //       },
+  //       systemInstructions: localStorage.getItem('systemInstructions'),
+  //     }),
+  //   });
+
+  //   if (!res.body) throw new Error('No response body');
+
+  //   const reader = res.body?.getReader();
+  //   const decoder = new TextDecoder('utf-8');
+
+  //   let partialChunk = '';
+
+  //   while (true) {
+  //     const { value, done } = await reader.read();
+  //     if (done) break;
+
+  //     partialChunk += decoder.decode(value, { stream: true });
+
+  //     try {
+  //       const messages = partialChunk.split('\n');
+  //       for (const msg of messages) {
+  //         if (!msg.trim()) continue;
+  //         const json = JSON.parse(msg);
+  //         messageHandler(json);
+  //       }
+  //       partialChunk = '';
+  //     } catch (error) {
+  //       console.warn('Incomplete JSON, waiting for next chunk...');
+  //     }
+  //   }
+  // };
 
   return (
     <chatContext.Provider
