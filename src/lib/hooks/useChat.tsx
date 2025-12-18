@@ -88,6 +88,7 @@ const checkConfig = async (
   setEmbeddingModelProvider: (provider: EmbeddingModelProvider) => void,
   setIsConfigReady: (ready: boolean) => void,
   setHasError: (hasError: boolean) => void,
+  setAvailableProviders: (providers: MinimalProvider[]) => void,
 ) => {
   try {
     let chatModelKey = localStorage.getItem('chatModelKey');
@@ -111,6 +112,7 @@ const checkConfig = async (
 
     const data = await res.json();
     const providers: MinimalProvider[] = data.providers;
+    setAvailableProviders(providers);
 
     if (providers.length === 0) {
       throw new Error(
@@ -118,22 +120,32 @@ const checkConfig = async (
       );
     }
 
-    const chatModelProvider =
-      providers.find((p) => p.id === chatModelProviderId) ??
-      providers.find((p) => p.chatModels.length > 0);
+    let focusMode = localStorage.getItem('focusMode') || 'webSearch';
+    let preferredModel = focusMode === 'agentSurvey' ? 'qwen3-next-80b-a3b-instruct-mlx' : 'gpt-oss-120b';
 
-    if (!chatModelProvider) {
-      throw new Error(
-        'No chat models found, pleae configure them in the settings page.',
-      );
+    let chatModelProvider = providers.find(p => p.chatModels.some(m => m.key === preferredModel));
+
+    if (chatModelProvider) {
+        chatModelKey = preferredModel;
+        chatModelProviderId = chatModelProvider.id;
+    } else {
+        chatModelProvider =
+        providers.find((p) => p.id === chatModelProviderId) ??
+        providers.find((p) => p.chatModels.length > 0);
+
+        if (!chatModelProvider) {
+        throw new Error(
+            'No chat models found, pleae configure them in the settings page.',
+        );
+        }
+
+        chatModelProviderId = chatModelProvider.id;
+
+        const chatModel =
+        chatModelProvider.chatModels.find((m) => m.key === chatModelKey) ??
+        chatModelProvider.chatModels[0];
+        chatModelKey = chatModel.key;
     }
-
-    chatModelProviderId = chatModelProvider.id;
-
-    const chatModel =
-      chatModelProvider.chatModels.find((m) => m.key === chatModelKey) ??
-      chatModelProvider.chatModels[0];
-    chatModelKey = chatModel.key;
 
     const embeddingModelProvider =
       providers.find((p) => p.id === embeddingModelProviderId) ??
@@ -307,6 +319,25 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       key: '',
       providerId: '',
     });
+  
+  const [availableProviders, setAvailableProviders] = useState<MinimalProvider[]>([]);
+
+  const handleSetFocusMode = (mode: string) => {
+    setFocusMode(mode);
+    
+    let targetModel = 'gpt-oss-120b';
+    if (mode === 'agentSurvey') {
+      targetModel = 'qwen3-next-80b-a3b-instruct-mlx';
+    }
+
+    const foundProvider = availableProviders.find(p => p.chatModels.some(m => m.key === targetModel));
+
+    if (foundProvider) {
+        setChatModelProvider({ key: targetModel, providerId: foundProvider.id });
+        localStorage.setItem('chatModelKey', targetModel);
+        localStorage.setItem('chatModelProviderId', foundProvider.id);
+    }
+  };
 
   const [isConfigReady, setIsConfigReady] = useState(false);
   const [hasError, setHasError] = useState(false);
@@ -452,6 +483,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       setEmbeddingModelProvider,
       setIsConfigReady,
       setHasError,
+      setAvailableProviders,
     );
     // Initialize authentication token from URL or localStorage
     // initializeAuthToken(searchParams);
@@ -1047,7 +1079,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         optimizationMode,
         setFileIds,
         setFiles,
-        setFocusMode,
+        setFocusMode: handleSetFocusMode,
         setOptimizationMode,
         rewrite,
         sendMessage,
