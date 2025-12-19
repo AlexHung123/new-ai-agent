@@ -3,6 +3,7 @@ const nextConfig = {
   basePath: '/itms/ai',
   output: 'standalone',
   devIndicators: false,
+  allowedDevOrigins: ['192.168.56.1'],
   images: {
     remotePatterns: [
       {

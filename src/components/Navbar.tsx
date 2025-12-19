@@ -286,7 +286,7 @@ const Navbar = () => {
                           </p>
                         </div>
                       </button>
-                      <button
+                      {/* <button
                         className="w-full flex items-center gap-3 px-3 py-2 text-left rounded-xl hover:bg-light-secondary dark:hover:bg-dark-secondary transition-colors duration-200"
                         onClick={() => exportAsPDF(sections, title || '')}
                       >
@@ -299,7 +299,7 @@ const Navbar = () => {
                             Document format
                           </p>
                         </div>
-                      </button>
+                      </button> */}
                     </div>
                   </div>
                 </PopoverPanel>

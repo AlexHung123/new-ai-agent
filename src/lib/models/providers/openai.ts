@@ -167,7 +167,7 @@ class OpenAIProvider extends BaseModelProvider<OpenAIConfig> {
     }
 
     const baseURL =
-      key === 'qwen3-next-80b-a3b-instruct-mlx' && this.config.baseURLLlamaCPP
+      (key === 'qwen3-next-80b-a3b-instruct-mlx' || key === 'nvidia-nemotron-3-nano-30b-a3b-mlx') && this.config.baseURLLlamaCPP
         ? this.config.baseURLLlamaCPP
         : this.config.baseURL;
 
@@ -178,6 +178,9 @@ class OpenAIProvider extends BaseModelProvider<OpenAIConfig> {
       configuration: {
         baseURL,
       },
+        modelKwargs: {
+    enable_thinking: false,
+  },
     });
   }
 
