@@ -46,11 +46,11 @@ export async function getLimeSurveySummaryBySid(sid: string) {
             qs.question_theme_name,
             qs.type,
             CASE 
-            WHEN qs.type IN ('F','Q') THEN 
-                jsonb_agg(jsonb_build_object(
-                'colname', format('%sX%sX%s%s', qs.sid, qs.gid, qs.qid, sub.title),
-                'subcode', sub.title
-                ) ORDER BY sub.question_order)
+--            WHEN qs.type IN ('F','Q') THEN 
+--                jsonb_agg(jsonb_build_object(
+--                'colname', format('%sX%sX%s%s', qs.sid, qs.gid, qs.qid, sub.title),
+--                'subcode', sub.title
+--                ) ORDER BY sub.question_order)
             WHEN qs.type = 'T' THEN
                 jsonb_build_array(jsonb_build_object(
                 'colname', format('%sX%sX%s', qs.sid, qs.gid, qs.qid),
