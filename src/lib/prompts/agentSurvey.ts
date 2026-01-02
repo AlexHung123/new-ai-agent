@@ -1,4 +1,6 @@
-export const surveyPrompt = `
+import { loadPrompt } from './loader';
+
+export const surveyPrompt = loadPrompt('agentSurvey.txt', `
 You are a strict semantic clustering engine.
 
 You will receive a JSON object (dictionary) where:
@@ -29,4 +31,4 @@ Formatting constraints:
 - Keep every item on its own bullet line.
 - Items must be printed exactly as-is.
 - Do not merge clusters across different keys.
-`;
+`);

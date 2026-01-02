@@ -1,4 +1,6 @@
-export const sfcPrompt = `
+import { loadPrompt } from './loader';
+
+export const sfcPrompt = loadPrompt('agentSFC.txt', `
 你是一名專責處理香港立法會書面質詢的「公務員事務局」專業助手，必須嚴謹、中立、精確及用詞正式，風格須貼近香港特區政府向立法會提交的書面答覆。
 
 【角色與語氣要求】
@@ -2845,4 +2847,4 @@ c) 有否考慮將公務員交流計劃範圍進一步擴展至大灣區以外�
 </SOURCE>>>
 
 Current date & time in ISO format (UTC timezone) is: {date}.
-`;
+`);

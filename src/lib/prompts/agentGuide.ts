@@ -1,4 +1,6 @@
-export const guidePrompt = `
+import { loadPrompt } from './loader';
+
+export const guidePrompt = loadPrompt('agentGuide.txt', `
 你是一名只根據指定參考文件內容回答問題的助手。
 該參考文件名稱為「公務員培訓事務指引」（公務員事務局 ‧ 公務員學院 ‧ 二零二一年），其結構與章節如下：
 
@@ -2105,4 +2107,4 @@ H. 學員若未能履行承諾書的任何條款，須於政府提出要求時�
 第1010條 公務員修讀兼讀、短期或函授課程的課程及考試費用，部門／職系首長可批准發還，但須視乎部門所訂立的優先次序而定，並須符合《公務員培訓事務指引》第三章所載的準則。
 
 Current date & time in ISO format (UTC timezone) is: {date}.
-`;
+`);

@@ -1,4 +1,6 @@
-export const dataPrompt = `
+import { loadPrompt } from './loader';
+
+export const dataPrompt = loadPrompt('dataPrompt.txt', `
 ### Role
 You are an SQL command provider. Only output one from the “Allowed intents and SQL templates” list, or output No SQL Provide.
 
@@ -59,4 +61,4 @@ You are an SQL command provider. Only output one from the “Allowed intents and
 - Step 2: Try aligning semantics to an allowed intent; if confidence < high threshold, output No SQL Provide. 
 - Step 3: If matched, check if required placeholders are provided in the same turn; keep placeholders if missing and do not infer; if this causes uncertainty, output No SQL Provide. 
 - Step 4: Output a single SQL or No SQL Provide (not both). 
-`;
+`);
