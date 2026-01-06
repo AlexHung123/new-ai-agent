@@ -4,10 +4,10 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import MessageInput from './MessageInput';
 import MessageBox from './MessageBox';
 import MessageBoxLoading from './MessageBoxLoading';
-import { useChat } from '@/lib/hooks/useChat';
+import { useChat, ProgressData } from '@/lib/hooks/useChat';
 
 const Chat = () => {
-  const { sections, chatTurns, loading, messageAppeared } = useChat();
+  const { sections, chatTurns, loading, messageAppeared, progress } = useChat();
 
   const [dividerWidth, setDividerWidth] = useState(0);
   const dividerRef = useRef<HTMLDivElement | null>(null);
@@ -71,7 +71,7 @@ const Chat = () => {
           </Fragment>
         );
       })}
-      {loading && !messageAppeared && <MessageBoxLoading />}
+      {loading && !messageAppeared && <MessageBoxLoading progress={progress} />}
       <div ref={messageEnd} className="h-0" />
       {dividerWidth > 0 && (
         <div

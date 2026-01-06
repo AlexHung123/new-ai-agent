@@ -33,6 +33,14 @@ export type Section = {
   suggestions?: string[];
 };
 
+export type ProgressData = {
+  status: 'started' | 'processing' | 'reassigning' | 'completed';
+  total: number;
+  current: number;
+  question?: string;
+  message: string;
+};
+
 type ChatContext = {
   messages: Message[];
   chatTurns: ChatTurn[];
@@ -52,6 +60,7 @@ type ChatContext = {
   hasError: boolean;
   chatModelProvider: ChatModelProvider;
   embeddingModelProvider: EmbeddingModelProvider;
+  progress: ProgressData | null;
   setOptimizationMode: (mode: string) => void;
   setFocusMode: (mode: string) => void;
   setFiles: (files: File[]) => void;
@@ -65,6 +74,7 @@ type ChatContext = {
   setChatModelProvider: (provider: ChatModelProvider) => void;
   setEmbeddingModelProvider: (provider: EmbeddingModelProvider) => void;
   stop: () => void;
+  clearProgress: () => void;
 };
 
 export interface File {
@@ -288,6 +298,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
 
   const [loading, setLoading] = useState(false);
   const [messageAppeared, setMessageAppeared] = useState(false);
+  const [progress, setProgress] = useState<ProgressData | null>(null);
 
   const [chatHistory, setChatHistory] = useState<[string, string][]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -354,6 +365,10 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
+  };
+
+  const clearProgress = () => {
+    setProgress(null);
   };
 
   const chatTurns = useMemo((): ChatTurn[] => {
@@ -594,6 +609,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       console.log('sendMessage started');
       setLoading(true);
       setMessageAppeared(false);
+      clearProgress();
   
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
@@ -705,6 +721,11 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       return;
     }
 
+    if (data.type === 'progress') {
+      setProgress(data.data);
+      return;
+    }
+
     if (data.type === 'sources') {
       setMessages((prevMessages) => [
         ...prevMessages,
@@ -756,6 +777,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       ]);
 
       setLoading(false);
+      clearProgress();
 
       /* Check if there are sources after message id's index and no suggestions */
 
@@ -1077,6 +1099,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         messageAppeared,
         notFound,
         optimizationMode,
+        progress,
         setFileIds,
         setFiles,
         setFocusMode: handleSetFocusMode,
@@ -1088,6 +1111,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         embeddingModelProvider,
         setEmbeddingModelProvider,
         stop,
+        clearProgress,
       }}
     >
       {children}

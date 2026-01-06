@@ -157,6 +157,16 @@ const handleEmitterEvents = async (
           createdAt: new Date().toString(),
         })
         .execute();
+    } else if (parsedData.type === 'progress') {
+      // Forward progress events to the frontend
+      writer.write(
+        encoder.encode(
+          JSON.stringify({
+            type: 'progress',
+            data: parsedData.data,
+          }) + '\n',
+        ),
+      );
     }
   });
   stream.on('end', () => {

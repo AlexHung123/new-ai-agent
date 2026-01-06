@@ -41,7 +41,7 @@ const MessageBox = ({
   dividerRef?: MutableRefObject<HTMLDivElement | null>;
   isLast: boolean;
 }) => {
-  const { loading, chatTurns, sendMessage, rewrite } = useChat();
+  const { loading, chatTurns, sendMessage, rewrite, progress } = useChat();
 
   const parsedMessage = section.parsedAssistantMessage || '';
   const speechMessage = section.speechMessage || '';
