@@ -33,12 +33,19 @@ export type Section = {
   suggestions?: string[];
 };
 
+export type ProgressTask = {
+  id: number;
+  question: string;
+  status: 'completed' | 'processing';
+};
+
 export type ProgressData = {
   status: 'started' | 'processing' | 'reassigning' | 'completed';
   total: number;
   current: number;
   question?: string;
   message: string;
+  tasks?: ProgressTask[];
 };
 
 type ChatContext = {
@@ -257,6 +264,35 @@ const loadMessages = async (
   setIsMessagesLoaded(true);
 };
 
+// export const chatContext = createContext<ChatContext>({
+//   chatHistory: [],
+//   chatId: '',
+//   userId: null,
+//   fileIds: [],
+//   files: [],
+//   focusMode: '',
+//   hasError: false,
+//   isMessagesLoaded: false,
+//   isReady: false,
+//   loading: false,
+//   messageAppeared: false,
+//   messages: [],
+//   chatTurns: [],
+//   sections: [],
+//   notFound: false,
+//   optimizationMode: '',
+//   chatModelProvider: { key: '', providerId: '' },
+//   embeddingModelProvider: { key: '', providerId: '' },
+//   rewrite: () => {},
+//   sendMessage: async () => {},
+//   setFileIds: () => {},
+//   setFiles: () => {},
+//   setFocusMode: () => {},
+//   setOptimizationMode: () => {},
+//   setChatModelProvider: () => {},
+//   setEmbeddingModelProvider: () => {},
+//   stop: () => {},
+// });
 export const chatContext = createContext<ChatContext>({
   chatHistory: [],
   chatId: '',
@@ -276,6 +312,11 @@ export const chatContext = createContext<ChatContext>({
   optimizationMode: '',
   chatModelProvider: { key: '', providerId: '' },
   embeddingModelProvider: { key: '', providerId: '' },
+
+  // ✅ add these two
+  progress: null,
+  clearProgress: () => {},
+
   rewrite: () => {},
   sendMessage: async () => {},
   setFileIds: () => {},
@@ -286,6 +327,8 @@ export const chatContext = createContext<ChatContext>({
   setEmbeddingModelProvider: () => {},
   stop: () => {},
 });
+
+
 
 export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   const params: { chatId: string } = useParams();
@@ -722,7 +765,64 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     if (data.type === 'progress') {
-      setProgress(data.data);
+      // setProgress((prevProgress) => {
+      //   const newProgress = data.data;
+      //   const tasks = prevProgress?.tasks || [];
+
+      //   // 如果有新的 question，添加到任务列表
+      //   if (newProgress.question && newProgress.current > 0) {
+      //     // 检查是否已经存在这个任务
+      //     const taskExists = tasks.some(t => t.id === newProgress.current);
+      //     if (!taskExists) {
+      //       // 将之前的任务标记为已完成
+      //       const updatedTasks = tasks.map(t => ({
+      //         ...t,
+      //         status: 'completed' as const,
+      //       }));
+      //       // 添加新任务
+      //       updatedTasks.push({
+      //         id: newProgress.current,
+      //         question: newProgress.question,
+      //         status: 'processing' as const,
+      //       });
+      //       return { ...newProgress, tasks: updatedTasks };
+      //     } else {
+      //       // 更新现有任务状态
+      //       return { ...newProgress, tasks };
+      //     }
+      //   }
+
+      //   return { ...newProgress, tasks };
+      // });
+      setProgress((prevProgress) => {
+        const newProgress = data.data as ProgressData;
+
+        const tasks: ProgressTask[] = prevProgress?.tasks ?? [];
+
+        if (newProgress.question && newProgress.current > 0) {
+          const taskExists = tasks.some((t) => t.id === newProgress.current);
+
+          if (!taskExists) {
+            const updatedTasks: ProgressTask[] = tasks.map((t) => ({
+              ...t,
+              status: 'completed', // <-- no "as const"
+            }));
+
+            updatedTasks.push({
+              id: newProgress.current,
+              question: newProgress.question,
+              status: 'processing', // <-- now allowed
+            });
+
+            return { ...newProgress, tasks: updatedTasks };
+          }
+
+          return { ...newProgress, tasks };
+        }
+
+        return { ...newProgress, tasks };
+      });
+
       return;
     }
 
