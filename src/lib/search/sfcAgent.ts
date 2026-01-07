@@ -116,7 +116,11 @@ ${userQuestion}`;
   /**
    * Query RAGFlow API for relevant chunks
    */
-  private async queryRAGFlow(keyword: string, signal?: AbortSignal): Promise<any> {
+  private async queryRAGFlow(
+    keyword: string, 
+    signal?: AbortSignal,
+    overrides?: { similarityThreshold?: number; vectorSimilarityWeight?: number }
+  ): Promise<any> {
     try {
       // Get RAGFlow configuration from config.json
       const ragflowConfig = configManager.getConfig('ragflow', {});
@@ -124,9 +128,10 @@ ${userQuestion}`;
       const apiKey = ragflowConfig.apiKey || 'ragflow-g4OTUwYjU2NDFiYjExZjBhYmY5MDI0Mm';
       const datasetIds = ragflowConfig.datasetIds || ['272c75fed41c11f083790242ac160006'];
       const documentIds = ragflowConfig.documentIds || ['2c94c62cd41c11f083790242ac160006'];
-      const similarityThreshold = ragflowConfig.similarityThreshold ?? 0.3;
-      const vectorSimilarityWeight = ragflowConfig.vectorSimilarityWeight ?? 0.1;
-
+      
+      const similarityThreshold = overrides?.similarityThreshold ?? ragflowConfig.similarityThreshold ?? 0.3;
+      const vectorSimilarityWeight = overrides?.vectorSimilarityWeight ?? ragflowConfig.vectorSimilarityWeight ?? 0.1;
+      
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
@@ -265,6 +270,7 @@ ${userQuestion}`;
     fileIds: string[],
     systemInstructions: string,
     signal?: AbortSignal,
+    sfcExactMatch?: boolean,
   ): Promise<eventEmitter> {
     const emitter = new eventEmitter();
 
@@ -279,30 +285,40 @@ ${userQuestion}`;
       try {
         if (signal?.aborted) return;
 
-        // Step 1: Extract keyword from user question
-        emitter.emit(
-          'data',
-          JSON.stringify({
-            type: 'response',
-            data: '正在提取關鍵詞...\n\n',
-          }),
-        );
+        let keyword = '';
 
-        const keyword = await this.extractKeyword(message, llm, signal);
-        if (keyword === '未找到相關資料') {
-          emitter.emit(
-            'data',
-            JSON.stringify({
-              type: 'response',
-              data: '抱歉，未能在資料庫中找到與您問題相關的資料。',
-            }),
-          );
-          emitter.emit('end');
-          return;
+        if (sfcExactMatch) {
+            keyword = message.trim();
+        } else {
+            // Step 1: Extract keyword from user question
+            emitter.emit(
+              'data',
+              JSON.stringify({
+                type: 'response',
+                data: '正在提取關鍵詞...\n\n',
+              }),
+            );
+
+            keyword = await this.extractKeyword(message, llm, signal);
+            if (keyword === '未找到相關資料') {
+              emitter.emit(
+                'data',
+                JSON.stringify({
+                  type: 'response',
+                  data: '抱歉，未能在資料庫中找到與您問題相關的資料。',
+                }),
+              );
+              emitter.emit('end');
+              return;
+            }
         }
 
         // Step 2: Query RAGFlow API
-        const ragflowResponse = await this.queryRAGFlow(keyword, signal);
+        const overrides = sfcExactMatch 
+            ? { similarityThreshold: 1.0, vectorSimilarityWeight: 0.0 } 
+            : undefined;
+
+        const ragflowResponse = await this.queryRAGFlow(keyword, signal, overrides);
 
         // Step 3: Extract chunks from response
         const chunks = this.extractChunks(ragflowResponse);

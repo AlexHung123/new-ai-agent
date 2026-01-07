@@ -68,6 +68,8 @@ type ChatContext = {
   chatModelProvider: ChatModelProvider;
   embeddingModelProvider: EmbeddingModelProvider;
   progress: ProgressData | null;
+  sfcExactMatch: boolean;
+  setSfcExactMatch: (exact: boolean) => void;
   setOptimizationMode: (mode: string) => void;
   setFocusMode: (mode: string) => void;
   setFiles: (files: File[]) => void;
@@ -313,9 +315,11 @@ export const chatContext = createContext<ChatContext>({
   chatModelProvider: { key: '', providerId: '' },
   embeddingModelProvider: { key: '', providerId: '' },
 
-  // ✅ add these two
   progress: null,
   clearProgress: () => {},
+  
+  sfcExactMatch: false,
+  setSfcExactMatch: () => {},
 
   rewrite: () => {},
   sendMessage: async () => {},
@@ -356,6 +360,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     return 'webSearch';
   });
   const [optimizationMode, setOptimizationMode] = useState('speed');
+  const [sfcExactMatch, setSfcExactMatch] = useState(false);
 
   const [isMessagesLoaded, setIsMessagesLoaded] = useState(false);
 
@@ -932,6 +937,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         files: fileIds,
         focusMode: focusMode,
         optimizationMode: optimizationMode,
+        sfcExactMatch: sfcExactMatch,
         history: rewrite
           ? chatHistory.slice(0, messageIndex === -1 ? undefined : messageIndex)
           : chatHistory,
@@ -1200,6 +1206,8 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         notFound,
         optimizationMode,
         progress,
+        sfcExactMatch,
+        setSfcExactMatch,
         setFileIds,
         setFiles,
         setFocusMode: handleSetFocusMode,

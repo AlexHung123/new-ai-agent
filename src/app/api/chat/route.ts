@@ -69,6 +69,7 @@ const bodySchema = z.object({
   chatModel: chatModelSchema,
   embeddingModel: embeddingModelSchema,
   systemInstructions: z.string().nullable().optional().default(''),
+  sfcExactMatch: z.boolean().optional(),
 });
 
 type Message = z.infer<typeof messageSchema>;
@@ -353,6 +354,7 @@ export const POST = async (req: Request) => {
       body.files,
       body.systemInstructions as string,
       req.signal,
+      body.sfcExactMatch,
     );
 
     const responseStream = new TransformStream();

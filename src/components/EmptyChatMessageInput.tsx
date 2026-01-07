@@ -7,6 +7,7 @@ import TextareaAutosize from 'react-textarea-autosize';
 import { useChat } from '@/lib/hooks/useChat';
 import ModelSelector from './MessageInputActions/ChatModelSelector';
 import { focusModes } from '@/lib/agents';
+import SfcExactMatchToggle from './SfcExactMatchToggle';
 
 const EmptyChatMessageInput = () => {
   const { sendMessage, focusMode } = useChat();
@@ -69,6 +70,7 @@ const EmptyChatMessageInput = () => {
           placeholder={placeholder}
         />
         <div className="flex flex-row items-center justify-end mt-4">
+          <SfcExactMatchToggle />
           {/* <Optimization /> */}
           <div className="flex flex-row items-center space-x-2">
             <div className="flex flex-row items-center space-x-1">
