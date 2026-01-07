@@ -4,13 +4,17 @@ import { useEffect, useRef, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import AttachSmall from './MessageInputActions/AttachSmall';
 import { useChat } from '@/lib/hooks/useChat';
+import { focusModes } from '@/lib/agents';
 
 const MessageInput = () => {
-  const { loading, sendMessage, stop } = useChat();
+  const { loading, sendMessage, stop, focusMode } = useChat();
 
   const [message, setMessage] = useState('');
   const [textareaRows, setTextareaRows] = useState(1);
   const [mode, setMode] = useState<'multi' | 'single'>('single');
+
+  const currentAgent = focusModes.find((mode) => mode.key === focusMode);
+  const placeholder = currentAgent?.followUpPlaceholder || 'Ask a follow-up';
 
   useEffect(() => {
     if (textareaRows >= 2 && message && mode === 'single') {
@@ -64,7 +68,7 @@ const MessageInput = () => {
         mode === 'multi' ? 'flex-col rounded-2xl' : 'flex-row rounded-full',
       )}
     >
-      {mode === 'single' && <AttachSmall />}
+      {/* {mode === 'single' && <AttachSmall />} */}
       <TextareaAutosize
         ref={inputRef}
         value={message}
@@ -73,7 +77,7 @@ const MessageInput = () => {
           setTextareaRows(Math.ceil(height / props.rowHeight));
         }}
         className="transition bg-transparent dark:placeholder:text-white/50 placeholder:text-sm text-sm dark:text-white resize-none focus:outline-none w-full px-2 max-h-24 lg:max-h-36 xl:max-h-48 flex-grow flex-shrink"
-        placeholder="Ask a follow-up"
+        placeholder={placeholder}
       />
       {mode === 'single' && (
         <div className="flex flex-row items-center space-x-4">
@@ -100,7 +104,7 @@ const MessageInput = () => {
       )}
       {mode === 'multi' && (
         <div className="flex flex-row items-center justify-between w-full pt-2">
-          <AttachSmall />
+          {/* <AttachSmall /> */}
           <div className="flex flex-row items-center space-x-4">
             <button
               disabled={message.trim().length === 0 && !loading}

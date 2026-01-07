@@ -10,8 +10,8 @@ const EmptyChat = () => {
   const focusDescriptions: Record<string, string> = {
     agentData: 'Your assistant for retrieving training data',
     agentGuide: 'You assistant on training policy',
-    agentSFC: 'Your assistant for analyzing SFC meetings',
-    agentSurvey: 'Your assistant for analyzing class survey',
+    agentSFC: 'Your assistant for searching SFC meetings',
+    agentSurvey: 'Your assistant for analyzing survey',
   };
 
   const heading = focusDescriptions[focusMode] || 'Research begins here.';
