@@ -119,7 +119,8 @@ ${userQuestion}`;
   private async queryRAGFlow(
     keyword: string, 
     signal?: AbortSignal,
-    overrides?: { similarityThreshold?: number; vectorSimilarityWeight?: number }
+    overrides?: { similarityThreshold?: number; vectorSimilarityWeight?: number },
+    sfcExactMatch?: boolean | undefined
   ): Promise<any> {
     try {
       // Get RAGFlow configuration from config.json
@@ -145,6 +146,7 @@ ${userQuestion}`;
           document_ids: documentIds,
           similarity_threshold: similarityThreshold,
           vector_similarity_weight: vectorSimilarityWeight,
+          keyword: sfcExactMatch ? true : false
         }),
       });
 
@@ -315,10 +317,10 @@ ${userQuestion}`;
 
         // Step 2: Query RAGFlow API
         const overrides = sfcExactMatch 
-            ? { similarityThreshold: 1.0, vectorSimilarityWeight: 0.0 } 
+            ? { similarityThreshold: 0.2, vectorSimilarityWeight: 0.0 } 
             : undefined;
 
-        const ragflowResponse = await this.queryRAGFlow(keyword, signal, overrides);
+        const ragflowResponse = await this.queryRAGFlow(keyword, signal, overrides, sfcExactMatch);
 
         // Step 3: Extract chunks from response
         const chunks = this.extractChunks(ragflowResponse);

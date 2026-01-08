@@ -28,6 +28,7 @@ export interface MetaSearchAgentType {
     fileIds: string[],
     systemInstructions: string,
     signal?: AbortSignal,
+    sfcExactMatch?: boolean | undefined
   ) => Promise<eventEmitter>;
 }
 

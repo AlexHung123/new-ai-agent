@@ -7,14 +7,18 @@ import { useChat } from '@/lib/hooks/useChat';
 import { focusModes } from '@/lib/agents';
 
 const MessageInput = () => {
-  const { loading, sendMessage, stop, focusMode } = useChat();
+  const { loading, sendMessage, stop, focusMode, sfcExactMatch } = useChat();
 
   const [message, setMessage] = useState('');
   const [textareaRows, setTextareaRows] = useState(1);
   const [mode, setMode] = useState<'multi' | 'single'>('single');
 
   const currentAgent = focusModes.find((mode) => mode.key === focusMode);
-  const placeholder = currentAgent?.followUpPlaceholder || 'Ask a follow-up';
+  let placeholder = currentAgent?.followUpPlaceholder || 'Ask a follow-up';
+
+  if (focusMode === 'agentSFC' && sfcExactMatch) {
+    placeholder = 'Search exact wording ...';
+  }
 
   useEffect(() => {
     if (textareaRows >= 2 && message && mode === 'single') {

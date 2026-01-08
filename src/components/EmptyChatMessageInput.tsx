@@ -10,7 +10,7 @@ import { focusModes } from '@/lib/agents';
 import SfcExactMatchToggle from './SfcExactMatchToggle';
 
 const EmptyChatMessageInput = () => {
-  const { sendMessage, focusMode } = useChat();
+  const { sendMessage, focusMode, sfcExactMatch } = useChat();
 
   /* const [copilotEnabled, setCopilotEnabled] = useState(false); */
   const [message, setMessage] = useState('');
@@ -18,7 +18,11 @@ const EmptyChatMessageInput = () => {
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const currentAgent = focusModes.find((mode) => mode.key === focusMode);
-  const placeholder = currentAgent?.placeholder || 'Ask anything...';
+  let placeholder = currentAgent?.placeholder || 'Ask anything...';
+
+  if (focusMode === 'agentSFC' && sfcExactMatch) {
+    placeholder = 'Search exact wording ...';
+  }
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
