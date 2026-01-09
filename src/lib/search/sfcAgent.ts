@@ -305,6 +305,12 @@ class SfcAgent implements MetaSearchAgentType {
     return highlightedContent;
   }
 
+
+  private extractYear (content: string) {
+    const yearMatch = content.match(/年份[：:]\s*(\d{4})/);
+    return yearMatch ? parseInt(yearMatch[1], 10) : 0;
+  };
+
   /**
    * Extract chunks from RAGFlow response
    */
@@ -321,8 +327,15 @@ class SfcAgent implements MetaSearchAgentType {
 
       const chunks = ragflowResponse.data.chunks;
       
+      // Sort chunks by year in descending order
+      const sortedChunks = [...chunks].sort((a: any, b: any) => {
+        const yearA = this.extractYear(a.content || '');
+        const yearB = this.extractYear(b.content || '');
+        return yearB - yearA; // Descending order
+      });
+      
       // Format chunks for display - only raw content
-      const formattedChunks = chunks
+      const formattedChunks = sortedChunks
         .map((chunk: any) => {
           let content = chunk.content || '';
           
@@ -332,9 +345,13 @@ class SfcAgent implements MetaSearchAgentType {
             .replace(/文件來源:[^\n]*/g, '') // Remove "文件來源: ..."
             .trim();
 
+          const year = this.extractYear(content);
+
           // Extract first 4 lines for summary (before highlighting)
           const lines = content.split('\n').filter((line: string) => line.trim().length > 0);
-          const firstFourLines = lines.slice(0, 2).join(' ');
+          // const firstFourLines = lines.slice(0, 2).join(' ');
+          const summaryLines = lines.filter((line: string) => !line.match(/年份[：:]\s*\d{4}/));
+          const firstFourLines = summaryLines.slice(0, 1).join(' ');
           const truncatedSummary = firstFourLines.length > 150 ? firstFourLines.substring(0, 150) + '...' : firstFourLines;
           
           // Add <em> tags based on highlight field
@@ -343,7 +360,21 @@ class SfcAgent implements MetaSearchAgentType {
           }
 
           // Create summary text with document metadata and content preview
-          let summaryText = truncatedSummary;
+          // let summaryText = truncatedSummary;
+          let summaryText = year > 0 ? `${year}年 - ` : '';
+          summaryText += truncatedSummary;
+          
+          // Add highlighted keywords to summaryText in traditional Chinese, separated by |
+          if (chunk.highlight) {
+            const simplifiedKeywords = this.extractHighlightedKeywords(chunk.highlight);
+            if (simplifiedKeywords.length > 0) {
+              // Convert to traditional Chinese and remove duplicates using Set
+              const traditionalKeywords = [...new Set(
+                simplifiedKeywords.map(keyword => this.simplifiedToTraditional(keyword))
+              )].join(' | ');
+              summaryText += ` [關鍵詞: ${traditionalKeywords}]`;
+            }
+          }
 
           
           // Wrap content in details/summary for collapsible functionality
