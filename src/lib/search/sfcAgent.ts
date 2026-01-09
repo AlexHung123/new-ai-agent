@@ -16,21 +16,20 @@ class SfcAgent implements MetaSearchAgentType {
       queryGeneratorPrompt: '',
       queryGeneratorFewShots: [],
       responsePrompt: `你是一個專業的香港立法會質詢分析助手。
+        根據提供的檢索結果（chunks），請分析用戶的問題並提供詳細回答。
 
-根據提供的檢索結果（chunks），請分析用戶的問題並提供詳細回答。
+        ## 回答要求：
+        1. 使用繁體中文回答
+        2. 根據檢索到的chunks內容進行分析
+        3. 如果檢索結果包含相關信息，請整理並清晰呈現
+        4. 保持客觀、準確，避免推測
+        5. 必要時可以使用表格或列表整理信息
 
-## 回答要求：
-1. 使用繁體中文回答
-2. 根據檢索到的chunks內容進行分析
-3. 如果檢索結果包含相關信息，請整理並清晰呈現
-4. 保持客觀、準確，避免推測
-5. 必要時可以使用表格或列表整理信息
+        請根據以下檢索結果回答用戶問題：
 
-請根據以下檢索結果回答用戶問題：
+        {context}
 
-{context}
-
-用戶問題：{query}`,
+        用戶問題：{query}`,
       rerank: false,
       rerankThreshold: 0,
       searchWeb: false,
@@ -57,47 +56,46 @@ class SfcAgent implements MetaSearchAgentType {
         }
 
         const keywordPrompt = `你是一個「主題關鍵詞抽取助手」，專門為 RAG 檢索系統從使用者查詢中抽取**唯一核心主題**，用於全文與向量檢索。
+            ## 任務
+            - 從使用者的自然語言查詢中，找出最核心、最關鍵的**一個主題詞或短語**。
+            - 這個主題會被用來向知識庫檢索相關的 chunks，之後會再用使用者原始問題做分析與生成回答。
+            - 因此，你只需要輸出**主題本身**，其他條件（年份、人物、格式要求等）不需要出現在你的輸出中。
+            - 如果不包含任何主題，則輸出「未找到相關資料」。
 
-## 任務
-- 從使用者的自然語言查詢中，找出最核心、最關鍵的**一個主題詞或短語**。
-- 這個主題會被用來向知識庫檢索相關的 chunks，之後會再用使用者原始問題做分析與生成回答。
-- 因此，你只需要輸出**主題本身**，其他條件（年份、人物、格式要求等）不需要出現在你的輸出中。
-- 如果不包含任何主題，則輸出「未找到相關資料」。
+            ## 語言規則
+            1. 如果使用者查詢是中文（繁體或簡體），直接在**中文語境下**判斷並抽取主題。
+            2. 如果使用者查詢是英文或中英混合：
+              - 先理解英文含義。
+              - 在腦中將主題概念轉換為**自然、常用的中文表達**。
+              - 輸出的主題必須是中文，用於中文全文檢索。
 
-## 語言規則
-1. 如果使用者查詢是中文（繁體或簡體），直接在**中文語境下**判斷並抽取主題。
-2. 如果使用者查詢是英文或中英混合：
-   - 先理解英文含義。
-   - 在腦中將主題概念轉換為**自然、常用的中文表達**。
-   - 輸出的主題必須是中文，用於中文全文檢索。
+            ## 輸出規則（非常重要）
+            1. **只輸出一個主題詞或短語**，且必須是查詢真正關心的核心內容。
+            2. 不要輸出任何解釋、說明、標點符號或引號。
+            3. 優先保留使用者原文中的關鍵詞語（若為中文），例如：「愛國精神」、「房屋政策」、「最低工資」、「中小企業融資困難」。
+            4. 如果查詢中包含很多格式或欄位描述（例如「問題 N」「提問年份」「提問人」等），全部忽略，只關注要搜尋「什麼內容」。
+            5. 無論輸入是中文還是英文，你的最終輸出都必須是**一個中文主題詞或短語**。
 
-## 輸出規則（非常重要）
-1. **只輸出一個主題詞或短語**，且必須是查詢真正關心的核心內容。
-2. 不要輸出任何解釋、說明、標點符號或引號。
-3. 優先保留使用者原文中的關鍵詞語（若為中文），例如：「愛國精神」、「房屋政策」、「最低工資」、「中小企業融資困難」。
-4. 如果查詢中包含很多格式或欄位描述（例如「問題 N」「提問年份」「提問人」等），全部忽略，只關注要搜尋「什麼內容」。
-5. 無論輸入是中文還是英文，你的最終輸出都必須是**一個中文主題詞或短語**。
+            ## 範例
+            - 使用者：請以繁體中文回答： 以下列格式例出以往的問答, 例出全部問題原文或答案原文必須包括「愛國精神」的字眼 ……  
+              你輸出：愛國精神
 
-## 範例
-- 使用者：請以繁體中文回答： 以下列格式例出以往的問答, 例出全部問題原文或答案原文必須包括「愛國精神」的字眼 ……  
-  你輸出：愛國精神
+            - 使用者：我想查以前有關房屋政策的質詢紀錄  
+              你輸出：房屋政策
 
-- 使用者：我想查以前有關房屋政策的質詢紀錄  
-  你輸出：房屋政策
+            - 使用者：幫我找所有提到中小企業融資困難的問答  
+              你輸出：中小企業融資困難
 
-- 使用者：幫我找所有提到中小企業融資困難的問答  
-  你輸出：中小企業融資困難
+            - 使用者：Find all questions about minimum wage by LegCo members  
+              （先理解為：關於最低工資的問題）  
+              你輸出：最低工資
 
-- 使用者：Find all questions about minimum wage by LegCo members  
-  （先理解為：關於最低工資的問題）  
-  你輸出：最低工資
+            - 使用者：Show me past LegCo questions about housing policy  
+              （先理解為：關於房屋政策的立法會質詢）  
+              你輸出：房屋政策
 
-- 使用者：Show me past LegCo questions about housing policy  
-  （先理解為：關於房屋政策的立法會質詢）  
-  你輸出：房屋政策
-
-現在，請從以下使用者查詢中抽取主題：
-${userQuestion}`;
+            現在，請從以下使用者查詢中抽取主題：
+            ${userQuestion}`;
 
         let keywordResponse = '';
         const stream = await llm.stream(keywordPrompt, { signal });
@@ -111,6 +109,94 @@ ${userQuestion}`;
         reject(error);
       }
     });
+  }
+
+  /**
+   * Query Elasticsearch directly for exact match search
+   */
+  private async queryElasticsearchDirect(
+    pattern: string,
+    signal?: AbortSignal,
+  ): Promise<any> {
+    try {
+      // Get Elasticsearch configuration from config.json
+      const ragflowConfig = configManager.getConfig('ragflow', {});
+      const elasticsearchUrl = ragflowConfig.elasticsearchUrl || 'http://192.168.1.173:12001';
+      const elasticsearchAuth = ragflowConfig.elasticsearchAuth || {
+        username: 'elastic1',
+        password: 'infini_rag_flow'
+      };
+      const datasetId = ragflowConfig.datasetIds?.[0] || '272c75fed41c11f083790242ac1600061';
+      const indexPattern = ragflowConfig.indexPattern || 'ragflow_*1';
+      const topK = ragflowConfig.topK || 5001;
+
+      // Build Elasticsearch query
+      const queryBody = {
+        size: topK,
+        _source: [
+          'id',
+          'doc_id',
+          'kb_id',
+          'docnm_kwd',
+          'page_num_int',
+          'position_int',
+          'content_with_weight_kw'
+        ],
+        query: {
+          bool: {
+            must: [
+              { term: { kb_id: datasetId } },
+              {
+                wildcard: {
+                  content_with_weight_kw: {
+                    value: `*${pattern}*`,
+                    case_insensitive: true
+                  }
+                }
+              }
+            ]
+          }
+        },
+        sort: [{ doc_id: 'asc' }, { page_num_int: 'asc' }, { position_int: 'asc' }]
+      };
+
+      const response = await fetch(`${elasticsearchUrl}/${indexPattern}/_search`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/vnd.elasticsearch+json; compatible-with=8',
+          'Accept': 'application/vnd.elasticsearch+json; compatible-with=8',
+          'Authorization': `Basic ${Buffer.from(`${elasticsearchAuth.username}:${elasticsearchAuth.password}`).toString('base64')}`,
+        },
+        signal,
+        body: JSON.stringify(queryBody),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Elasticsearch request failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Transform Elasticsearch response to match RAGFlow response format
+      const chunks = (data.hits?.hits || []).map((hit: any) => ({
+        content: hit._source?.content_with_weight_kw || '',
+        doc_id: hit._source?.doc_id || '',
+        docnm_kwd: hit._source?.docnm_kwd || '',
+        page_num_int: hit._source?.page_num_int || 0,
+        position_int: hit._source?.position_int || 0,
+        highlight: pattern, // Use pattern as highlight for exact match
+        score: hit._score || 0
+      }));
+
+      return {
+        data: {
+          total: data.hits?.total?.value || 0,
+          chunks: chunks
+        }
+      };
+    } catch (error) {
+      throw new Error(`Elasticsearch error: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   /**
@@ -245,20 +331,106 @@ ${userQuestion}`;
             .replace(/檢索結果\s*\d+\s*\(相似度:\s*[\d.]+%\)/g, '') // Remove "檢索結果 X (相似度: X%)"
             .replace(/文件來源:[^\n]*/g, '') // Remove "文件來源: ..."
             .trim();
+
+          // Extract first 4 lines for summary (before highlighting)
+          const lines = content.split('\n').filter((line: string) => line.trim().length > 0);
+          const firstFourLines = lines.slice(0, 2).join(' ');
+          const truncatedSummary = firstFourLines.length > 150 ? firstFourLines.substring(0, 150) + '...' : firstFourLines;
           
           // Add <em> tags based on highlight field
           if (chunk.highlight) {
             content = this.highlightContentKeywords(content, chunk.highlight);
           }
+
+          // Create summary text with document metadata and content preview
+          let summaryText = truncatedSummary;
+
           
-          return content;
+          // Wrap content in details/summary for collapsible functionality
+          const collapsibleContent = `<details>
+<summary style="cursor: pointer; font-weight: bold; padding: 8px; background-color: #f5f5f5; border-radius: 4px; margin-bottom: 8px;">${summaryText}</summary>
+<div style="padding: 12px; border-left: 3px solid #ddd; margin-left: 4px;">${content}</div>
+</details>`;
+          
+          return collapsibleContent;
+          
+          // return content;
         })
         .filter((content: string) => content.length > 0)
-        .join('\n\n---\n\n');
+        .join('\n\n');
 
       return formattedChunks;
     } catch (error) {
       console.error('Error extracting chunks:', error);
+      return '處理檢索結果時發生錯誤';
+    }
+  }
+
+  /**
+   * Extract chunks from Elasticsearch direct query response
+   * This method handles the different data structure returned by Elasticsearch
+   * where highlight is just a pattern string, not formatted text with <em> tags
+   */
+  private extractChunksFromElasticsearch(elasticsearchResponse: any): string {
+    try {
+      if (
+        !elasticsearchResponse ||
+        !elasticsearchResponse.data ||
+        !elasticsearchResponse.data.chunks ||
+        elasticsearchResponse.data.chunks.length === 0
+      ) {
+        return '未找到相關資料';
+      }
+
+      const chunks = elasticsearchResponse.data.chunks;
+      
+      // Format chunks for display with collapsible functionality
+      const formattedChunks = chunks
+        .map((chunk: any, index: number) => {
+          let content = chunk.content || '';
+          
+          // Remove unwanted patterns
+          content = content
+            .replace(/檢索結果\s*\d+\s*\(相似度:\s*[\d.]+%\)/g, '') // Remove "檢索結果 X (相似度: X%)"
+            .replace(/文件來源:[^\n]*/g, '') // Remove "文件來源: ..."
+            .trim();
+          
+          // Extract first 4 lines for summary (before highlighting)
+          const lines = content.split('\n').filter((line: string) => line.trim().length > 0);
+          const firstFourLines = lines.slice(0, 2).join(' ');
+          const truncatedSummary = firstFourLines.length > 150 ? firstFourLines.substring(0, 150) + '...' : firstFourLines;
+          
+          // Highlight the search pattern in the content
+          if (chunk.highlight) {
+            // Elasticsearch highlight is just a pattern string
+            // Escape special regex characters in the pattern
+            const escapedPattern = chunk.highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(escapedPattern, 'gi');
+            
+            // Replace with red span
+            content = content.replace(regex, '<span style="color:red;">$&</span>');
+          }
+          
+          // Create summary text with document metadata and content preview
+          let summaryText = truncatedSummary || `結果 ${index + 1}`;
+          if (chunk.docnm_kwd && chunk.page_num_int) {
+            summaryText += ` - ${chunk.docnm_kwd} (第 ${chunk.page_num_int} 頁)`;
+          }
+          
+          // Wrap content in details/summary for collapsible functionality
+          const collapsibleContent = `<details>
+<summary style="cursor: pointer; font-weight: bold; padding: 8px; background-color: #f5f5f5; border-radius: 4px; margin-bottom: 8px;">${summaryText}</summary>
+<div style="padding: 12px; border-left: 3px solid #ddd; margin-left: 4px;">${content}</div>
+</details>`;
+          
+          return collapsibleContent;
+        })
+        .filter((content: string) => content.length > 0)
+        .join('\n\n');
+
+      return formattedChunks;
+    } catch (error) {
+      console.error('Error extracting chunks from Elasticsearch:', error);
       return '處理檢索結果時發生錯誤';
     }
   }
@@ -315,15 +487,31 @@ ${userQuestion}`;
             }
         }
 
-        // Step 2: Query RAGFlow API
-        const overrides = sfcExactMatch 
-            ? { similarityThreshold: 0.2, vectorSimilarityWeight: 0.0 } 
-            : undefined;
-
-        const ragflowResponse = await this.queryRAGFlow(keyword, signal, overrides, sfcExactMatch);
+        // Step 2: Query data source
+        let ragflowResponse: any;
+        
+        if (sfcExactMatch) {
+            // Use Elasticsearch direct query for exact match
+            ragflowResponse = await this.queryElasticsearchDirect(keyword, signal);
+        } else {
+            // Use RAGFlow API for semantic search
+            const overrides = { 
+                similarityThreshold: 0.2, 
+                vectorSimilarityWeight: 0.0 
+            };
+            ragflowResponse = await this.queryRAGFlow(keyword, signal, overrides, false);
+        }
 
         // Step 3: Extract chunks from response
-        const chunks = this.extractChunks(ragflowResponse);
+        let chunks: string;
+        
+        if (sfcExactMatch) {
+            // Use the new method for Elasticsearch response
+            chunks = this.extractChunksFromElasticsearch(ragflowResponse);
+        } else {
+            // Use the existing method for RAGFlow response
+            chunks = this.extractChunks(ragflowResponse);
+        }
 
         if (chunks === '未找到相關資料') {
           emitter.emit(
