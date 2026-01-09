@@ -2,9 +2,9 @@ import { cn } from '@/lib/utils';
 import { ArrowUp, Square } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
-import AttachSmall from './MessageInputActions/AttachSmall';
 import { useChat } from '@/lib/hooks/useChat';
 import { focusModes } from '@/lib/agents';
+import SfcExactMatchToggle from './SfcExactMatchToggle';
 
 const MessageInput = () => {
   const { loading, sendMessage, stop, focusMode, sfcExactMatch } = useChat();
@@ -68,11 +68,9 @@ const MessageInput = () => {
         }
       }}
       className={cn(
-        'bg-light-secondary dark:bg-dark-secondary p-4 flex items-center overflow-hidden border border-light-200 dark:border-dark-200 shadow-sm shadow-light-200/10 dark:shadow-black/20 transition-all duration-200 focus-within:border-light-300 dark:focus-within:border-dark-300',
-        mode === 'multi' ? 'flex-col rounded-2xl' : 'flex-row rounded-full',
+        'bg-light-secondary dark:bg-dark-secondary px-3 pt-5 pb-3 flex flex-col rounded-2xl w-full border border-light-200 dark:border-dark-200 shadow-sm shadow-light-200/10 dark:shadow-black/20 transition-all duration-200 focus-within:border-light-300 dark:focus-within:border-dark-300',
       )}
     >
-      {/* {mode === 'single' && <AttachSmall />} */}
       <TextareaAutosize
         ref={inputRef}
         value={message}
@@ -80,58 +78,31 @@ const MessageInput = () => {
         onHeightChange={(height, props) => {
           setTextareaRows(Math.ceil(height / props.rowHeight));
         }}
-        className="transition bg-transparent dark:placeholder:text-white/50 placeholder:text-sm text-sm dark:text-white resize-none focus:outline-none w-full px-2 max-h-24 lg:max-h-36 xl:max-h-48 flex-grow flex-shrink"
+        className="px-2 bg-transparent dark:placeholder:text-white/50 placeholder:text-sm text-sm dark:text-white resize-none focus:outline-none w-full max-h-24 lg:max-h-36 xl:max-h-48"
         placeholder={placeholder}
       />
-      {mode === 'single' && (
-        <div className="flex flex-row items-center space-x-4">
-          <button
-            disabled={message.trim().length === 0 && !loading}
-            onClick={(e) => {
-              e.preventDefault();
-              if (loading) {
-                stop();
-              } else {
-                sendMessage(message);
-                setMessage('');
-              }
-            }}
-            className="bg-[#24A0ED] text-white disabled:text-black/50 dark:disabled:text-white/50 hover:bg-opacity-85 transition duration-100 disabled:bg-[#e0e0dc79] dark:disabled:bg-[#ececec21] rounded-full p-2"
-          >
-            {loading ? (
-              <Square className="bg-background" fill="white" size={17} />
-            ) : (
-              <ArrowUp className="bg-background" size={17} />
-            )}
-          </button>
-        </div>
-      )}
-      {mode === 'multi' && (
-        <div className="flex flex-row items-center justify-between w-full pt-2">
-          {/* <AttachSmall /> */}
-          <div className="flex flex-row items-center space-x-4">
-            <button
-              disabled={message.trim().length === 0 && !loading}
-              onClick={(e) => {
-                e.preventDefault();
-                if (loading) {
-                  stop();
-                } else {
-                  sendMessage(message);
-                  setMessage('');
-                }
-              }}
-              className="bg-[#24A0ED] text-white text-black/50 dark:disabled:text-white/50 hover:bg-opacity-85 transition duration-100 disabled:bg-[#e0e0dc79] dark:disabled:bg-[#ececec21] rounded-full p-2"
-            >
-              {loading ? (
-                <Square className="bg-background" fill="white" size={17} />
-              ) : (
-                <ArrowUp className="bg-background" size={17} />
-              )}
-            </button>
-          </div>
-        </div>
-      )}
+      <div className="flex flex-row items-center justify-end mt-4">
+        <SfcExactMatchToggle />
+        <button
+          disabled={message.trim().length === 0 && !loading}
+          onClick={(e) => {
+            e.preventDefault();
+            if (loading) {
+              stop();
+            } else {
+              sendMessage(message);
+              setMessage('');
+            }
+          }}
+          className="bg-[#24A0ED] text-white disabled:text-black/50 dark:disabled:text-white/50 hover:bg-opacity-85 transition duration-100 disabled:bg-[#e0e0dc79] dark:disabled:bg-[#ececec21] rounded-full p-2"
+        >
+          {loading ? (
+            <Square className="bg-background" fill="white" size={17} />
+          ) : (
+            <ArrowUp className="bg-background" size={17} />
+          )}
+        </button>
+      </div>
     </form>
   );
 };
