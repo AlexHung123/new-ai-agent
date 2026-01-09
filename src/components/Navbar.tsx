@@ -1,7 +1,6 @@
-import { Edit, Share, Trash, FileText, FileDown, LayoutGrid } from 'lucide-react';
+import { Edit, Share, FileText, Plus } from 'lucide-react';
 import { Message } from './ChatWindow';
 import { useEffect, useState, Fragment } from 'react';
-import DeleteChat from './DeleteChat';
 import {
   Popover,
   PopoverButton,
@@ -10,6 +9,7 @@ import {
 } from '@headlessui/react';
 import jsPDF from 'jspdf';
 import { useChat, Section } from '@/lib/hooks/useChat';
+import Link from 'next/link';
 
 const downloadFile = (filename: string, content: string, type: string) => {
   const blob = new Blob([content], { type });
@@ -193,7 +193,7 @@ const exportAsPDF = (sections: Section[], title: string) => {
 const Navbar = () => {
   const [title, setTitle] = useState<string>('');
 
-  const { sections, chatId } = useChat();
+  const { sections, focusMode } = useChat();
 
   useEffect(() => {
     if (sections.length > 0 && sections[0].userMessage) {
@@ -279,12 +279,12 @@ const Navbar = () => {
                 </PopoverPanel>
               </Transition>
             </Popover>
-            <DeleteChat
-              redirect
-              chatId={chatId!}
-              chats={[]}
-              setChats={() => {}}
-            />
+            <button
+              onClick={() => (window.location.href = '/itms/ai/')}
+              className="p-2 rounded-lg hover:bg-light-secondary dark:hover:bg-dark-secondary transition-colors duration-200 text-black/60 dark:text-white/60"
+            >
+              <Plus size={16} />
+            </button>
           </div>
         </div>
       </div>
