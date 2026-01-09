@@ -728,8 +728,8 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
 
   // 🆕 添加字符到緩衝區
   const addToBuffer = (text: string, msgId: string) => {
-    charBuffer.push(...text.split('')); // 將文本拆分成單個字符
-    
+    // charBuffer.push(...text.split('')); // 將文本拆分成單個字符
+    charBuffer = charBuffer.concat(text.split(''));
     if (!isTyping) {
       startTyping(msgId);
     }

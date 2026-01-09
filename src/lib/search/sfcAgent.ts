@@ -384,8 +384,21 @@ class SfcAgent implements MetaSearchAgentType {
 
       const chunks = elasticsearchResponse.data.chunks;
       
+      // Helper function to extract year from "年份：XXXX" line
+      const extractYear = (content: string): number => {
+        const yearMatch = content.match(/年份[：:]\s*(\d{4})/);
+        return yearMatch ? parseInt(yearMatch[1], 10) : 0;
+      };
+      
+      // Sort chunks by year in descending order
+      const sortedChunks = [...chunks].sort((a: any, b: any) => {
+        const yearA = extractYear(a.content || '');
+        const yearB = extractYear(b.content || '');
+        return yearB - yearA; // Descending order
+      });
+      
       // Format chunks for display with collapsible functionality
-      const formattedChunks = chunks
+      const formattedChunks = sortedChunks
         .map((chunk: any, index: number) => {
           let content = chunk.content || '';
           
@@ -395,9 +408,13 @@ class SfcAgent implements MetaSearchAgentType {
             .replace(/文件來源:[^\n]*/g, '') // Remove "文件來源: ..."
             .trim();
           
-          // Extract first 4 lines for summary (before highlighting)
+          // Extract year for display
+          const year = extractYear(content);
+          
+          // Extract first lines for summary, skipping the "年份：XXXX" line
           const lines = content.split('\n').filter((line: string) => line.trim().length > 0);
-          const firstFourLines = lines.slice(0, 2).join(' ');
+          const summaryLines = lines.filter((line: string) => !line.match(/年份[：:]\s*\d{4}/));
+          const firstFourLines = summaryLines.slice(0, 1).join(' ');
           const truncatedSummary = firstFourLines.length > 150 ? firstFourLines.substring(0, 150) + '...' : firstFourLines;
           
           // Highlight the search pattern in the content
@@ -411,8 +428,9 @@ class SfcAgent implements MetaSearchAgentType {
             content = content.replace(regex, '<span style="color:red;">$&</span>');
           }
           
-          // Create summary text with document metadata and content preview
-          let summaryText = truncatedSummary || `結果 ${index + 1}`;
+          // Create summary text with year, document metadata and content preview
+          let summaryText = year > 0 ? `${year}年 - ` : '';
+          summaryText += truncatedSummary || `結果 ${index + 1}`;
           if (chunk.docnm_kwd && chunk.page_num_int) {
             summaryText += ` - ${chunk.docnm_kwd} (第 ${chunk.page_num_int} 頁)`;
           }
@@ -512,7 +530,6 @@ class SfcAgent implements MetaSearchAgentType {
             // Use the existing method for RAGFlow response
             chunks = this.extractChunks(ragflowResponse);
         }
-
         if (chunks === '未找到相關資料') {
           emitter.emit(
             'data',
