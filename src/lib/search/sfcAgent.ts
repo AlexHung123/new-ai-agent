@@ -127,6 +127,7 @@ class SfcAgent implements MetaSearchAgentType {
         password: 'infini_rag_flow'
       };
       const datasetId = ragflowConfig.datasetIds?.[0] || '272c75fed41c11f083790242ac1600061';
+      const docId = ragflowConfig.documentIds?.[0]
       const indexPattern = ragflowConfig.indexPattern || 'ragflow_*1';
       const topK = ragflowConfig.topK || 5001;
 
@@ -146,6 +147,7 @@ class SfcAgent implements MetaSearchAgentType {
           bool: {
             must: [
               { term: { kb_id: datasetId } },
+              { term: { doc_id: docId } }, 
               {
                 wildcard: {
                   content_with_weight_kw: {
