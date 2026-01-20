@@ -14,6 +14,12 @@ const EmptyChatMessageInput = () => {
 
   /* const [copilotEnabled, setCopilotEnabled] = useState(false); */
   const [message, setMessage] = useState('');
+  const [aspect, setAspect] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('agentImageAspect') || '1:1';
+    }
+    return '1:1';
+  });
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -52,12 +58,18 @@ const EmptyChatMessageInput = () => {
     <form
       onSubmit={(e) => {
         e.preventDefault();
+        if (typeof window !== 'undefined' && focusMode === 'agentImage') {
+          localStorage.setItem('agentImageAspect', aspect);
+        }
         sendMessage(message);
         setMessage('');
       }}
       onKeyDown={(e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
           e.preventDefault();
+          if (typeof window !== 'undefined' && focusMode === 'agentImage') {
+            localStorage.setItem('agentImageAspect', aspect);
+          }
           sendMessage(message);
           setMessage('');
         }
@@ -77,6 +89,22 @@ const EmptyChatMessageInput = () => {
           <SfcExactMatchToggle />
           {/* <Optimization /> */}
           <div className="flex flex-row items-center space-x-2">
+            {focusMode === 'agentImage' && (
+              <select
+                value={aspect}
+                onChange={(e) => setAspect(e.target.value)}
+                className="mx-2 rounded-lg border border-light-200 dark:border-dark-200 bg-light-primary dark:bg-dark-primary text-sm px-2 py-1 text-black dark:text-white"
+              >
+                <option value="1:1">1:1</option>
+                <option value="16:9">16:9</option>
+                <option value="9:16">9:16</option>
+                <option value="4:3">4:3</option>
+                <option value="3:2">3:2</option>
+                <option value="594:295">594:295</option>
+                <option value="295:295">295:295</option>
+                <option value="952:320">952:320</option>
+              </select>
+            )}
             <div className="flex flex-row items-center space-x-1">
               <ModelSelector />
               {/* <Focus /> */}

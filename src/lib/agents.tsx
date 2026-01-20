@@ -1,5 +1,11 @@
-import { Book, Database, NotepadText, UsersRound, LucideIcon } from 'lucide-react';
-import React from 'react';
+import {
+  Book,
+  Database,
+  NotepadText,
+  UsersRound,
+  LucideIcon,
+  Image as ImageIcon,
+} from 'lucide-react';
 
 export interface AgentMode {
   key: string;
@@ -22,6 +28,16 @@ export const focusModes: AgentMode[] = [
     permissionCode: 'chatDataAgent:execute',
     placeholder: 'Ask about training data...',
     followUpPlaceholder: 'Ask a follow-up about training data...',
+  },
+  {
+    key: 'agentImage',
+    title: 'Agent Image',
+    description: 'Your assistant for generating images',
+    icon: ImageIcon,
+    image: '/itms/ai/agent_flyer.png',
+    permissionCode: 'chatGuideAgent:execute',
+    placeholder: 'Describe the image to generate...',
+    followUpPlaceholder: 'Refine the image prompt...',
   },
   {
     key: 'agentGuide',

@@ -301,7 +301,7 @@ class SfcAgent implements MetaSearchAgentType {
       const regex = new RegExp(escapedKeyword, 'g');
       
       // Replace with <em> tags
-      highlightedContent = highlightedContent.replace(regex, `<span style="color:red;">${traditionalKeyword}</span>`);
+      highlightedContent = highlightedContent.replace(regex, `<span style="color:red;display:inline !important;">${traditionalKeyword}</span>`);
     }
     
     return highlightedContent;
@@ -459,7 +459,7 @@ class SfcAgent implements MetaSearchAgentType {
             const regex = new RegExp(escapedPattern, 'gi');
             
             // Replace with red span
-            content = content.replace(regex, '<span style="color:red;">$&</span>');
+            content = content.replace(regex, '<span style="color:red;display:inline !important;">$&</span>');
           }
           
           // Create summary text with year, document metadata and content preview

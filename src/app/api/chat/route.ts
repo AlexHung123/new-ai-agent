@@ -216,7 +216,10 @@ const handleHistorySave = async (
     where: eq(chats.id, message.chatId),
   });
 
-  const fileData = files.map(getFileDetails);
+  const filteredFiles = (files || []).filter(
+    (f) => typeof f === 'string' && !f.startsWith('__AGENT_IMAGE_ASPECT__:')
+  );
+  const fileData = filteredFiles.map(getFileDetails);
 
   if (!chat) {
     await db
@@ -233,7 +236,7 @@ const handleHistorySave = async (
   } else if (JSON.stringify(chat.files ?? []) != JSON.stringify(fileData)) {
     db.update(chats)
       .set({
-        files: files.map(getFileDetails),
+        files: filteredFiles.map(getFileDetails),
       })
       .where(eq(chats.id, message.chatId));
   }
@@ -379,4 +382,3 @@ export const POST = async (req: Request) => {
     );
   }
 };
-

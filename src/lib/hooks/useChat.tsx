@@ -21,7 +21,12 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { getSuggestions } from '../actions';
 import { MinimalProvider } from '../models/types';
-import { initializeAuthToken, getAuthToken, getAuthHeaders, extractUserIdFromToken } from '../utils/auth';
+import {
+  initializeAuthToken,
+  getAuthToken,
+  getAuthHeaders,
+  extractUserIdFromToken,
+} from '../utils/auth';
 
 export type Section = {
   userMessage: UserMessage;
@@ -140,30 +145,35 @@ const checkConfig = async (
     }
 
     let focusMode = localStorage.getItem('focusMode') || 'webSearch';
-    let preferredModel = focusMode === 'agentSurvey' ? 'qwen3-next-80b-a3b-instruct-mlx' : 'gpt-oss-120b';
+    let preferredModel =
+      focusMode === 'agentSurvey'
+        ? 'qwen3-next-80b-a3b-instruct-mlx'
+        : 'gpt-oss-120b';
 
-    let chatModelProvider = providers.find(p => p.chatModels.some(m => m.key === preferredModel));
+    let chatModelProvider = providers.find((p) =>
+      p.chatModels.some((m) => m.key === preferredModel),
+    );
 
     if (chatModelProvider) {
-        chatModelKey = preferredModel;
-        chatModelProviderId = chatModelProvider.id;
+      chatModelKey = preferredModel;
+      chatModelProviderId = chatModelProvider.id;
     } else {
-        chatModelProvider =
+      chatModelProvider =
         providers.find((p) => p.id === chatModelProviderId) ??
         providers.find((p) => p.chatModels.length > 0);
 
-        if (!chatModelProvider) {
+      if (!chatModelProvider) {
         throw new Error(
-            'No chat models found, pleae configure them in the settings page.',
+          'No chat models found, pleae configure them in the settings page.',
         );
-        }
+      }
 
-        chatModelProviderId = chatModelProvider.id;
+      chatModelProviderId = chatModelProvider.id;
 
-        const chatModel =
+      const chatModel =
         chatModelProvider.chatModels.find((m) => m.key === chatModelKey) ??
         chatModelProvider.chatModels[0];
-        chatModelKey = chatModel.key;
+      chatModelKey = chatModel.key;
     }
 
     const embeddingModelProvider =
@@ -317,7 +327,7 @@ export const chatContext = createContext<ChatContext>({
 
   progress: null,
   clearProgress: () => {},
-  
+
   sfcExactMatch: false,
   setSfcExactMatch: () => {},
 
@@ -331,8 +341,6 @@ export const chatContext = createContext<ChatContext>({
   setEmbeddingModelProvider: () => {},
   stop: () => {},
 });
-
-
 
 export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   const params: { chatId: string } = useParams();
@@ -378,23 +386,27 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       key: '',
       providerId: '',
     });
-  
-  const [availableProviders, setAvailableProviders] = useState<MinimalProvider[]>([]);
+
+  const [availableProviders, setAvailableProviders] = useState<
+    MinimalProvider[]
+  >([]);
 
   const handleSetFocusMode = (mode: string) => {
     setFocusMode(mode);
-    
+
     let targetModel = 'gpt-oss-120b';
     if (mode === 'agentSurvey') {
       targetModel = 'qwen3-next-80b-a3b-instruct-mlx';
     }
 
-    const foundProvider = availableProviders.find(p => p.chatModels.some(m => m.key === targetModel));
+    const foundProvider = availableProviders.find((p) =>
+      p.chatModels.some((m) => m.key === targetModel),
+    );
 
     if (foundProvider) {
-        setChatModelProvider({ key: targetModel, providerId: foundProvider.id });
-        localStorage.setItem('chatModelKey', targetModel);
-        localStorage.setItem('chatModelProviderId', foundProvider.id);
+      setChatModelProvider({ key: targetModel, providerId: foundProvider.id });
+      localStorage.setItem('chatModelKey', targetModel);
+      localStorage.setItem('chatModelProviderId', foundProvider.id);
     }
   };
 
@@ -648,357 +660,368 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConfigReady, isReady, initialMessage]);
 
-    const sendMessage: ChatContext['sendMessage'] = async (
-      message,
-      messageId,
-      rewrite = false,
-    ) => {
-      if (loading || !message || !userId) return;
-      console.log('sendMessage started');
-      setLoading(true);
-      setMessageAppeared(false);
-      clearProgress();
-  
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-      const controller = new AbortController();
-      abortControllerRef.current = controller;
-      console.log('AbortController created', controller.signal);
-  
-      if (messages.length <= 1) {    window.history.replaceState(null, '', `/itms/ai/c/${chatId}`);
-  }
+  const sendMessage: ChatContext['sendMessage'] = async (
+    message,
+    messageId,
+    rewrite = false,
+  ) => {
+    if (loading || !message || !userId) return;
+    console.log('sendMessage started');
+    setLoading(true);
+    setMessageAppeared(false);
+    clearProgress();
 
-  let recievedMessage = '';
-  let added = false;
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    console.log('AbortController created', controller.signal);
 
-  // 🆕 打字機效果的緩衝隊列和控制變量
-  let charBuffer: string[] = [];
-  let isTyping = false;
-  let typingInterval: NodeJS.Timeout | null = null;
-  let currentMessageId: string | null = null;
-  let isCancelled = false;
+    if (messages.length <= 1) {
+      window.history.replaceState(null, '', `/itms/ai/c/${chatId}`);
+    }
 
-  messageId = messageId ?? crypto.randomBytes(7).toString('hex');
+    let recievedMessage = '';
+    let added = false;
 
-  setMessages((prevMessages) => [
-    ...prevMessages,
-    {
-      content: message,
-      messageId: messageId,
-      chatId: chatId!,
-      role: 'user',
-      createdAt: new Date(),
-    },
-  ]);
+    // 🆕 打字機效果的緩衝隊列和控制變量
+    let charBuffer: string[] = [];
+    let isTyping = false;
+    let typingInterval: NodeJS.Timeout | null = null;
+    let currentMessageId: string | null = null;
+    let isCancelled = false;
 
-  // 🆕 逐字顯示函數
-  const startTyping = (msgId: string) => {
-    if (isTyping) return;
-    
-    isTyping = true;
-    currentMessageId = msgId;
+    messageId = messageId ?? crypto.randomBytes(7).toString('hex');
 
-    const typeNextChar = () => {
-      if (charBuffer.length === 0) {
-        isTyping = false;
-        if (typingInterval) {
-          clearInterval(typingInterval);
-          typingInterval = null;
+    setMessages((prevMessages) => [
+      ...prevMessages,
+      {
+        content: message,
+        messageId: messageId,
+        chatId: chatId!,
+        role: 'user',
+        createdAt: new Date(),
+      },
+    ]);
+
+    // 🆕 逐字顯示函數
+    const startTyping = (msgId: string) => {
+      if (isTyping) return;
+
+      isTyping = true;
+      currentMessageId = msgId;
+
+      const typeNextChar = () => {
+        if (charBuffer.length === 0) {
+          isTyping = false;
+          if (typingInterval) {
+            clearInterval(typingInterval);
+            typingInterval = null;
+          }
+          return;
         }
+
+        // 一次處理多個字符以提高速度（可調整）
+        const charsToAdd = charBuffer.splice(0, 3).join('');
+
+        setMessages((prev) =>
+          prev.map((msg) => {
+            if (msg.messageId === msgId && msg.role === 'assistant') {
+              return { ...msg, content: msg.content + charsToAdd };
+            }
+            return msg;
+          }),
+        );
+      };
+
+      // 使用 setInterval 而非 requestAnimationFrame 以獲得更精確的控制
+      typingInterval = setInterval(typeNextChar, 20); // 20ms = 每秒50字符
+    };
+
+    // 🆕 添加字符到緩衝區
+    const addToBuffer = (text: string, msgId: string) => {
+      // charBuffer.push(...text.split('')); // 將文本拆分成單個字符
+      charBuffer = charBuffer.concat(text.split(''));
+      if (!isTyping) {
+        startTyping(msgId);
+      }
+    };
+
+    // 🆕 清空緩衝區並立即顯示剩餘內容
+    const flushBuffer = (msgId: string) => {
+      if (typingInterval) {
+        clearInterval(typingInterval);
+        typingInterval = null;
+      }
+
+      if (charBuffer.length > 0) {
+        const remaining = charBuffer.join('');
+        charBuffer = [];
+
+        setMessages((prev) =>
+          prev.map((msg) => {
+            if (msg.messageId === msgId && msg.role === 'assistant') {
+              return { ...msg, content: msg.content + remaining };
+            }
+            return msg;
+          }),
+        );
+      }
+
+      isTyping = false;
+    };
+
+    const messageHandler = async (data: any) => {
+      if (isCancelled) return;
+      if (data.type === 'error') {
+        toast.error(data.data);
+        setLoading(false);
+        // 🆕 清空緩衝區
+        if (currentMessageId) flushBuffer(currentMessageId);
         return;
       }
 
-      // 一次處理多個字符以提高速度（可調整）
-      const charsToAdd = charBuffer.splice(0, 3).join('');
-      
-      setMessages((prev) =>
-        prev.map((msg) => {
-          if (msg.messageId === msgId && msg.role === 'assistant') {
-            return { ...msg, content: msg.content + charsToAdd };
-          }
-          return msg;
-        }),
-      );
-    };
+      if (data.type === 'progress') {
+        // setProgress((prevProgress) => {
+        //   const newProgress = data.data;
+        //   const tasks = prevProgress?.tasks || [];
 
-    // 使用 setInterval 而非 requestAnimationFrame 以獲得更精確的控制
-    typingInterval = setInterval(typeNextChar, 20); // 20ms = 每秒50字符
-  };
+        //   // 如果有新的 question，添加到任务列表
+        //   if (newProgress.question && newProgress.current > 0) {
+        //     // 检查是否已经存在这个任务
+        //     const taskExists = tasks.some(t => t.id === newProgress.current);
+        //     if (!taskExists) {
+        //       // 将之前的任务标记为已完成
+        //       const updatedTasks = tasks.map(t => ({
+        //         ...t,
+        //         status: 'completed' as const,
+        //       }));
+        //       // 添加新任务
+        //       updatedTasks.push({
+        //         id: newProgress.current,
+        //         question: newProgress.question,
+        //         status: 'processing' as const,
+        //       });
+        //       return { ...newProgress, tasks: updatedTasks };
+        //     } else {
+        //       // 更新现有任务状态
+        //       return { ...newProgress, tasks };
+        //     }
+        //   }
 
-  // 🆕 添加字符到緩衝區
-  const addToBuffer = (text: string, msgId: string) => {
-    // charBuffer.push(...text.split('')); // 將文本拆分成單個字符
-    charBuffer = charBuffer.concat(text.split(''));
-    if (!isTyping) {
-      startTyping(msgId);
-    }
-  };
+        //   return { ...newProgress, tasks };
+        // });
+        setProgress((prevProgress) => {
+          const newProgress = data.data as ProgressData;
 
-  // 🆕 清空緩衝區並立即顯示剩餘內容
-  const flushBuffer = (msgId: string) => {
-    if (typingInterval) {
-      clearInterval(typingInterval);
-      typingInterval = null;
-    }
-    
-    if (charBuffer.length > 0) {
-      const remaining = charBuffer.join('');
-      charBuffer = [];
-      
-      setMessages((prev) =>
-        prev.map((msg) => {
-          if (msg.messageId === msgId && msg.role === 'assistant') {
-            return { ...msg, content: msg.content + remaining };
-          }
-          return msg;
-        }),
-      );
-    }
-    
-    isTyping = false;
-  };
+          const tasks: ProgressTask[] = prevProgress?.tasks ?? [];
 
-  const messageHandler = async (data: any) => {
-    if (isCancelled) return;
-    if (data.type === 'error') {
-      toast.error(data.data);
-      setLoading(false);
-      // 🆕 清空緩衝區
-      if (currentMessageId) flushBuffer(currentMessageId);
-      return;
-    }
+          if (newProgress.question && newProgress.current > 0) {
+            const taskExists = tasks.some((t) => t.id === newProgress.current);
 
-    if (data.type === 'progress') {
-      // setProgress((prevProgress) => {
-      //   const newProgress = data.data;
-      //   const tasks = prevProgress?.tasks || [];
+            if (!taskExists) {
+              const updatedTasks: ProgressTask[] = tasks.map((t) => ({
+                ...t,
+                status: 'completed', // <-- no "as const"
+              }));
 
-      //   // 如果有新的 question，添加到任务列表
-      //   if (newProgress.question && newProgress.current > 0) {
-      //     // 检查是否已经存在这个任务
-      //     const taskExists = tasks.some(t => t.id === newProgress.current);
-      //     if (!taskExists) {
-      //       // 将之前的任务标记为已完成
-      //       const updatedTasks = tasks.map(t => ({
-      //         ...t,
-      //         status: 'completed' as const,
-      //       }));
-      //       // 添加新任务
-      //       updatedTasks.push({
-      //         id: newProgress.current,
-      //         question: newProgress.question,
-      //         status: 'processing' as const,
-      //       });
-      //       return { ...newProgress, tasks: updatedTasks };
-      //     } else {
-      //       // 更新现有任务状态
-      //       return { ...newProgress, tasks };
-      //     }
-      //   }
+              updatedTasks.push({
+                id: newProgress.current,
+                question: newProgress.question,
+                status: 'processing', // <-- now allowed
+              });
 
-      //   return { ...newProgress, tasks };
-      // });
-      setProgress((prevProgress) => {
-        const newProgress = data.data as ProgressData;
+              return { ...newProgress, tasks: updatedTasks };
+            }
 
-        const tasks: ProgressTask[] = prevProgress?.tasks ?? [];
-
-        if (newProgress.question && newProgress.current > 0) {
-          const taskExists = tasks.some((t) => t.id === newProgress.current);
-
-          if (!taskExists) {
-            const updatedTasks: ProgressTask[] = tasks.map((t) => ({
-              ...t,
-              status: 'completed', // <-- no "as const"
-            }));
-
-            updatedTasks.push({
-              id: newProgress.current,
-              question: newProgress.question,
-              status: 'processing', // <-- now allowed
-            });
-
-            return { ...newProgress, tasks: updatedTasks };
+            return { ...newProgress, tasks };
           }
 
           return { ...newProgress, tasks };
-        }
+        });
 
-        return { ...newProgress, tasks };
-      });
-
-      return;
-    }
-
-    if (data.type === 'sources') {
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        {
-          messageId: data.messageId,
-          chatId: chatId!,
-          role: 'source',
-          sources: data.data,
-          createdAt: new Date(),
-        },
-      ]);
-      if (data.data.length > 0) {
-        setMessageAppeared(true);
+        return;
       }
-    }
 
-    if (data.type === 'message') {
-      if (!added) {
-        // 第一次收到消息，創建空的 assistant 消息
+      if (data.type === 'sources') {
         setMessages((prevMessages) => [
           ...prevMessages,
           {
-            content: '', // 🆕 初始為空，通過打字機效果填充
             messageId: data.messageId,
             chatId: chatId!,
-            role: 'assistant',
+            role: 'source',
+            sources: data.data,
             createdAt: new Date(),
           },
         ]);
-        added = true;
-        setMessageAppeared(true);
-      }
-      
-      // 🆕 將新數據添加到緩衝區而不是直接更新狀態
-      addToBuffer(data.data, data.messageId);
-      recievedMessage += data.data;
-    }
-
-    if (data.type === 'messageEnd') {
-      // 🆕 確保所有緩衝內容都已顯示
-      if (currentMessageId) {
-        flushBuffer(currentMessageId);
+        if (data.data.length > 0) {
+          setMessageAppeared(true);
+        }
       }
 
-      setChatHistory((prevHistory) => [
-        ...prevHistory,
-        ['human', message],
-        ['assistant', recievedMessage],
-      ]);
-
-      setLoading(false);
-      clearProgress();
-
-      /* Check if there are sources after message id's index and no suggestions */
-
-      const userMessageIndex = messagesRef.current.findIndex(
-        (msg) => msg.messageId === messageId && msg.role === 'user',
-      );
-
-      const sourceMessage = messagesRef.current.find(
-        (msg, i) => i > userMessageIndex && msg.role === 'source',
-      ) as SourceMessage | undefined;
-
-      const suggestionMessageIndex = messagesRef.current.findIndex(
-        (msg, i) => i > userMessageIndex && msg.role === 'suggestion',
-      );
-
-      if (
-        sourceMessage &&
-        sourceMessage.sources.length > 0 &&
-        suggestionMessageIndex == -1
-      ) {
-        const suggestions = await getSuggestions(messagesRef.current);
-        setMessages((prev) => {
-          return [
-            ...prev,
+      if (data.type === 'message') {
+        if (!added) {
+          // 第一次收到消息，創建空的 assistant 消息
+          setMessages((prevMessages) => [
+            ...prevMessages,
             {
-              role: 'suggestion',
-              suggestions: suggestions,
+              content: '', // 🆕 初始為空，通過打字機效果填充
+              messageId: data.messageId,
               chatId: chatId!,
+              role: 'assistant',
               createdAt: new Date(),
-              messageId: crypto.randomBytes(7).toString('hex'),
             },
-          ];
-        });
+          ]);
+          added = true;
+          setMessageAppeared(true);
+        }
+
+        // 🆕 將新數據添加到緩衝區而不是直接更新狀態
+        addToBuffer(data.data, data.messageId);
+        recievedMessage += data.data;
       }
+
+      if (data.type === 'messageEnd') {
+        // 🆕 確保所有緩衝內容都已顯示
+        if (currentMessageId) {
+          flushBuffer(currentMessageId);
+        }
+
+        setChatHistory((prevHistory) => [
+          ...prevHistory,
+          ['human', message],
+          ['assistant', recievedMessage],
+        ]);
+
+        setLoading(false);
+        clearProgress();
+
+        /* Check if there are sources after message id's index and no suggestions */
+
+        const userMessageIndex = messagesRef.current.findIndex(
+          (msg) => msg.messageId === messageId && msg.role === 'user',
+        );
+
+        const sourceMessage = messagesRef.current.find(
+          (msg, i) => i > userMessageIndex && msg.role === 'source',
+        ) as SourceMessage | undefined;
+
+        const suggestionMessageIndex = messagesRef.current.findIndex(
+          (msg, i) => i > userMessageIndex && msg.role === 'suggestion',
+        );
+
+        if (
+          sourceMessage &&
+          sourceMessage.sources.length > 0 &&
+          suggestionMessageIndex == -1
+        ) {
+          const suggestions = await getSuggestions(messagesRef.current);
+          setMessages((prev) => {
+            return [
+              ...prev,
+              {
+                role: 'suggestion',
+                suggestions: suggestions,
+                chatId: chatId!,
+                createdAt: new Date(),
+                messageId: crypto.randomBytes(7).toString('hex'),
+              },
+            ];
+          });
+        }
+      }
+    };
+
+    const messageIndex = messages.findIndex((m) => m.messageId === messageId);
+
+    try {
+      const res = await fetch('/itms/ai/api/chat', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          content: message,
+          message: {
+            messageId: messageId,
+            chatId: chatId!,
+            content: message,
+          },
+          chatId: chatId!,
+          files:
+            focusMode === 'agentImage'
+              ? [
+                  ...fileIds,
+                  `__AGENT_IMAGE_ASPECT__:${localStorage.getItem('agentImageAspect') || '1:1'}`,
+                ]
+              : fileIds,
+          focusMode: focusMode,
+          optimizationMode: optimizationMode,
+          sfcExactMatch: sfcExactMatch,
+          history: rewrite
+            ? chatHistory.slice(
+                0,
+                messageIndex === -1 ? undefined : messageIndex,
+              )
+            : chatHistory,
+          chatModel: {
+            key: chatModelProvider.key,
+            providerId: chatModelProvider.providerId,
+          },
+          embeddingModel: {
+            key: embeddingModelProvider.key,
+            providerId: embeddingModelProvider.providerId,
+          },
+          systemInstructions: localStorage.getItem('systemInstructions'),
+        }),
+        signal: controller.signal,
+      });
+
+      if (!res.body) throw new Error('No response body');
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder('utf-8');
+
+      let partialChunk = '';
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        partialChunk += decoder.decode(value, { stream: true });
+
+        try {
+          const messages = partialChunk.split('\n');
+          for (const msg of messages) {
+            if (!msg.trim()) continue;
+            const json = JSON.parse(msg);
+            messageHandler(json).catch((e) =>
+              console.error('Message handler error:', e),
+            );
+          }
+          partialChunk = '';
+        } catch (error) {
+          console.warn('Incomplete JSON, waiting for next chunk...');
+        }
+      }
+    } catch (err: any) {
+      if (err.name === 'AbortError' || controller.signal.aborted) {
+        console.log('AbortError caught');
+        // Ignore AbortError
+      } else {
+        console.error('SendMessage error:', err);
+        throw err;
+      }
+    } finally {
+      isCancelled = true;
+      console.log(
+        'finally block reached. Clearing interval and setting loading false',
+      );
+      // 🆕 確保清理定時器
+      if (typingInterval) {
+        clearInterval(typingInterval);
+      }
+      setLoading(false);
     }
   };
-
-  const messageIndex = messages.findIndex((m) => m.messageId === messageId);
-
-  try {
-    const res = await fetch('/itms/ai/api/chat', {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({
-        content: message,
-        message: {
-          messageId: messageId,
-          chatId: chatId!,
-          content: message,
-        },
-        chatId: chatId!,
-        files: fileIds,
-        focusMode: focusMode,
-        optimizationMode: optimizationMode,
-        sfcExactMatch: sfcExactMatch,
-        history: rewrite
-          ? chatHistory.slice(0, messageIndex === -1 ? undefined : messageIndex)
-          : chatHistory,
-        chatModel: {
-          key: chatModelProvider.key,
-          providerId: chatModelProvider.providerId,
-        },
-        embeddingModel: {
-          key: embeddingModelProvider.key,
-          providerId: embeddingModelProvider.providerId,
-        },
-        systemInstructions: localStorage.getItem('systemInstructions'),
-      }),
-      signal: controller.signal,
-    });
-
-    if (!res.body) throw new Error('No response body');
-    const reader = res.body?.getReader();
-    const decoder = new TextDecoder('utf-8');
-
-    let partialChunk = '';
-
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-
-      partialChunk += decoder.decode(value, { stream: true });
-
-      try {
-        const messages = partialChunk.split('\n');
-        for (const msg of messages) {
-          if (!msg.trim()) continue;
-          const json = JSON.parse(msg);
-          messageHandler(json).catch((e) =>
-            console.error('Message handler error:', e),
-          );
-        }
-        partialChunk = '';
-      } catch (error) {
-        console.warn('Incomplete JSON, waiting for next chunk...');
-      }
-    }
-  } catch (err: any) {
-    if (err.name === 'AbortError' || controller.signal.aborted) {
-      console.log('AbortError caught');
-      // Ignore AbortError
-    } else {
-      console.error('SendMessage error:', err);
-      throw err;
-    }
-  } finally {
-    isCancelled = true;
-    console.log('finally block reached. Clearing interval and setting loading false');
-    // 🆕 確保清理定時器
-    if (typingInterval) {
-      clearInterval(typingInterval);
-    }
-    setLoading(false);
-  }
-};
-
 
   // const sendMessage: ChatContext['sendMessage'] = async (
   //   message,
