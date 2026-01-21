@@ -75,6 +75,8 @@ type ChatContext = {
   progress: ProgressData | null;
   sfcExactMatch: boolean;
   setSfcExactMatch: (exact: boolean) => void;
+  sfcTrainingRelated: boolean;
+  setSfcTrainingRelated: (enabled: boolean) => void;
   setOptimizationMode: (mode: string) => void;
   setFocusMode: (mode: string) => void;
   setFiles: (files: File[]) => void;
@@ -331,6 +333,9 @@ export const chatContext = createContext<ChatContext>({
   sfcExactMatch: false,
   setSfcExactMatch: () => {},
 
+  sfcTrainingRelated: false,
+  setSfcTrainingRelated: () => {},
+
   rewrite: () => {},
   sendMessage: async () => {},
   setFileIds: () => {},
@@ -369,6 +374,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   });
   const [optimizationMode, setOptimizationMode] = useState('speed');
   const [sfcExactMatch, setSfcExactMatch] = useState(false);
+  const [sfcTrainingRelated, setSfcTrainingRelated] = useState(false);
 
   const [isMessagesLoaded, setIsMessagesLoaded] = useState(false);
 
@@ -957,6 +963,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
           focusMode: focusMode,
           optimizationMode: optimizationMode,
           sfcExactMatch: sfcExactMatch,
+          sfcTrainingRelated: sfcTrainingRelated,
           history: rewrite
             ? chatHistory.slice(
                 0,
@@ -1231,6 +1238,8 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         progress,
         sfcExactMatch,
         setSfcExactMatch,
+        sfcTrainingRelated,
+        setSfcTrainingRelated,
         setFileIds,
         setFiles,
         setFocusMode: handleSetFocusMode,

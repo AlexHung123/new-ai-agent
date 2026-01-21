@@ -8,6 +8,7 @@ import { useChat } from '@/lib/hooks/useChat';
 import ModelSelector from './MessageInputActions/ChatModelSelector';
 import { focusModes } from '@/lib/agents';
 import SfcExactMatchToggle from './SfcExactMatchToggle';
+import SfcTrainingRelatedToggle from './SfcTrainingRelatedToggle';
 
 const EmptyChatMessageInput = () => {
   const { sendMessage, focusMode, sfcExactMatch } = useChat();
@@ -87,6 +88,7 @@ const EmptyChatMessageInput = () => {
         />
         <div className="flex flex-row items-center justify-end mt-4">
           <SfcExactMatchToggle />
+          <SfcTrainingRelatedToggle />
           {/* <Optimization /> */}
           <div className="flex flex-row items-center space-x-2">
             {focusMode === 'agentImage' && (

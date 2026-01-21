@@ -1,12 +1,13 @@
 import { cn } from '@/lib/utils';
 import { ArrowUp, Square } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, memo } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import { useChat } from '@/lib/hooks/useChat';
 import { focusModes } from '@/lib/agents';
 import SfcExactMatchToggle from './SfcExactMatchToggle';
+import SfcTrainingRelatedToggle from './SfcTrainingRelatedToggle';
 
-const MessageInput = () => {
+const MessageInput = memo(() => {
   const { loading, sendMessage, stop, focusMode, sfcExactMatch } = useChat();
 
   const [message, setMessage] = useState('');
@@ -95,6 +96,7 @@ const MessageInput = () => {
       />
       <div className="flex flex-row items-center justify-end mt-4">
         <SfcExactMatchToggle />
+        <SfcTrainingRelatedToggle />
         {focusMode === 'agentImage' && (
           <select
             value={aspect}
@@ -136,6 +138,6 @@ const MessageInput = () => {
       </div>
     </form>
   );
-};
+});
 
 export default MessageInput;

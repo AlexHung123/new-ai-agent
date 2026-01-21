@@ -28,7 +28,8 @@ export interface MetaSearchAgentType {
     fileIds: string[],
     systemInstructions: string,
     signal?: AbortSignal,
-    sfcExactMatch?: boolean | undefined
+    sfcExactMatch?: boolean | undefined,
+    sfcTrainingRelated?: boolean
   ) => Promise<eventEmitter>;
 }
 
@@ -279,6 +280,8 @@ class MetaSearchAgent implements MetaSearchAgentType {
     fileIds: string[],
     systemInstructions: string,
     signal?: AbortSignal,
+    sfcExactMatch?: boolean | undefined,
+    sfcTrainingRelated?: boolean,
   ) {
     const emitter = new eventEmitter();
 

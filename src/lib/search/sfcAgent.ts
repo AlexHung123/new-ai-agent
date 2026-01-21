@@ -8,6 +8,8 @@ import configManager from '../config';
 
 class SfcAgent implements MetaSearchAgentType {
   private metaSearchAgent: MetaSearchAgentType;
+  // 靜態 Converter 實例，避免每次調用都創建新實例
+  private static cnToTwConverter = Converter({ from: 'cn', to: 'tw' });
 
   constructor() {
     // Create a MetaSearchAgent instance for final analysis
@@ -117,17 +119,22 @@ class SfcAgent implements MetaSearchAgentType {
   private async queryElasticsearchDirect(
     pattern: string,
     signal?: AbortSignal,
+    sfcTrainingRelated?: boolean,
   ): Promise<any> {
     try {
       // Get Elasticsearch configuration from config.json
       const ragflowConfig = configManager.getConfig('ragflow', {});
-      const elasticsearchUrl = ragflowConfig.elasticsearchUrl || 'http://192.168.1.173:12001';
+      const elasticsearchUrl =
+        ragflowConfig.elasticsearchUrl || 'http://192.168.1.240:12001';
       const elasticsearchAuth = ragflowConfig.elasticsearchAuth || {
         username: 'elastic1',
-        password: 'infini_rag_flow'
+        password: 'infini_rag_flow',
       };
-      const datasetId = ragflowConfig.datasetIds?.[0] || '272c75fed41c11f083790242ac1600061';
-      const docId = ragflowConfig.documentIds?.[0]
+      const datasetId =
+        ragflowConfig.datasetIds?.[0] || '272c75fed41c11f083790242ac1600061';
+      const docId = sfcTrainingRelated
+        ? ragflowConfig.trainingRelatedDocumentIds?.[0]
+        : ragflowConfig.documentIds?.[0];
       const indexPattern = ragflowConfig.indexPattern || 'ragflow_*1';
       const topK = ragflowConfig.topK || 5001;
 
@@ -141,40 +148,50 @@ class SfcAgent implements MetaSearchAgentType {
           'docnm_kwd',
           'page_num_int',
           'position_int',
-          'content_with_weight_kw'
+          'content_with_weight_kw',
         ],
         query: {
           bool: {
             must: [
               { term: { kb_id: datasetId } },
-              { term: { doc_id: docId } }, 
+              { term: { doc_id: docId } },
               {
                 wildcard: {
                   content_with_weight_kw: {
                     value: `*${pattern}*`,
-                    case_insensitive: true
-                  }
-                }
-              }
-            ]
-          }
+                    case_insensitive: true,
+                  },
+                },
+              },
+            ],
+          },
         },
-        sort: [{ doc_id: 'asc' }, { page_num_int: 'asc' }, { position_int: 'asc' }]
+        sort: [
+          { doc_id: 'asc' },
+          { page_num_int: 'asc' },
+          { position_int: 'asc' },
+        ],
       };
 
-      const response = await fetch(`${elasticsearchUrl}/${indexPattern}/_search`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/vnd.elasticsearch+json; compatible-with=8',
-          'Accept': 'application/vnd.elasticsearch+json; compatible-with=8',
-          'Authorization': `Basic ${Buffer.from(`${elasticsearchAuth.username}:${elasticsearchAuth.password}`).toString('base64')}`,
+      const response = await fetch(
+        `${elasticsearchUrl}/${indexPattern}/_search`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type':
+              'application/vnd.elasticsearch+json; compatible-with=8',
+            Accept: 'application/vnd.elasticsearch+json; compatible-with=8',
+            Authorization: `Basic ${Buffer.from(`${elasticsearchAuth.username}:${elasticsearchAuth.password}`).toString('base64')}`,
+          },
+          signal,
+          body: JSON.stringify(queryBody),
         },
-        signal,
-        body: JSON.stringify(queryBody),
-      });
+      );
 
       if (!response.ok) {
-        throw new Error(`Elasticsearch request failed with status ${response.status}`);
+        throw new Error(
+          `Elasticsearch request failed with status ${response.status}`,
+        );
       }
 
       const data = await response.json();
@@ -187,17 +204,19 @@ class SfcAgent implements MetaSearchAgentType {
         page_num_int: hit._source?.page_num_int || 0,
         position_int: hit._source?.position_int || 0,
         highlight: pattern, // Use pattern as highlight for exact match
-        score: hit._score || 0
+        score: hit._score || 0,
       }));
 
       return {
         data: {
           total: data.hits?.total?.value || 0,
-          chunks: chunks
-        }
+          chunks: chunks,
+        },
       };
     } catch (error) {
-      throw new Error(`Elasticsearch error: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Elasticsearch error: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -205,27 +224,43 @@ class SfcAgent implements MetaSearchAgentType {
    * Query RAGFlow API for relevant chunks
    */
   private async queryRAGFlow(
-    keyword: string, 
+    keyword: string,
     signal?: AbortSignal,
-    overrides?: { similarityThreshold?: number; vectorSimilarityWeight?: number },
-    sfcExactMatch?: boolean | undefined
+    // overrides?: {
+    //   similarityThreshold?: number;
+    //   vectorSimilarityWeight?: number;
+    // },
+    sfcExactMatch?: boolean | undefined,
+    sfcTrainingRelated?: boolean,
   ): Promise<any> {
     try {
       // Get RAGFlow configuration from config.json
       const ragflowConfig = configManager.getConfig('ragflow', {});
-      const apiUrl = ragflowConfig.apiUrl || 'http://192.168.56.1:8001/api/v1/retrieval';
-      const apiKey = ragflowConfig.apiKey || 'ragflow-g4OTUwYjU2NDFiYjExZjBhYmY5MDI0Mm';
-      const datasetIds = ragflowConfig.datasetIds || ['272c75fed41c11f083790242ac160006'];
-      const documentIds = ragflowConfig.documentIds || ['2c94c62cd41c11f083790242ac160006'];
-      
-      const similarityThreshold = overrides?.similarityThreshold ?? ragflowConfig.similarityThreshold ?? 0.3;
-      const vectorSimilarityWeight = overrides?.vectorSimilarityWeight ?? ragflowConfig.vectorSimilarityWeight ?? 0.1;
-      
+      const apiUrl =
+        ragflowConfig.apiUrl || 'http://192.168.56.1:8001/api/v1/retrieval';
+      const apiKey =
+        ragflowConfig.apiKey || 'ragflow-g4OTUwYjU2NDFiYjExZjBhYmY5MDI0Mm';
+      const datasetIds = ragflowConfig.datasetIds || [
+        '272c75fed41c11f083790242ac160006',
+      ];
+      const documentIds = sfcTrainingRelated
+        ? ragflowConfig.trainingRelatedDocumentIds || [
+            '2c94c62cd41c11f083790242ac160006',
+          ]
+        : ragflowConfig.documentIds || ['2c94c62cd41c11f083790242ac160006'];
+
+      const similarityThreshold =
+        // overrides?.similarityThreshold ??
+        ragflowConfig.similarityThreshold ?? 0.3;
+      const vectorSimilarityWeight =
+        // overrides?.vectorSimilarityWeight ??
+        ragflowConfig.vectorSimilarityWeight ?? 0.1;
+
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
+          Authorization: `Bearer ${apiKey}`,
         },
         signal,
         body: JSON.stringify({
@@ -234,18 +269,23 @@ class SfcAgent implements MetaSearchAgentType {
           document_ids: documentIds,
           similarity_threshold: similarityThreshold,
           vector_similarity_weight: vectorSimilarityWeight,
-          keyword: sfcExactMatch ? true : false
+          page: 1,
+          page_size: 2000,
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`RAGFlow API request failed with status ${response.status}`);
+        throw new Error(
+          `RAGFlow API request failed with status ${response.status}`,
+        );
       }
 
       const data = await response.json();
       return data;
     } catch (error) {
-      throw new Error(`RAGFlow API error: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `RAGFlow API error: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -254,17 +294,17 @@ class SfcAgent implements MetaSearchAgentType {
    */
   private extractHighlightedKeywords(highlight: string): string[] {
     if (!highlight) return [];
-    
+
     const keywords: string[] = [];
     const regex = /<em>(.*?)<\/em>/g;
     let match;
-    
+
     while ((match = regex.exec(highlight)) !== null) {
       if (match[1] && match[1].trim()) {
         keywords.push(match[1].trim());
       }
     }
-    
+
     return keywords;
   }
 
@@ -273,9 +313,8 @@ class SfcAgent implements MetaSearchAgentType {
    * Using opencc-js library for accurate conversion
    */
   private simplifiedToTraditional(text: string): string {
-    // Use OpenCC converter: Simplified Chinese to Traditional Chinese (Taiwan)
-    const converter = Converter({ from: 'cn', to: 'tw' });
-    return converter(text);
+    // Use static OpenCC converter: Simplified Chinese to Traditional Chinese (Taiwan)
+    return SfcAgent.cnToTwConverter(text);
   }
 
   /**
@@ -283,35 +322,41 @@ class SfcAgent implements MetaSearchAgentType {
    */
   private highlightContentKeywords(content: string, highlight: string): string {
     if (!highlight || !content) return content;
-    
+
     // Extract keywords from simplified Chinese highlight
     const simplifiedKeywords = this.extractHighlightedKeywords(highlight);
-    
+
     if (simplifiedKeywords.length === 0) return content;
-    
+
     let highlightedContent = content;
-    
+
     // Convert simplified keywords to traditional and highlight them in content
     for (const simplifiedKeyword of simplifiedKeywords) {
-      const traditionalKeyword = this.simplifiedToTraditional(simplifiedKeyword);
-      
+      const traditionalKeyword =
+        this.simplifiedToTraditional(simplifiedKeyword);
+
       // Use regex to match the keyword (case insensitive for better matching)
       // Escape special regex characters in the keyword
-      const escapedKeyword = traditionalKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const escapedKeyword = traditionalKeyword.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        '\\$&',
+      );
       const regex = new RegExp(escapedKeyword, 'g');
-      
+
       // Replace with <em> tags
-      highlightedContent = highlightedContent.replace(regex, `<span style="color:red;display:inline !important;">${traditionalKeyword}</span>`);
+      highlightedContent = highlightedContent.replace(
+        regex,
+        `<span style="color:red;display:inline !important;">${traditionalKeyword}</span>`,
+      );
     }
-    
+
     return highlightedContent;
   }
 
-
-  private extractYear (content: string) {
+  private extractYear(content: string) {
     const yearMatch = content.match(/(?:年份|Year)[：:]\s*(\d{4})/);
     return yearMatch ? parseInt(yearMatch[1], 10) : 0;
-  };
+  }
 
   /**
    * Extract chunks from RAGFlow response
@@ -328,19 +373,19 @@ class SfcAgent implements MetaSearchAgentType {
       }
 
       const chunks = ragflowResponse.data.chunks;
-      
+
       // Sort chunks by year in descending order
       const sortedChunks = [...chunks].sort((a: any, b: any) => {
         const yearA = this.extractYear(a.content || '');
         const yearB = this.extractYear(b.content || '');
         return yearB - yearA; // Descending order
       });
-      
+
       // Format chunks for display - only raw content
       const formattedChunks = sortedChunks
         .map((chunk: any) => {
           let content = chunk.content || '';
-          
+
           // Remove unwanted patterns
           content = content
             .replace(/檢索結果\s*\d+\s*\(相似度:\s*[\d.]+%\)/g, '') // Remove "檢索結果 X (相似度: X%)"
@@ -349,13 +394,20 @@ class SfcAgent implements MetaSearchAgentType {
 
           const year = this.extractYear(content);
           // Extract first 4 lines for summary (before highlighting)
-          const lines = content.split('\n').filter((line: string) => line.trim().length > 0);
+          const lines = content
+            .split('\n')
+            .filter((line: string) => line.trim().length > 0);
           // const firstFourLines = lines.slice(0, 2).join(' ');
           // const summaryLines = lines.filter((line: string) => !line.match(/(?:年份|Year)[：:]\s*\d{4}/));
-          const summaryLines = lines.filter((line: string) => !line.match(/(?:年份|Year)[：:]\s*\d{4}/));
+          const summaryLines = lines.filter(
+            (line: string) => !line.match(/(?:年份|Year)[：:]\s*\d{4}/),
+          );
           const firstFourLines = summaryLines.slice(0, 1).join(' ');
-          const truncatedSummary = firstFourLines.length > 150 ? firstFourLines.substring(0, 150) + '...' : firstFourLines;
-          
+          const truncatedSummary =
+            firstFourLines.length > 150
+              ? firstFourLines.substring(0, 150) + '...'
+              : firstFourLines;
+
           // Add <em> tags based on highlight field
           if (chunk.highlight) {
             content = this.highlightContentKeywords(content, chunk.highlight);
@@ -365,28 +417,33 @@ class SfcAgent implements MetaSearchAgentType {
           // let summaryText = truncatedSummary;
           let summaryText = year > 0 ? `${year} - ` : '';
           summaryText += truncatedSummary;
-          
+
           // Add highlighted keywords to summaryText in traditional Chinese, separated by |
           if (chunk.highlight) {
-            const simplifiedKeywords = this.extractHighlightedKeywords(chunk.highlight);
+            const simplifiedKeywords = this.extractHighlightedKeywords(
+              chunk.highlight,
+            );
             if (simplifiedKeywords.length > 0) {
               // Convert to traditional Chinese and remove duplicates using Set
-              const traditionalKeywords = [...new Set(
-                simplifiedKeywords.map(keyword => this.simplifiedToTraditional(keyword))
-              )].join(' | ');
+              const traditionalKeywords = [
+                ...new Set(
+                  simplifiedKeywords.map((keyword) =>
+                    this.simplifiedToTraditional(keyword),
+                  ),
+                ),
+              ].join(' | ');
               summaryText += ` [關鍵詞: ${traditionalKeywords}]`;
             }
           }
 
-          
           // Wrap content in details/summary for collapsible functionality
           const collapsibleContent = `<details>
 <summary style="cursor: pointer; font-weight: bold; padding: 8px; background-color: #f5f5f5; border-radius: 4px; margin-bottom: 8px;">${summaryText}</summary>
 <div style="padding: 12px; border-left: 3px solid #ddd; margin-left: 4px;">${content}</div>
 </details>`;
-          
+
           return collapsibleContent;
-          
+
           // return content;
         })
         .filter((content: string) => content.length > 0)
@@ -394,7 +451,6 @@ class SfcAgent implements MetaSearchAgentType {
 
       return formattedChunks;
     } catch (error) {
-      console.error('Error extracting chunks:', error);
       return '處理檢索結果時發生錯誤';
     }
   }
@@ -416,67 +472,68 @@ class SfcAgent implements MetaSearchAgentType {
       }
 
       const chunks = elasticsearchResponse.data.chunks;
-      
-      // Helper function to extract year from "年份：XXXX" line
-      // const extractYear = (content: string): number => {
-      //   const yearMatch = content.match(/年份[：:]\s*(\d{4})/);
-      //   return yearMatch ? parseInt(yearMatch[1], 10) : 0;
-      // };
-      
+
       // Sort chunks by year in descending order
       const sortedChunks = [...chunks].sort((a: any, b: any) => {
         const yearA = this.extractYear(a.content || '');
         const yearB = this.extractYear(b.content || '');
         return yearB - yearA; // Descending order
       });
-      
+
       // Format chunks for display with collapsible functionality
       const formattedChunks = sortedChunks
         .map((chunk: any, index: number) => {
           let content = chunk.content || '';
-          
+
           // Remove unwanted patterns
           content = content
             .replace(/檢索結果\s*\d+\s*\(相似度:\s*[\d.]+%\)/g, '') // Remove "檢索結果 X (相似度: X%)"
             .replace(/文件來源:[^\n]*/g, '') // Remove "文件來源: ..."
             .trim();
-          
+
           // Extract year for display
           const year = this.extractYear(content);
-          
+
           // Extract first lines for summary, skipping the "年份：XXXX" line
-          const lines = content.split('\n').filter((line: string) => line.trim().length > 0);
+          const lines = content
+            .split('\n')
+            .filter((line: string) => line.trim().length > 0);
           // const summaryLines = lines.filter((line: string) => !line.match(/年份[：:]\s*\d{4}/));
-          const summaryLines = lines.filter((line: string) => !line.match(/(?:年份|Year)[：:]\s*\d{4}/));
+          const summaryLines = lines.filter(
+            (line: string) => !line.match(/(?:年份|Year)[：:]\s*\d{4}/),
+          );
           const firstFourLines = summaryLines.slice(0, 1).join(' ');
-          const truncatedSummary = firstFourLines.length > 150 ? firstFourLines.substring(0, 150) + '...' : firstFourLines;
-          
+          const truncatedSummary =
+            firstFourLines.length > 150
+              ? firstFourLines.substring(0, 150) + '...'
+              : firstFourLines;
+
           // Highlight the search pattern in the content
           if (chunk.highlight) {
             // Elasticsearch highlight is just a pattern string
             // Escape special regex characters in the pattern
-            const escapedPattern = chunk.highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const escapedPattern = chunk.highlight.replace(
+              /[.*+?^${}()|[\]\\]/g,
+              '\\$&',
+            );
             const regex = new RegExp(escapedPattern, 'gi');
-            
+
             // Replace with red span
-            content = content.replace(regex, '<span style="color:red;display:inline !important;">$&</span>');
+            content = content.replace(
+              regex,
+              '<span style="color:red;display:inline !important;">$&</span>',
+            );
           }
-          
-          // Create summary text with year, document metadata and content preview
-          // let summaryText = year > 0 ? `${year} - ` : '';
-          // summaryText += truncatedSummary || `結果 ${index + 1}`;
-          // if (chunk.docnm_kwd && chunk.page_num_int) {
-          //   summaryText += ` - ${chunk.docnm_kwd} (第 ${chunk.page_num_int} 頁)`;
-          // }
+
           let summaryText = year > 0 ? `${year} - ` : '';
           summaryText += truncatedSummary;
-          
+
           // Wrap content in details/summary for collapsible functionality
           const collapsibleContent = `<details>
 <summary style="cursor: pointer; font-weight: bold; padding: 8px; background-color: #f5f5f5; border-radius: 4px; margin-bottom: 8px;">${summaryText}</summary>
 <div style="padding: 12px; border-left: 3px solid #ddd; margin-left: 4px;">${content}</div>
 </details>`;
-          
+
           return collapsibleContent;
         })
         .filter((content: string) => content.length > 0)
@@ -484,7 +541,6 @@ class SfcAgent implements MetaSearchAgentType {
 
       return formattedChunks;
     } catch (error) {
-      console.error('Error extracting chunks from Elasticsearch:', error);
       return '處理檢索結果時發生錯誤';
     }
   }
@@ -499,13 +555,14 @@ class SfcAgent implements MetaSearchAgentType {
     systemInstructions: string,
     signal?: AbortSignal,
     sfcExactMatch?: boolean,
+    sfcTrainingRelated?: boolean,
   ): Promise<eventEmitter> {
     const emitter = new eventEmitter();
 
     if (signal) {
-        signal.addEventListener('abort', () => {
-            emitter.emit('end');
-        });
+      signal.addEventListener('abort', () => {
+        emitter.emit('end');
+      });
     }
 
     // Execute asynchronously
@@ -513,58 +570,66 @@ class SfcAgent implements MetaSearchAgentType {
       try {
         if (signal?.aborted) return;
 
+        const totalSteps = 1;
+
         let keyword = '';
 
         if (sfcExactMatch) {
-            keyword = message.trim();
+          keyword = message.trim();
         } else {
-            // Step 1: Extract keyword from user question
+          keyword = await this.extractKeyword(message, llm, signal);
+
+          if (keyword === '未找到相關資料') {
             emitter.emit(
               'data',
               JSON.stringify({
                 type: 'response',
-                data: '正在提取關鍵詞...\n\n',
+                data: '抱歉，未能在資料庫中找到與您問題相關的資料。',
               }),
             );
-
-            keyword = await this.extractKeyword(message, llm, signal);
-            if (keyword === '未找到相關資料') {
-              emitter.emit(
-                'data',
-                JSON.stringify({
-                  type: 'response',
-                  data: '抱歉，未能在資料庫中找到與您問題相關的資料。',
-                }),
-              );
-              emitter.emit('end');
-              return;
-            }
+            emitter.emit('end');
+            return;
+          }
         }
 
-        // Step 2: Query data source
+        emitter.emit(
+          'data',
+          JSON.stringify({
+            type: 'progress',
+            data: {
+              status: 'processing',
+              total: totalSteps,
+              current: 1,
+              question: '檢索資料源',
+              message: '正在檢索資料源…',
+            },
+          }),
+        );
         let ragflowResponse: any;
-        
-        if (sfcExactMatch) {
-            // Use Elasticsearch direct query for exact match
-            ragflowResponse = await this.queryElasticsearchDirect(keyword, signal);
-        } else {
-            // Use RAGFlow API for semantic search
-            const overrides = { 
-                similarityThreshold: 0.2, 
-                vectorSimilarityWeight: 0.0 
-            };
-            ragflowResponse = await this.queryRAGFlow(keyword, signal, overrides, false);
-        }
 
-        // Step 3: Extract chunks from response
-        let chunks: string;
-        
         if (sfcExactMatch) {
-            // Use the new method for Elasticsearch response
-            chunks = this.extractChunksFromElasticsearch(ragflowResponse);
+          // Use Elasticsearch direct query for exact match
+          ragflowResponse = await this.queryElasticsearchDirect(
+            keyword,
+            signal,
+            sfcTrainingRelated,
+          );
         } else {
-            // Use the existing method for RAGFlow response
-            chunks = this.extractChunks(ragflowResponse);
+          ragflowResponse = await this.queryRAGFlow(
+            keyword,
+            signal,
+            false,
+            sfcTrainingRelated,
+          );
+        }
+        let chunks: string;
+
+        if (sfcExactMatch) {
+          // Use the new method for Elasticsearch response
+          chunks = this.extractChunksFromElasticsearch(ragflowResponse);
+        } else {
+          // Use the existing method for RAGFlow response
+          chunks = this.extractChunks(ragflowResponse);
         }
         if (chunks === '未找到相關資料') {
           emitter.emit(
@@ -588,12 +653,23 @@ class SfcAgent implements MetaSearchAgentType {
             data: `找到 ${ragflowResponse.data.total} 個相關結果 (${keyword})\n\n${chunks}`,
           }),
         );
+        emitter.emit(
+          'data',
+          JSON.stringify({
+            type: 'progress',
+            data: {
+              status: 'finished',
+              total: totalSteps,
+              current: totalSteps,
+              message: '檢索完成',
+            },
+          }),
+        );
 
         emitter.emit('end');
-
       } catch (error: any) {
         if (error.name === 'AbortError') {
-            return;
+          return;
         }
         setImmediate(() => {
           emitter.emit(

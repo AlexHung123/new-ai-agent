@@ -70,6 +70,7 @@ const bodySchema = z.object({
   embeddingModel: embeddingModelSchema,
   systemInstructions: z.string().nullable().optional().default(''),
   sfcExactMatch: z.boolean().optional(),
+  sfcTrainingRelated: z.boolean().optional(),
 });
 
 type Message = z.infer<typeof messageSchema>;
@@ -358,6 +359,7 @@ export const POST = async (req: Request) => {
       body.systemInstructions as string,
       req.signal,
       body.sfcExactMatch,
+      body.sfcTrainingRelated,
     );
 
     const responseStream = new TransformStream();
