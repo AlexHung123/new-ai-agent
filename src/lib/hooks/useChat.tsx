@@ -8,8 +8,9 @@ import {
   SuggestionMessage,
   UserMessage,
 } from '@/components/ChatWindow';
-import {
+import React, {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -21,12 +22,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { getSuggestions } from '../actions';
 import { MinimalProvider } from '../models/types';
-import {
-  initializeAuthToken,
-  getAuthToken,
-  getAuthHeaders,
-  extractUserIdFromToken,
-} from '../utils/auth';
+import { extractUserIdFromToken, getAuthHeaders } from '../utils/auth';
 
 export type Section = {
   userMessage: UserMessage;
@@ -53,12 +49,28 @@ export type ProgressData = {
   tasks?: ProgressTask[];
 };
 
+export interface FileItem {
+  fileName: string;
+  fileExtension: string;
+  fileId: string;
+}
+
+export interface ChatModelProvider {
+  key: string;
+  providerId: string;
+}
+
+export interface EmbeddingModelProvider {
+  key: string;
+  providerId: string;
+}
+
 type ChatContext = {
   messages: Message[];
   chatTurns: ChatTurn[];
   sections: Section[];
   chatHistory: [string, string][];
-  files: File[];
+  files: FileItem[];
   fileIds: string[];
   focusMode: string;
   chatId: string | undefined;
@@ -79,7 +91,7 @@ type ChatContext = {
   setSfcTrainingRelated: (enabled: boolean) => void;
   setOptimizationMode: (mode: string) => void;
   setFocusMode: (mode: string) => void;
-  setFiles: (files: File[]) => void;
+  setFiles: (files: FileItem[]) => void;
   setFileIds: (fileIds: string[]) => void;
   sendMessage: (
     message: string,
@@ -93,220 +105,6 @@ type ChatContext = {
   clearProgress: () => void;
 };
 
-export interface File {
-  fileName: string;
-  fileExtension: string;
-  fileId: string;
-}
-
-interface ChatModelProvider {
-  key: string;
-  providerId: string;
-}
-
-interface EmbeddingModelProvider {
-  key: string;
-  providerId: string;
-}
-
-const checkConfig = async (
-  setChatModelProvider: (provider: ChatModelProvider) => void,
-  setEmbeddingModelProvider: (provider: EmbeddingModelProvider) => void,
-  setIsConfigReady: (ready: boolean) => void,
-  setHasError: (hasError: boolean) => void,
-  setAvailableProviders: (providers: MinimalProvider[]) => void,
-) => {
-  try {
-    let chatModelKey = localStorage.getItem('chatModelKey');
-    let chatModelProviderId = localStorage.getItem('chatModelProviderId');
-    let embeddingModelKey = localStorage.getItem('embeddingModelKey');
-    let embeddingModelProviderId = localStorage.getItem(
-      'embeddingModelProviderId',
-    );
-
-    const res = await fetch(`/itms/ai/api/providers`, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!res.ok) {
-      throw new Error(
-        `Provider fetching failed with status code ${res.status}`,
-      );
-    }
-
-    const data = await res.json();
-    const providers: MinimalProvider[] = data.providers;
-    setAvailableProviders(providers);
-
-    if (providers.length === 0) {
-      throw new Error(
-        'No chat model providers found, please configure them in the settings page.',
-      );
-    }
-
-    let focusMode = localStorage.getItem('focusMode') || 'webSearch';
-    let preferredModel =
-      focusMode === 'agentSurvey'
-        ? 'qwen3-next-80b-a3b-instruct-mlx'
-        : 'gpt-oss-120b';
-
-    let chatModelProvider = providers.find((p) =>
-      p.chatModels.some((m) => m.key === preferredModel),
-    );
-
-    if (chatModelProvider) {
-      chatModelKey = preferredModel;
-      chatModelProviderId = chatModelProvider.id;
-    } else {
-      chatModelProvider =
-        providers.find((p) => p.id === chatModelProviderId) ??
-        providers.find((p) => p.chatModels.length > 0);
-
-      if (!chatModelProvider) {
-        throw new Error(
-          'No chat models found, pleae configure them in the settings page.',
-        );
-      }
-
-      chatModelProviderId = chatModelProvider.id;
-
-      const chatModel =
-        chatModelProvider.chatModels.find((m) => m.key === chatModelKey) ??
-        chatModelProvider.chatModels[0];
-      chatModelKey = chatModel.key;
-    }
-
-    const embeddingModelProvider =
-      providers.find((p) => p.id === embeddingModelProviderId) ??
-      providers.find((p) => p.embeddingModels.length > 0);
-
-    if (!embeddingModelProvider) {
-      throw new Error(
-        'No embedding models found, pleae configure them in the settings page.',
-      );
-    }
-
-    embeddingModelProviderId = embeddingModelProvider.id;
-
-    const embeddingModel =
-      embeddingModelProvider.embeddingModels.find(
-        (m) => m.key === embeddingModelKey,
-      ) ?? embeddingModelProvider.embeddingModels[0];
-    embeddingModelKey = embeddingModel.key;
-
-    localStorage.setItem('chatModelKey', chatModelKey);
-    localStorage.setItem('chatModelProviderId', chatModelProviderId);
-    localStorage.setItem('embeddingModelKey', embeddingModelKey);
-    localStorage.setItem('embeddingModelProviderId', embeddingModelProviderId);
-
-    setChatModelProvider({
-      key: chatModelKey,
-      providerId: chatModelProviderId,
-    });
-
-    setEmbeddingModelProvider({
-      key: embeddingModelKey,
-      providerId: embeddingModelProviderId,
-    });
-
-    setIsConfigReady(true);
-  } catch (err: any) {
-    console.error('An error occurred while checking the configuration:', err);
-    toast.error(err.message);
-    setIsConfigReady(false);
-    setHasError(true);
-  }
-};
-
-const loadMessages = async (
-  chatId: string,
-  userId: string,
-  setMessages: (messages: Message[]) => void,
-  setIsMessagesLoaded: (loaded: boolean) => void,
-  setChatHistory: (history: [string, string][]) => void,
-  setFocusMode: (mode: string) => void,
-  setNotFound: (notFound: boolean) => void,
-  setFiles: (files: File[]) => void,
-  setFileIds: (fileIds: string[]) => void,
-) => {
-  const res = await fetch(`/itms/ai/api/chats/${chatId}`, {
-    method: 'GET',
-    headers: getAuthHeaders(),
-  });
-
-  if (res.status === 404) {
-    setNotFound(true);
-    setIsMessagesLoaded(true);
-    return;
-  }
-
-  const data = await res.json();
-
-  const messages = data.messages as Message[];
-
-  setMessages(messages);
-
-  const chatTurns = messages.filter(
-    (msg): msg is ChatTurn => msg.role === 'user' || msg.role === 'assistant',
-  );
-
-  const history = chatTurns.map((msg) => {
-    return [msg.role, msg.content];
-  }) as [string, string][];
-
-  console.debug(new Date(), 'app:messages_loaded');
-
-  if (chatTurns.length > 0) {
-    document.title = chatTurns[0].content;
-  }
-
-  const files = data.chat.files.map((file: any) => {
-    return {
-      fileName: file.name,
-      fileExtension: file.name.split('.').pop(),
-      fileId: file.fileId,
-    };
-  });
-
-  setFiles(files);
-  setFileIds(files.map((file: File) => file.fileId));
-
-  setChatHistory(history);
-  setFocusMode(data.chat.focusMode);
-  setIsMessagesLoaded(true);
-};
-
-// export const chatContext = createContext<ChatContext>({
-//   chatHistory: [],
-//   chatId: '',
-//   userId: null,
-//   fileIds: [],
-//   files: [],
-//   focusMode: '',
-//   hasError: false,
-//   isMessagesLoaded: false,
-//   isReady: false,
-//   loading: false,
-//   messageAppeared: false,
-//   messages: [],
-//   chatTurns: [],
-//   sections: [],
-//   notFound: false,
-//   optimizationMode: '',
-//   chatModelProvider: { key: '', providerId: '' },
-//   embeddingModelProvider: { key: '', providerId: '' },
-//   rewrite: () => {},
-//   sendMessage: async () => {},
-//   setFileIds: () => {},
-//   setFiles: () => {},
-//   setFocusMode: () => {},
-//   setOptimizationMode: () => {},
-//   setChatModelProvider: () => {},
-//   setEmbeddingModelProvider: () => {},
-//   stop: () => {},
-// });
 export const chatContext = createContext<ChatContext>({
   chatHistory: [],
   chatId: '',
@@ -326,16 +124,12 @@ export const chatContext = createContext<ChatContext>({
   optimizationMode: '',
   chatModelProvider: { key: '', providerId: '' },
   embeddingModelProvider: { key: '', providerId: '' },
-
   progress: null,
   clearProgress: () => {},
-
   sfcExactMatch: false,
   setSfcExactMatch: () => {},
-
   sfcTrainingRelated: false,
   setSfcTrainingRelated: () => {},
-
   rewrite: () => {},
   sendMessage: async () => {},
   setFileIds: () => {},
@@ -347,10 +141,337 @@ export const chatContext = createContext<ChatContext>({
   stop: () => {},
 });
 
+/** -----------------------------
+ * Small utilities
+ * ----------------------------- */
+
+const getPreferredModelByFocusMode = (focusMode: string) => {
+  return focusMode === 'agentSurvey'
+    ? 'qwen3-next-80b-a3b-instruct-mlx'
+    : 'gpt-oss-120b';
+};
+
+const safeLocalStorageGet = (key: string) => {
+  if (typeof window === 'undefined') return null;
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+const safeLocalStorageSet = (key: string, value: string) => {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // ignore
+  }
+};
+
+const parseJsonLines = (buffer: string) => {
+  const lines = buffer.split('\n');
+  const rest = lines.pop() ?? '';
+  const jsonObjects: any[] = [];
+
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    jsonObjects.push(JSON.parse(line));
+  }
+
+  return { jsonObjects, rest };
+};
+
+/** -----------------------------
+ * API helpers
+ * ----------------------------- */
+
+const checkConfig = async (args: {
+  setChatModelProvider: (provider: ChatModelProvider) => void;
+  setEmbeddingModelProvider: (provider: EmbeddingModelProvider) => void;
+  setIsConfigReady: (ready: boolean) => void;
+  setHasError: (hasError: boolean) => void;
+  setAvailableProviders: (providers: MinimalProvider[]) => void;
+}) => {
+  const {
+    setChatModelProvider,
+    setEmbeddingModelProvider,
+    setIsConfigReady,
+    setHasError,
+    setAvailableProviders,
+  } = args;
+
+  try {
+    let chatModelKey = safeLocalStorageGet('chatModelKey');
+    let chatModelProviderId = safeLocalStorageGet('chatModelProviderId');
+    let embeddingModelKey = safeLocalStorageGet('embeddingModelKey');
+    let embeddingModelProviderId = safeLocalStorageGet(
+      'embeddingModelProviderId',
+    );
+
+    const res = await fetch(`/itms/ai/api/providers`, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!res.ok) {
+      throw new Error(
+        `Provider fetching failed with status code ${res.status}`,
+      );
+    }
+
+    const data = await res.json();
+    const providers: MinimalProvider[] = data.providers;
+    setAvailableProviders(providers);
+
+    if (providers.length === 0) {
+      throw new Error(
+        'No chat model providers found, please configure them in the settings page.',
+      );
+    }
+
+    const focusMode = safeLocalStorageGet('focusMode') || 'webSearch';
+    const preferredModel = getPreferredModelByFocusMode(focusMode);
+
+    // Prefer a provider that has the preferred model for current focusMode
+    let chatProvider = providers.find((p) =>
+      p.chatModels.some((m) => m.key === preferredModel),
+    );
+
+    if (chatProvider) {
+      chatModelKey = preferredModel;
+      chatModelProviderId = chatProvider.id;
+    } else {
+      // fallback to saved providerId, else first provider with chatModels
+      chatProvider =
+        providers.find((p) => p.id === chatModelProviderId) ??
+        providers.find((p) => p.chatModels.length > 0);
+
+      if (!chatProvider) {
+        throw new Error(
+          'No chat models found, please configure them in the settings page.',
+        );
+      }
+
+      chatModelProviderId = chatProvider.id;
+
+      const chatModel =
+        chatProvider.chatModels.find((m) => m.key === chatModelKey) ??
+        chatProvider.chatModels[0];
+
+      chatModelKey = chatModel.key;
+    }
+
+    const embeddingProvider =
+      providers.find((p) => p.id === embeddingModelProviderId) ??
+      providers.find((p) => p.embeddingModels.length > 0);
+
+    if (!embeddingProvider) {
+      throw new Error(
+        'No embedding models found, please configure them in the settings page.',
+      );
+    }
+
+    embeddingModelProviderId = embeddingProvider.id;
+
+    const embeddingModel =
+      embeddingProvider.embeddingModels.find(
+        (m) => m.key === embeddingModelKey,
+      ) ?? embeddingProvider.embeddingModels[0];
+
+    embeddingModelKey = embeddingModel.key;
+
+    safeLocalStorageSet('chatModelKey', chatModelKey);
+    safeLocalStorageSet('chatModelProviderId', chatModelProviderId);
+    safeLocalStorageSet('embeddingModelKey', embeddingModelKey);
+    safeLocalStorageSet('embeddingModelProviderId', embeddingModelProviderId);
+
+    setChatModelProvider({
+      key: chatModelKey,
+      providerId: chatModelProviderId,
+    });
+    setEmbeddingModelProvider({
+      key: embeddingModelKey,
+      providerId: embeddingModelProviderId,
+    });
+
+    setIsConfigReady(true);
+  } catch (err: any) {
+    console.error('An error occurred while checking the configuration:', err);
+    toast.error(err?.message ?? 'Config error');
+    setIsConfigReady(false);
+    setHasError(true);
+  }
+};
+
+const loadMessages = async (args: {
+  chatId: string;
+  setMessages: (messages: Message[]) => void;
+  setIsMessagesLoaded: (loaded: boolean) => void;
+  setChatHistory: (history: [string, string][]) => void;
+  setFocusMode: (mode: string) => void;
+  setNotFound: (notFound: boolean) => void;
+  setFiles: (files: FileItem[]) => void;
+  setFileIds: (fileIds: string[]) => void;
+}) => {
+  const {
+    chatId,
+    setMessages,
+    setIsMessagesLoaded,
+    setChatHistory,
+    setFocusMode,
+    setNotFound,
+    setFiles,
+    setFileIds,
+  } = args;
+
+  const res = await fetch(`/itms/ai/api/chats/${chatId}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+
+  if (res.status === 404) {
+    setNotFound(true);
+    setIsMessagesLoaded(true);
+    return;
+  }
+
+  const data = await res.json();
+  const messages = data.messages as Message[];
+  setMessages(messages);
+
+  const chatTurns = messages.filter(
+    (msg): msg is ChatTurn => msg.role === 'user' || msg.role === 'assistant',
+  );
+
+  const history = chatTurns.map((msg) => [msg.role, msg.content]) as [
+    string,
+    string,
+  ][];
+  if (chatTurns.length > 0) document.title = chatTurns[0].content;
+
+  const files: FileItem[] = (data.chat.files ?? []).map((file: any) => ({
+    fileName: file.name,
+    fileExtension: file.name.split('.').pop(),
+    fileId: file.fileId,
+  }));
+
+  setFiles(files);
+  setFileIds(files.map((f) => f.fileId));
+
+  setChatHistory(history);
+  setFocusMode(data.chat.focusMode);
+  setIsMessagesLoaded(true);
+};
+
+/** -----------------------------
+ * Derived data builders
+ * ----------------------------- */
+
+const buildSections = (messages: Message[]): Section[] => {
+  const sections: Section[] = [];
+
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    if (msg.role !== 'user') continue;
+
+    const nextUserMessageIndex = messages.findIndex(
+      (m, j) => j > i && m.role === 'user',
+    );
+
+    const aiMessage = messages.find(
+      (m, j) =>
+        j > i &&
+        m.role === 'assistant' &&
+        (nextUserMessageIndex === -1 || j < nextUserMessageIndex),
+    ) as AssistantMessage | undefined;
+
+    const sourceMessage = messages.find(
+      (m, j) =>
+        j > i &&
+        m.role === 'source' &&
+        (m as SourceMessage).sources &&
+        (nextUserMessageIndex === -1 || j < nextUserMessageIndex),
+    ) as SourceMessage | undefined;
+
+    let thinkingEnded = false;
+    let processedMessage = aiMessage?.content ?? '';
+    let speechMessage = aiMessage?.content ?? '';
+    let suggestions: string[] = [];
+
+    if (aiMessage) {
+      const citationRegex = /\[([^\]]+)\]/g;
+      const bareNumberCiteRegex = /\[(\d+)\]/g;
+
+      if (processedMessage.includes('<think>')) {
+        const openThinkTag = processedMessage.match(/<think>/g)?.length || 0;
+        const closeThinkTag = processedMessage.match(/<\/think>/g)?.length || 0;
+        if (openThinkTag && !closeThinkTag)
+          processedMessage += '</think> <a> </a>';
+      }
+
+      if (aiMessage.content.includes('</think>')) thinkingEnded = true;
+
+      if (sourceMessage?.sources?.length) {
+        processedMessage = processedMessage.replace(
+          citationRegex,
+          (_, capturedContent: string) => {
+            const numbers = capturedContent.split(',').map((n) => n.trim());
+
+            return numbers
+              .map((numStr) => {
+                const number = Number.parseInt(numStr, 10);
+                if (!Number.isFinite(number) || number <= 0)
+                  return `[${numStr}]`;
+
+                const source = sourceMessage.sources?.[number - 1];
+                const url = source?.metadata?.url;
+                return url
+                  ? `<citation href="${url}">${numStr}</citation>`
+                  : '';
+              })
+              .join('');
+          },
+        );
+
+        speechMessage = aiMessage.content.replace(bareNumberCiteRegex, '');
+      } else {
+        processedMessage = processedMessage.replace(bareNumberCiteRegex, '');
+        speechMessage = aiMessage.content.replace(bareNumberCiteRegex, '');
+      }
+
+      const suggestionMessage = messages.find(
+        (m, j) =>
+          j > i &&
+          m.role === 'suggestion' &&
+          (nextUserMessageIndex === -1 || j < nextUserMessageIndex),
+      ) as SuggestionMessage | undefined;
+
+      if (suggestionMessage?.suggestions?.length)
+        suggestions = suggestionMessage.suggestions;
+    }
+
+    sections.push({
+      userMessage: msg,
+      assistantMessage: aiMessage,
+      sourceMessage,
+      parsedAssistantMessage: processedMessage,
+      speechMessage,
+      thinkingEnded,
+      suggestions,
+    });
+  }
+
+  return sections;
+};
+
+/** -----------------------------
+ * Provider
+ * ----------------------------- */
+
 export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   const params: { chatId: string } = useParams();
   const searchParams = useSearchParams();
-  const initialMessage = searchParams.get('q');
+  const initialMessage = searchParams.get('q'); // read-only search params hook [web:9]
 
   const [userId, setUserId] = useState<string | null>(null);
   const [chatId, setChatId] = useState<string | undefined>(params.chatId);
@@ -363,21 +484,18 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   const [chatHistory, setChatHistory] = useState<[string, string][]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
 
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<FileItem[]>([]);
   const [fileIds, setFileIds] = useState<string[]>([]);
 
   const [focusMode, setFocusMode] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('focusMode') || 'webSearch';
-    }
-    return 'webSearch';
+    return safeLocalStorageGet('focusMode') || 'webSearch';
   });
+
   const [optimizationMode, setOptimizationMode] = useState('speed');
   const [sfcExactMatch, setSfcExactMatch] = useState(false);
   const [sfcTrainingRelated, setSfcTrainingRelated] = useState(false);
 
   const [isMessagesLoaded, setIsMessagesLoaded] = useState(false);
-
   const [notFound, setNotFound] = useState(false);
 
   const [chatModelProvider, setChatModelProvider] = useState<ChatModelProvider>(
@@ -396,46 +514,92 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   const [availableProviders, setAvailableProviders] = useState<
     MinimalProvider[]
   >([]);
-
-  const handleSetFocusMode = (mode: string) => {
-    setFocusMode(mode);
-
-    let targetModel = 'gpt-oss-120b';
-    if (mode === 'agentSurvey') {
-      targetModel = 'qwen3-next-80b-a3b-instruct-mlx';
-    }
-
-    const foundProvider = availableProviders.find((p) =>
-      p.chatModels.some((m) => m.key === targetModel),
-    );
-
-    if (foundProvider) {
-      setChatModelProvider({ key: targetModel, providerId: foundProvider.id });
-      localStorage.setItem('chatModelKey', targetModel);
-      localStorage.setItem('chatModelProviderId', foundProvider.id);
-    }
-  };
-
   const [isConfigReady, setIsConfigReady] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [isReady, setIsReady] = useState(false);
 
+  // Refs to avoid stale closures inside stable sendMessage
   const messagesRef = useRef<Message[]>([]);
+  const chatHistoryRef = useRef(chatHistory);
+  const fileIdsRef = useRef(fileIds);
+  const focusModeRef = useRef(focusMode);
+  const optimizationModeRef = useRef(optimizationMode);
+  const sfcExactMatchRef = useRef(sfcExactMatch);
+  const sfcTrainingRelatedRef = useRef(sfcTrainingRelated);
+  const chatModelProviderRef = useRef(chatModelProvider);
+  const embeddingModelProviderRef = useRef(embeddingModelProvider);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
+  useEffect(() => {
+    chatHistoryRef.current = chatHistory;
+  }, [chatHistory]);
+
+  useEffect(() => {
+    fileIdsRef.current = fileIds;
+  }, [fileIds]);
+
+  useEffect(() => {
+    focusModeRef.current = focusMode;
+  }, [focusMode]);
+
+  useEffect(() => {
+    optimizationModeRef.current = optimizationMode;
+  }, [optimizationMode]);
+
+  useEffect(() => {
+    sfcExactMatchRef.current = sfcExactMatch;
+  }, [sfcExactMatch]);
+
+  useEffect(() => {
+    sfcTrainingRelatedRef.current = sfcTrainingRelated;
+  }, [sfcTrainingRelated]);
+
+  useEffect(() => {
+    chatModelProviderRef.current = chatModelProvider;
+  }, [chatModelProvider]);
+
+  useEffect(() => {
+    embeddingModelProviderRef.current = embeddingModelProvider;
+  }, [embeddingModelProvider]);
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const sendMessageRef = useRef<ChatContext['sendMessage'] | null>(null);
 
-  const stop = () => {
-    console.log('stop called');
+  const stop = useCallback(() => {
     if (abortControllerRef.current) {
-      console.log('Aborting request');
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
-  };
+  }, []);
 
-  const clearProgress = () => {
+  const clearProgress = useCallback(() => {
     setProgress(null);
-  };
+  }, []);
+
+  const handleSetFocusMode = useCallback(
+    (mode: string) => {
+      setFocusMode(mode);
+      safeLocalStorageSet('focusMode', mode);
+
+      const targetModel = getPreferredModelByFocusMode(mode);
+      const foundProvider = availableProviders.find((p) =>
+        p.chatModels.some((m) => m.key === targetModel),
+      );
+
+      if (foundProvider) {
+        setChatModelProvider({
+          key: targetModel,
+          providerId: foundProvider.id,
+        });
+        safeLocalStorageSet('chatModelKey', targetModel);
+        safeLocalStorageSet('chatModelProviderId', foundProvider.id);
+      }
+    },
+    [availableProviders],
+  );
 
   const chatTurns = useMemo((): ChatTurn[] => {
     return messages.filter(
@@ -443,143 +607,58 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     );
   }, [messages]);
 
-  const sections = useMemo<Section[]>(() => {
-    const sections: Section[] = [];
+  const sections = useMemo(() => buildSections(messages), [messages]);
 
-    messages.forEach((msg, i) => {
-      if (msg.role === 'user') {
-        const nextUserMessageIndex = messages.findIndex(
-          (m, j) => j > i && m.role === 'user',
+  const ensureAssistantMessage = useCallback(
+    (msgId: string) => {
+      setMessages((prev) => {
+        const exists = prev.some(
+          (m) => m.role === 'assistant' && m.messageId === msgId,
         );
+        if (exists) return prev;
 
-        const aiMessage = messages.find(
-          (m, j) =>
-            j > i &&
-            m.role === 'assistant' &&
-            (nextUserMessageIndex === -1 || j < nextUserMessageIndex),
-        ) as AssistantMessage | undefined;
+        return [
+          ...prev,
+          {
+            content: '',
+            messageId: msgId,
+            chatId: chatId!,
+            role: 'assistant',
+            createdAt: new Date(),
+          },
+        ];
+      });
+    },
+    [chatId],
+  );
 
-        const sourceMessage = messages.find(
-          (m, j) =>
-            j > i &&
-            m.role === 'source' &&
-            m.sources &&
-            (nextUserMessageIndex === -1 || j < nextUserMessageIndex),
-        ) as SourceMessage | undefined;
-
-        let thinkingEnded = false;
-        let processedMessage = aiMessage?.content ?? '';
-        let speechMessage = aiMessage?.content ?? '';
-        let suggestions: string[] = [];
-
-        if (aiMessage) {
-          const citationRegex = /\[([^\]]+)\]/g;
-          const regex = /\[(\d+)\]/g;
-
-          if (processedMessage.includes('<think>')) {
-            const openThinkTag =
-              processedMessage.match(/<think>/g)?.length || 0;
-            const closeThinkTag =
-              processedMessage.match(/<\/think>/g)?.length || 0;
-
-            if (openThinkTag && !closeThinkTag) {
-              processedMessage += '</think> <a> </a>';
-            }
-          }
-
-          if (aiMessage.content.includes('</think>')) {
-            thinkingEnded = true;
-          }
-
-          if (
-            sourceMessage &&
-            sourceMessage.sources &&
-            sourceMessage.sources.length > 0
-          ) {
-            processedMessage = processedMessage.replace(
-              citationRegex,
-              (_, capturedContent: string) => {
-                const numbers = capturedContent
-                  .split(',')
-                  .map((numStr) => numStr.trim());
-
-                const linksHtml = numbers
-                  .map((numStr) => {
-                    const number = parseInt(numStr);
-
-                    if (isNaN(number) || number <= 0) {
-                      return `[${numStr}]`;
-                    }
-
-                    const source = sourceMessage.sources?.[number - 1];
-                    const url = source?.metadata?.url;
-
-                    if (url) {
-                      return `<citation href="${url}">${numStr}</citation>`;
-                    } else {
-                      return ``;
-                    }
-                  })
-                  .join('');
-
-                return linksHtml;
-              },
-            );
-            speechMessage = aiMessage.content.replace(regex, '');
-          } else {
-            processedMessage = processedMessage.replace(regex, '');
-            speechMessage = aiMessage.content.replace(regex, '');
-          }
-
-          const suggestionMessage = messages.find(
-            (m, j) =>
-              j > i &&
-              m.role === 'suggestion' &&
-              (nextUserMessageIndex === -1 || j < nextUserMessageIndex),
-          ) as SuggestionMessage | undefined;
-
-          if (suggestionMessage && suggestionMessage.suggestions.length > 0) {
-            suggestions = suggestionMessage.suggestions;
-          }
+  const appendAssistantChunk = useCallback((msgId: string, chunk: string) => {
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (m.role === 'assistant' && m.messageId === msgId) {
+          return { ...m, content: (m.content ?? '') + chunk };
         }
+        return m;
+      }),
+    );
+  }, []);
 
-        sections.push({
-          userMessage: msg,
-          assistantMessage: aiMessage,
-          sourceMessage: sourceMessage,
-          parsedAssistantMessage: processedMessage,
-          speechMessage,
-          thinkingEnded,
-          suggestions: suggestions,
-        });
-      }
-    });
-
-    return sections;
-  }, [messages]);
-
+  // Initial boot: config + userId
   useEffect(() => {
-    checkConfig(
+    checkConfig({
       setChatModelProvider,
       setEmbeddingModelProvider,
       setIsConfigReady,
       setHasError,
       setAvailableProviders,
-    );
-    // Initialize authentication token from URL or localStorage
-    // initializeAuthToken(searchParams);
-    // Extract userId from the auth token (JWT payload)
+    });
+
     const extractedUserId = extractUserIdFromToken();
     setUserId(extractedUserId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('focusMode', focusMode);
-    }
-  }, [focusMode]);
-
+  // chatId changes (route changes)
   useEffect(() => {
     if (params.chatId && params.chatId !== chatId) {
       setChatId(params.chatId);
@@ -593,6 +672,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [params.chatId, chatId]);
 
+  // load existing chat messages or create new chat id
   useEffect(() => {
     if (
       chatId &&
@@ -601,18 +681,23 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       !isMessagesLoaded &&
       messages.length === 0
     ) {
-      loadMessages(
+      loadMessages({
         chatId,
-        userId,
         setMessages,
         setIsMessagesLoaded,
         setChatHistory,
-        setFocusMode,
+        setFocusMode: (m) => {
+          setFocusMode(m);
+          safeLocalStorageSet('focusMode', m);
+        },
         setNotFound,
         setFiles,
         setFileIds,
-      );
-    } else if (!chatId) {
+      });
+      return;
+    }
+
+    if (!chatId) {
       setNewChatCreated(true);
       setIsMessagesLoaded(true);
       setChatId(crypto.randomBytes(20).toString('hex'));
@@ -621,238 +706,115 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   }, [chatId, userId, isMessagesLoaded, newChatCreated, messages.length]);
 
   useEffect(() => {
-    messagesRef.current = messages;
-  }, [messages]);
-
-  useEffect(() => {
-    if (isMessagesLoaded && isConfigReady) {
-      setIsReady(true);
-      console.debug(new Date(), 'app:ready');
-    } else {
-      setIsReady(false);
-    }
+    setIsReady(Boolean(isMessagesLoaded && isConfigReady));
   }, [isMessagesLoaded, isConfigReady]);
 
-  const rewrite = (messageId: string) => {
-    const index = messages.findIndex((msg) => msg.messageId === messageId);
-    const chatTurnsIndex = chatTurns.findIndex(
-      (msg) => msg.messageId === messageId,
-    );
+  const rewrite = useCallback(
+    (messageId: string) => {
+      const index = messagesRef.current.findIndex(
+        (msg) => msg.messageId === messageId,
+      );
+      const chatTurnsIndex = chatTurns.findIndex(
+        (msg) => msg.messageId === messageId,
+      );
+      if (index === -1) return;
 
-    if (index === -1) return;
+      const prevUserTurn = chatTurns[chatTurnsIndex - 1];
+      if (!prevUserTurn) return;
 
-    const message = chatTurns[chatTurnsIndex - 1];
+      setMessages((prev) => {
+        const cutIndex = prev.findIndex(
+          (m) => m.messageId === prevUserTurn.messageId,
+        );
+        return prev.slice(0, Math.max(0, cutIndex));
+      });
 
-    setMessages((prev) => {
-      return [
-        ...prev.slice(0, messages.length > 2 ? messages.indexOf(message) : 0),
-      ];
-    });
-    setChatHistory((prev) => {
-      return [...prev.slice(0, chatTurns.length > 2 ? chatTurnsIndex - 1 : 0)];
-    });
+      setChatHistory((prev) => prev.slice(0, Math.max(0, chatTurnsIndex - 1)));
 
-    sendMessage(message.content, message.messageId, true);
-  };
+      sendMessage(prevUserTurn.content, prevUserTurn.messageId, true);
+    },
+    [chatTurns],
+  );
 
+  // Auto-send initial query (?q=...)
   useEffect(() => {
     if (isReady && initialMessage && isConfigReady) {
-      if (!isConfigReady) {
-        toast.error('Cannot send message before the configuration is ready');
-        return;
-      }
       sendMessage(initialMessage);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConfigReady, isReady, initialMessage]);
+  }, [isReady, isConfigReady, initialMessage]);
 
-  const sendMessage: ChatContext['sendMessage'] = async (
+  const sendMessageImplementation: ChatContext['sendMessage'] = async (
     message,
     messageId,
-    rewrite = false,
+    rewriteMode = false,
   ) => {
     if (loading || !message || !userId) return;
-    console.log('sendMessage started');
+
     setLoading(true);
     setMessageAppeared(false);
     clearProgress();
 
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
+    if (abortControllerRef.current) abortControllerRef.current.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
-    console.log('AbortController created', controller.signal);
 
-    if (messages.length <= 1) {
+    if (messagesRef.current.length <= 1) {
       window.history.replaceState(null, '', `/itms/ai/c/${chatId}`);
     }
 
-    let recievedMessage = '';
-    let added = false;
-
-    // 🆕 打字機效果的緩衝隊列和控制變量
-    let charBuffer: string[] = [];
-    let isTyping = false;
-    let typingInterval: NodeJS.Timeout | null = null;
-    let currentMessageId: string | null = null;
-    let isCancelled = false;
-
-    messageId = messageId ?? crypto.randomBytes(7).toString('hex');
-
-    setMessages((prevMessages) => [
-      ...prevMessages,
+    const userMsgId = messageId ?? crypto.randomBytes(7).toString('hex');
+    setMessages((prev) => [
+      ...prev,
       {
         content: message,
-        messageId: messageId,
+        messageId: userMsgId,
         chatId: chatId!,
         role: 'user',
         createdAt: new Date(),
       },
     ]);
 
-    // 🆕 逐字顯示函數
-    const startTyping = (msgId: string) => {
-      if (isTyping) return;
+    let receivedMessage = '';
+    let assistantAdded = false;
 
-      isTyping = true;
-      currentMessageId = msgId;
-
-      const typeNextChar = () => {
-        if (charBuffer.length === 0) {
-          isTyping = false;
-          if (typingInterval) {
-            clearInterval(typingInterval);
-            typingInterval = null;
+    const handleProgress = (incoming: ProgressData) => {
+      setProgress((prevProgress) => {
+        const tasks: ProgressTask[] = prevProgress?.tasks ?? [];
+        if (incoming.question && incoming.current > 0) {
+          const exists = tasks.some((t) => t.id === incoming.current);
+          if (!exists) {
+            const updatedTasks: ProgressTask[] = tasks.map((t) => ({
+              ...t,
+              status: 'completed',
+            }));
+            updatedTasks.push({
+              id: incoming.current,
+              question: incoming.question!,
+              status: 'processing',
+            });
+            return { ...incoming, tasks: updatedTasks };
           }
-          return;
         }
-
-        // 一次處理多個字符以提高速度（可調整）
-        const charsToAdd = charBuffer.splice(0, 3).join('');
-
-        setMessages((prev) =>
-          prev.map((msg) => {
-            if (msg.messageId === msgId && msg.role === 'assistant') {
-              return { ...msg, content: msg.content + charsToAdd };
-            }
-            return msg;
-          }),
-        );
-      };
-
-      // 使用 setInterval 而非 requestAnimationFrame 以獲得更精確的控制
-      typingInterval = setInterval(typeNextChar, 20); // 20ms = 每秒50字符
-    };
-
-    // 🆕 添加字符到緩衝區
-    const addToBuffer = (text: string, msgId: string) => {
-      // charBuffer.push(...text.split('')); // 將文本拆分成單個字符
-      charBuffer = charBuffer.concat(text.split(''));
-      if (!isTyping) {
-        startTyping(msgId);
-      }
-    };
-
-    // 🆕 清空緩衝區並立即顯示剩餘內容
-    const flushBuffer = (msgId: string) => {
-      if (typingInterval) {
-        clearInterval(typingInterval);
-        typingInterval = null;
-      }
-
-      if (charBuffer.length > 0) {
-        const remaining = charBuffer.join('');
-        charBuffer = [];
-
-        setMessages((prev) =>
-          prev.map((msg) => {
-            if (msg.messageId === msgId && msg.role === 'assistant') {
-              return { ...msg, content: msg.content + remaining };
-            }
-            return msg;
-          }),
-        );
-      }
-
-      isTyping = false;
+        return { ...incoming, tasks };
+      });
     };
 
     const messageHandler = async (data: any) => {
-      if (isCancelled) return;
       if (data.type === 'error') {
         toast.error(data.data);
         setLoading(false);
-        // 🆕 清空緩衝區
-        if (currentMessageId) flushBuffer(currentMessageId);
         return;
       }
 
       if (data.type === 'progress') {
-        // setProgress((prevProgress) => {
-        //   const newProgress = data.data;
-        //   const tasks = prevProgress?.tasks || [];
-
-        //   // 如果有新的 question，添加到任务列表
-        //   if (newProgress.question && newProgress.current > 0) {
-        //     // 检查是否已经存在这个任务
-        //     const taskExists = tasks.some(t => t.id === newProgress.current);
-        //     if (!taskExists) {
-        //       // 将之前的任务标记为已完成
-        //       const updatedTasks = tasks.map(t => ({
-        //         ...t,
-        //         status: 'completed' as const,
-        //       }));
-        //       // 添加新任务
-        //       updatedTasks.push({
-        //         id: newProgress.current,
-        //         question: newProgress.question,
-        //         status: 'processing' as const,
-        //       });
-        //       return { ...newProgress, tasks: updatedTasks };
-        //     } else {
-        //       // 更新现有任务状态
-        //       return { ...newProgress, tasks };
-        //     }
-        //   }
-
-        //   return { ...newProgress, tasks };
-        // });
-        setProgress((prevProgress) => {
-          const newProgress = data.data as ProgressData;
-
-          const tasks: ProgressTask[] = prevProgress?.tasks ?? [];
-
-          if (newProgress.question && newProgress.current > 0) {
-            const taskExists = tasks.some((t) => t.id === newProgress.current);
-
-            if (!taskExists) {
-              const updatedTasks: ProgressTask[] = tasks.map((t) => ({
-                ...t,
-                status: 'completed', // <-- no "as const"
-              }));
-
-              updatedTasks.push({
-                id: newProgress.current,
-                question: newProgress.question,
-                status: 'processing', // <-- now allowed
-              });
-
-              return { ...newProgress, tasks: updatedTasks };
-            }
-
-            return { ...newProgress, tasks };
-          }
-
-          return { ...newProgress, tasks };
-        });
-
+        handleProgress(data.data as ProgressData);
         return;
       }
 
       if (data.type === 'sources') {
-        setMessages((prevMessages) => [
-          ...prevMessages,
+        setMessages((prev) => [
+          ...prev,
           {
             messageId: data.messageId,
             chatId: chatId!,
@@ -861,405 +823,217 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
             createdAt: new Date(),
           },
         ]);
-        if (data.data.length > 0) {
-          setMessageAppeared(true);
-        }
+        if (data.data?.length > 0) setMessageAppeared(true);
+        return;
       }
 
       if (data.type === 'message') {
-        if (!added) {
-          // 第一次收到消息，創建空的 assistant 消息
-          setMessages((prevMessages) => [
-            ...prevMessages,
-            {
-              content: '', // 🆕 初始為空，通過打字機效果填充
-              messageId: data.messageId,
-              chatId: chatId!,
-              role: 'assistant',
-              createdAt: new Date(),
-            },
-          ]);
-          added = true;
+        if (!assistantAdded) {
+          ensureAssistantMessage(data.messageId);
+          assistantAdded = true;
           setMessageAppeared(true);
         }
-
-        // 🆕 將新數據添加到緩衝區而不是直接更新狀態
-        addToBuffer(data.data, data.messageId);
-        recievedMessage += data.data;
+        appendAssistantChunk(data.messageId, data.data);
+        receivedMessage += data.data;
+        return;
       }
 
       if (data.type === 'messageEnd') {
-        // 🆕 確保所有緩衝內容都已顯示
-        if (currentMessageId) {
-          flushBuffer(currentMessageId);
-        }
-
-        setChatHistory((prevHistory) => [
-          ...prevHistory,
+        setChatHistory((prev) => [
+          ...prev,
           ['human', message],
-          ['assistant', recievedMessage],
+          ['assistant', receivedMessage],
         ]);
 
         setLoading(false);
         clearProgress();
 
-        /* Check if there are sources after message id's index and no suggestions */
-
         const userMessageIndex = messagesRef.current.findIndex(
-          (msg) => msg.messageId === messageId && msg.role === 'user',
+          (m) => m.messageId === userMsgId && m.role === 'user',
         );
 
         const sourceMessage = messagesRef.current.find(
-          (msg, i) => i > userMessageIndex && msg.role === 'source',
+          (m, i) => i > userMessageIndex && m.role === 'source',
         ) as SourceMessage | undefined;
 
         const suggestionMessageIndex = messagesRef.current.findIndex(
-          (msg, i) => i > userMessageIndex && msg.role === 'suggestion',
+          (m, i) => i > userMessageIndex && m.role === 'suggestion',
         );
 
         if (
-          sourceMessage &&
-          sourceMessage.sources.length > 0 &&
-          suggestionMessageIndex == -1
+          (sourceMessage?.sources?.length ?? 0) > 0 &&
+          suggestionMessageIndex === -1
         ) {
           const suggestions = await getSuggestions(messagesRef.current);
-          setMessages((prev) => {
-            return [
-              ...prev,
-              {
-                role: 'suggestion',
-                suggestions: suggestions,
-                chatId: chatId!,
-                createdAt: new Date(),
-                messageId: crypto.randomBytes(7).toString('hex'),
-              },
-            ];
-          });
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: 'suggestion',
+              suggestions,
+              chatId: chatId!,
+              createdAt: new Date(),
+              messageId: crypto.randomBytes(7).toString('hex'),
+            },
+          ]);
         }
       }
     };
 
-    const messageIndex = messages.findIndex((m) => m.messageId === messageId);
+    const messageIndex = messagesRef.current.findIndex(
+      (m) => m.messageId === userMsgId,
+    );
 
     try {
+      const fm = focusModeRef.current;
+      const outgoingFiles =
+        fm === 'agentImage'
+          ? [
+              ...fileIdsRef.current,
+              `__AGENT_IMAGE_ASPECT__:${safeLocalStorageGet('agentImageAspect') || '1:1'}`,
+            ]
+          : fileIdsRef.current;
+
       const res = await fetch('/itms/ai/api/chat', {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({
           content: message,
-          message: {
-            messageId: messageId,
-            chatId: chatId!,
-            content: message,
-          },
+          message: { messageId: userMsgId, chatId: chatId!, content: message },
           chatId: chatId!,
-          files:
-            focusMode === 'agentImage'
-              ? [
-                  ...fileIds,
-                  `__AGENT_IMAGE_ASPECT__:${localStorage.getItem('agentImageAspect') || '1:1'}`,
-                ]
-              : fileIds,
-          focusMode: focusMode,
-          optimizationMode: optimizationMode,
-          sfcExactMatch: sfcExactMatch,
-          sfcTrainingRelated: sfcTrainingRelated,
-          history: rewrite
-            ? chatHistory.slice(
+          files: outgoingFiles,
+          focusMode: fm,
+          optimizationMode: optimizationModeRef.current,
+          sfcExactMatch: sfcExactMatchRef.current,
+          sfcTrainingRelated: sfcTrainingRelatedRef.current,
+          history: rewriteMode
+            ? chatHistoryRef.current.slice(
                 0,
                 messageIndex === -1 ? undefined : messageIndex,
               )
-            : chatHistory,
-          chatModel: {
-            key: chatModelProvider.key,
-            providerId: chatModelProvider.providerId,
-          },
-          embeddingModel: {
-            key: embeddingModelProvider.key,
-            providerId: embeddingModelProvider.providerId,
-          },
-          systemInstructions: localStorage.getItem('systemInstructions'),
+            : chatHistoryRef.current,
+          chatModel: chatModelProviderRef.current,
+          embeddingModel: embeddingModelProviderRef.current,
+          systemInstructions: safeLocalStorageGet('systemInstructions'),
         }),
         signal: controller.signal,
       });
 
       if (!res.body) throw new Error('No response body');
-      const reader = res.body?.getReader();
-      const decoder = new TextDecoder('utf-8');
 
-      let partialChunk = '';
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
 
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
 
-        partialChunk += decoder.decode(value, { stream: true });
+        buffer += decoder.decode(value, { stream: true });
 
-        try {
-          const messages = partialChunk.split('\n');
-          for (const msg of messages) {
-            if (!msg.trim()) continue;
-            const json = JSON.parse(msg);
-            messageHandler(json).catch((e) =>
-              console.error('Message handler error:', e),
-            );
-          }
-          partialChunk = '';
-        } catch (error) {
-          console.warn('Incomplete JSON, waiting for next chunk...');
+        const { jsonObjects, rest } = parseJsonLines(buffer);
+        buffer = rest;
+
+        for (const obj of jsonObjects) {
+          await messageHandler(obj);
         }
       }
+
+      if (buffer.trim()) {
+        await messageHandler(JSON.parse(buffer));
+      }
     } catch (err: any) {
-      if (err.name === 'AbortError' || controller.signal.aborted) {
-        console.log('AbortError caught');
-        // Ignore AbortError
+      if (err?.name === 'AbortError' || controller.signal.aborted) {
+        // ignore aborted request
       } else {
         console.error('SendMessage error:', err);
         throw err;
       }
     } finally {
-      isCancelled = true;
-      console.log(
-        'finally block reached. Clearing interval and setting loading false',
-      );
-      // 🆕 確保清理定時器
-      if (typingInterval) {
-        clearInterval(typingInterval);
-      }
       setLoading(false);
     }
   };
 
-  // const sendMessage: ChatContext['sendMessage'] = async (
-  //   message,
-  //   messageId,
-  //   rewrite = false,
-  // ) => {
-  //   if (loading || !message || !userId) return;
-  //   setLoading(true);
-  //   setMessageAppeared(false);
+  // keep latest impl in ref
+  sendMessageRef.current = sendMessageImplementation;
 
-  //   if (messages.length <= 1) {
-  //     window.history.replaceState(null, '', `/c/${chatId}`);
-  //   }
+  // stable sendMessage wrapper
+  const sendMessage: ChatContext['sendMessage'] = useCallback((...args) => {
+    return sendMessageRef.current!(...args);
+  }, []);
 
-  //   let recievedMessage = '';
-  //   let added = false;
-
-  //   messageId = messageId ?? crypto.randomBytes(7).toString('hex');
-
-  //   setMessages((prevMessages) => [
-  //     ...prevMessages,
-  //     {
-  //       content: message,
-  //       messageId: messageId,
-  //       chatId: chatId!,
-  //       role: 'user',
-  //       createdAt: new Date(),
-  //     },
-  //   ]);
-
-  //   const messageHandler = async (data: any) => {
-  //     if (data.type === 'error') {
-  //       toast.error(data.data);
-  //       setLoading(false);
-  //       return;
-  //     }
-
-  //     if (data.type === 'sources') {
-  //       setMessages((prevMessages) => [
-  //         ...prevMessages,
-  //         {
-  //           messageId: data.messageId,
-  //           chatId: chatId!,
-  //           role: 'source',
-  //           sources: data.data,
-  //           createdAt: new Date(),
-  //         },
-  //       ]);
-  //       if (data.data.length > 0) {
-  //         setMessageAppeared(true);
-  //       }
-  //     }
-
-  //     if (data.type === 'message') {
-  //       if (!added) {
-  //         setMessages((prevMessages) => [
-  //           ...prevMessages,
-  //           {
-  //             content: data.data,
-  //             messageId: data.messageId,
-  //             chatId: chatId!,
-  //             role: 'assistant',
-  //             createdAt: new Date(),
-  //           },
-  //         ]);
-  //         added = true;
-  //         setMessageAppeared(true);
-  //       } else {
-  //         setMessages((prev) =>
-  //           prev.map((message) => {
-  //             if (
-  //               message.messageId === data.messageId &&
-  //               message.role === 'assistant'
-  //             ) {
-  //               return { ...message, content: message.content + data.data };
-  //             }
-
-  //             return message;
-  //           }),
-  //         );
-  //       }
-  //       recievedMessage += data.data;
-  //     }
-
-  //     if (data.type === 'messageEnd') {
-  //       setChatHistory((prevHistory) => [
-  //         ...prevHistory,
-  //         ['human', message],
-  //         ['assistant', recievedMessage],
-  //       ]);
-
-  //       setLoading(false);
-
-  //       /* Check if there are sources after message id's index and no suggestions */
-
-  //       const userMessageIndex = messagesRef.current.findIndex(
-  //         (msg) => msg.messageId === messageId && msg.role === 'user',
-  //       );
-
-  //       const sourceMessage = messagesRef.current.find(
-  //         (msg, i) => i > userMessageIndex && msg.role === 'source',
-  //       ) as SourceMessage | undefined;
-
-  //       const suggestionMessageIndex = messagesRef.current.findIndex(
-  //         (msg, i) => i > userMessageIndex && msg.role === 'suggestion',
-  //       );
-
-  //       if (
-  //         sourceMessage &&
-  //         sourceMessage.sources.length > 0 &&
-  //         suggestionMessageIndex == -1
-  //       ) {
-  //         const suggestions = await getSuggestions(messagesRef.current);
-  //         setMessages((prev) => {
-  //           return [
-  //             ...prev,
-  //             {
-  //               role: 'suggestion',
-  //               suggestions: suggestions,
-  //               chatId: chatId!,
-  //               createdAt: new Date(),
-  //               messageId: crypto.randomBytes(7).toString('hex'),
-  //             },
-  //           ];
-  //         });
-  //       }
-  //     }
-  //   };
-
-  //   const messageIndex = messages.findIndex((m) => m.messageId === messageId);
-
-  //   const res = await fetch('/itms/ai/api/chat', {
-  //     method: 'POST',
-  //     headers: getAuthHeaders(),
-  //     body: JSON.stringify({
-  //       content: message,
-  //       message: {
-  //         messageId: messageId,
-  //         chatId: chatId!,
-  //         content: message,
-  //       },
-  //       chatId: chatId!,
-  //       files: fileIds,
-  //       focusMode: focusMode,
-  //       optimizationMode: optimizationMode,
-  //       history: rewrite
-  //         ? chatHistory.slice(0, messageIndex === -1 ? undefined : messageIndex)
-  //         : chatHistory,
-  //       chatModel: {
-  //         key: chatModelProvider.key,
-  //         providerId: chatModelProvider.providerId,
-  //       },
-  //       embeddingModel: {
-  //         key: embeddingModelProvider.key,
-  //         providerId: embeddingModelProvider.providerId,
-  //       },
-  //       systemInstructions: localStorage.getItem('systemInstructions'),
-  //     }),
-  //   });
-
-  //   if (!res.body) throw new Error('No response body');
-
-  //   const reader = res.body?.getReader();
-  //   const decoder = new TextDecoder('utf-8');
-
-  //   let partialChunk = '';
-
-  //   while (true) {
-  //     const { value, done } = await reader.read();
-  //     if (done) break;
-
-  //     partialChunk += decoder.decode(value, { stream: true });
-
-  //     try {
-  //       const messages = partialChunk.split('\n');
-  //       for (const msg of messages) {
-  //         if (!msg.trim()) continue;
-  //         const json = JSON.parse(msg);
-  //         messageHandler(json);
-  //       }
-  //       partialChunk = '';
-  //     } catch (error) {
-  //       console.warn('Incomplete JSON, waiting for next chunk...');
-  //     }
-  //   }
-  // };
+  const contextValue = useMemo(
+    () => ({
+      messages,
+      chatTurns,
+      sections,
+      chatHistory,
+      files,
+      fileIds,
+      focusMode,
+      chatId,
+      userId,
+      hasError,
+      isMessagesLoaded,
+      isReady,
+      loading,
+      messageAppeared,
+      notFound,
+      optimizationMode,
+      progress,
+      sfcExactMatch,
+      setSfcExactMatch,
+      sfcTrainingRelated,
+      setSfcTrainingRelated,
+      setFileIds,
+      setFiles,
+      setFocusMode: handleSetFocusMode,
+      setOptimizationMode,
+      rewrite,
+      sendMessage,
+      setChatModelProvider,
+      chatModelProvider,
+      embeddingModelProvider,
+      setEmbeddingModelProvider,
+      stop,
+      clearProgress,
+    }),
+    [
+      messages,
+      chatTurns,
+      sections,
+      chatHistory,
+      files,
+      fileIds,
+      focusMode,
+      chatId,
+      userId,
+      hasError,
+      isMessagesLoaded,
+      isReady,
+      loading,
+      messageAppeared,
+      notFound,
+      optimizationMode,
+      progress,
+      sfcExactMatch,
+      sfcTrainingRelated,
+      handleSetFocusMode,
+      rewrite,
+      sendMessage,
+      setChatModelProvider,
+      chatModelProvider,
+      embeddingModelProvider,
+      setEmbeddingModelProvider,
+      stop,
+      clearProgress,
+    ],
+  );
 
   return (
-    <chatContext.Provider
-      value={{
-        messages,
-        chatTurns,
-        sections,
-        chatHistory,
-        files,
-        fileIds,
-        focusMode,
-        chatId,
-        userId,
-        hasError,
-        isMessagesLoaded,
-        isReady,
-        loading,
-        messageAppeared,
-        notFound,
-        optimizationMode,
-        progress,
-        sfcExactMatch,
-        setSfcExactMatch,
-        sfcTrainingRelated,
-        setSfcTrainingRelated,
-        setFileIds,
-        setFiles,
-        setFocusMode: handleSetFocusMode,
-        setOptimizationMode,
-        rewrite,
-        sendMessage,
-        setChatModelProvider,
-        chatModelProvider,
-        embeddingModelProvider,
-        setEmbeddingModelProvider,
-        stop,
-        clearProgress,
-      }}
-    >
-      {children}
-    </chatContext.Provider>
+    <chatContext.Provider value={contextValue}>{children}</chatContext.Provider>
   );
 };
 
 export const useChat = () => {
-  const ctx = useContext(chatContext);
-  return ctx;
+  return useContext(chatContext);
 };

@@ -327,6 +327,8 @@ class AgentImage implements MetaSearchAgentType {
 
     (async () => {
       try {
+        const totalSteps = 2;
+
         const baseURL = await this.resolveBaseURL(signal);
         const aspectTag = (fileIds || []).find(
           (f) =>
@@ -337,7 +339,37 @@ class AgentImage implements MetaSearchAgentType {
           : '1:1';
         const { width, height } = this.getDimsFromAspect(aspect);
         const wf = this.buildWorkflow(message, width, height);
+
+        emitter.emit(
+          'data',
+          JSON.stringify({
+            type: 'progress',
+            data: {
+              status: 'processing',
+              total: totalSteps,
+              current: 1,
+              question: '提交繪圖任務',
+              message: '正在提交繪圖任務...',
+            },
+          }),
+        );
+
         const promptId = await this.submitWorkflow(baseURL, wf, signal);
+
+        emitter.emit(
+          'data',
+          JSON.stringify({
+            type: 'progress',
+            data: {
+              status: 'processing',
+              total: totalSteps,
+              current: 2,
+              question: '生成圖片中',
+              message: '正在生成圖片，請稍候...',
+            },
+          }),
+        );
+
         const images = await this.pollHistoryForImages(
           baseURL,
           promptId,
@@ -354,6 +386,20 @@ class AgentImage implements MetaSearchAgentType {
             JSON.stringify({ type: 'response', data: chunk }),
           );
         }
+
+        emitter.emit(
+          'data',
+          JSON.stringify({
+            type: 'progress',
+            data: {
+              status: 'finished',
+              total: totalSteps,
+              current: totalSteps,
+              message: '圖片生成完成',
+            },
+          }),
+        );
+
         emitter.emit('end');
       } catch (error: any) {
         if (error.name === 'AbortError') {
