@@ -21,13 +21,6 @@ class AgentImage implements MetaSearchAgentType {
     }
   }
 
-  // private getComfyBaseURL(): string {
-  //   const base =
-  //     configManager.getConfig('comfyui.baseURL', '') ||
-  //     configManager.getConfig('comfyui.baseUrl', '');
-  //   return base || 'http://192.168.1.113:8188';
-  // }
-
   private getCandidateBaseURLs(): string[] {
     const configured =
       configManager.getConfig('comfyui.baseURL', '') ||
@@ -322,6 +315,9 @@ class AgentImage implements MetaSearchAgentType {
     fileIds: string[],
     systemInstructions: string,
     signal?: AbortSignal,
+    sfcExactMatch?: boolean,
+    sfcTrainingRelated?: boolean,
+    req?: Request,
   ): Promise<eventEmitter> {
     const emitter = new eventEmitter();
 

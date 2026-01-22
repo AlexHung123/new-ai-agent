@@ -240,6 +240,9 @@ class DataAgent implements MetaSearchAgentType {
     fileIds: string[],
     systemInstructions: string,
     signal?: AbortSignal,
+    sfcExactMatch?: boolean,
+    sfcTrainingRelated?: boolean,
+    req?: Request,
   ): Promise<eventEmitter> {
     const emitter = new eventEmitter();
 

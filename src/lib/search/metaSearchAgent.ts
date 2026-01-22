@@ -29,7 +29,8 @@ export interface MetaSearchAgentType {
     systemInstructions: string,
     signal?: AbortSignal,
     sfcExactMatch?: boolean | undefined,
-    sfcTrainingRelated?: boolean
+    sfcTrainingRelated?: boolean,
+    req?: Request
   ) => Promise<eventEmitter>;
 }
 

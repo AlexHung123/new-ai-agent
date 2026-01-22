@@ -31,11 +31,6 @@ const DeleteChat = ({
   const handleDelete = async () => {
     setLoading(true);
     try {
-      // const userId = getUserIdFromStorage();
-      // if (!userId) {
-      //   throw new Error('User ID not found');
-      // }
-
       const res = await fetch(`/itms/ai/api/chats/${chatId}`, {
         method: 'DELETE',
         headers: getAuthHeaders(),

@@ -226,11 +226,6 @@ class SfcAgent implements MetaSearchAgentType {
   private async queryRAGFlow(
     keyword: string,
     signal?: AbortSignal,
-    // overrides?: {
-    //   similarityThreshold?: number;
-    //   vectorSimilarityWeight?: number;
-    // },
-    sfcExactMatch?: boolean | undefined,
     sfcTrainingRelated?: boolean,
   ): Promise<any> {
     try {
@@ -556,6 +551,7 @@ class SfcAgent implements MetaSearchAgentType {
     signal?: AbortSignal,
     sfcExactMatch?: boolean,
     sfcTrainingRelated?: boolean,
+    req?: Request,
   ): Promise<eventEmitter> {
     const emitter = new eventEmitter();
 
@@ -570,7 +566,7 @@ class SfcAgent implements MetaSearchAgentType {
       try {
         if (signal?.aborted) return;
 
-        const totalSteps = 1;
+        const totalSteps = 2;
 
         let keyword = '';
 
@@ -578,6 +574,19 @@ class SfcAgent implements MetaSearchAgentType {
           keyword = message.trim();
         } else {
           keyword = await this.extractKeyword(message, llm, signal);
+          emitter.emit(
+            'data',
+            JSON.stringify({
+              type: 'progress',
+              data: {
+                status: 'processing',
+                total: totalSteps,
+                current: 1,
+                question: '檢索資料源',
+                message: '正在檢索資料源…',
+              },
+            }),
+          );
 
           if (keyword === '未找到相關資料') {
             emitter.emit(
@@ -592,19 +601,19 @@ class SfcAgent implements MetaSearchAgentType {
           }
         }
 
-        emitter.emit(
-          'data',
-          JSON.stringify({
-            type: 'progress',
-            data: {
-              status: 'processing',
-              total: totalSteps,
-              current: 1,
-              question: '檢索資料源',
-              message: '正在檢索資料源…',
-            },
-          }),
-        );
+        // emitter.emit(
+        //   'data',
+        //   JSON.stringify({
+        //     type: 'progress',
+        //     data: {
+        //       status: 'processing',
+        //       total: totalSteps,
+        //       current: 2,
+        //       question: '檢索資料源',
+        //       message: '正在檢索資料源…',
+        //     },
+        //   }),
+        // );
         let ragflowResponse: any;
 
         if (sfcExactMatch) {
@@ -618,7 +627,6 @@ class SfcAgent implements MetaSearchAgentType {
           ragflowResponse = await this.queryRAGFlow(
             keyword,
             signal,
-            false,
             sfcTrainingRelated,
           );
         }

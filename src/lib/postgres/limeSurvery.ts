@@ -1,4 +1,4 @@
-import {prisma} from './db'
+import { prisma } from './db';
 
 // Function to get survey data by survey ID
 export async function getLimeSurveyData(sid: string) {
@@ -6,9 +6,9 @@ export async function getLimeSurveyData(sid: string) {
     const tableName = `lime_survey_${sid}`;
 
     const surveyData: any[] = await prisma.$queryRawUnsafe(
-      `SELECT * FROM ${tableName}`
+      `SELECT * FROM ${tableName}`,
     );
-    
+
     return surveyData;
   } catch (error: any) {
     console.error('Error fetching LimeSurvey data:', error);
@@ -20,9 +20,9 @@ export async function getLimeSurveyData(sid: string) {
 export async function getLimeSurveySummaryBySid(sid: string) {
   try {
     // const prismaClient = await getPrisma();
-    
+
     const tableName = `lime_survey_${sid}`;
-    
+
     // Get column information
     const columns: any[] = await prisma.$queryRawUnsafe(
       `WITH qs AS (
@@ -152,12 +152,90 @@ export async function getLimeSurveySummaryBySid(sid: string) {
             jsonb_build_object(qtext, jarr)
             ORDER BY group_order, question_order
         ) AS result_json
-        FROM merged;`
+        FROM merged;`,
     );
-    
+
     return columns;
   } catch (error: any) {
     console.error('Error fetching LimeSurvey columns:', error);
-    throw new Error(`Failed to fetch columns for survey ${sid}: ${error.message}`);
+    throw new Error(
+      `Failed to fetch columns for survey ${sid}: ${error.message}`,
+    );
+  }
+}
+
+export async function getLimeSurveySummaryIdsByUserId(username: string) {
+  try {
+    // Get column information
+    const columns: any[] = await prisma.$queryRawUnsafe(
+      `WITH u AS (
+        SELECT uid
+        FROM lime_users
+        WHERE users_name = '${username}'
+        ),
+        is_superadmin AS (
+        SELECT EXISTS (
+            SELECT 1
+            FROM lime_permissions p
+            JOIN u ON u.uid = p.uid
+            WHERE p.entity = 'global'    -- global permission
+            AND p.entity_id = 0
+            AND p.permission = 'superadmin'
+            AND p.read_p = 1
+        ) AS is_superadmin
+        ),
+        is_superadmin_surveys as(
+        
+        -- branch when user is superadmin: all surveys
+        SELECT s.sid 
+        FROM lime_surveys s
+        CROSS JOIN is_superadmin
+        WHERE is_superadmin.is_superadmin
+        ),
+        user_groups AS (
+            SELECT DISTINCT ug.ugid 
+            FROM lime_user_in_groups ug 
+            inner join u on ug.uid = u.uid
+        ),
+        owned_surveys AS (
+            SELECT sid, owner_id, active, datecreated, gsid
+            FROM lime_surveys 
+            inner join u on owner_id =  u.uid
+        ),
+        direct_permitted_surveys AS (
+            SELECT DISTINCT s.sid
+            FROM lime_surveys s 
+            INNER JOIN lime_permissions p ON s.sid = p.entity_id 
+            inner join u on  p.uid = u.uid
+            WHERE p.entity = 'survey' 
+            AND p.permission = 'survey' 
+            AND p.read_p = 1
+        ),
+        group_permitted_surveys AS (
+            SELECT DISTINCT s.sid
+            FROM lime_surveys s 
+            INNER JOIN lime_surveys_groups sg ON s.gsid = sg.gsid
+            INNER JOIN lime_permissions p ON sg.gsid = p.entity_id 
+            inner join u on  p.uid = u.uid
+            where p.entity = 'surveysingroup' 
+            AND p.permission = 'surveys' 
+            AND p.read_p = 1
+        )
+        SELECT sid
+        FROM owned_surveys 
+        UNION 
+        SELECT sid FROM direct_permitted_surveys
+        UNION 
+        SELECT sid FROM group_permitted_surveys
+        union
+        SELECT sid FROM is_superadmin_surveys`,
+    );
+
+    return columns;
+  } catch (error: any) {
+    console.error('Error fetching LimeSurvey columns:', error);
+    throw new Error(
+      `Failed to fetch columns for survey ${username}: ${error.message}`,
+    );
   }
 }

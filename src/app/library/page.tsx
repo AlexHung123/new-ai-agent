@@ -24,13 +24,6 @@ const Page = () => {
     const fetchChats = async () => {
       setLoading(true);
 
-      // const userId = getUserIdFromStorage();
-      // if (!userId) {
-      //   console.error('No userId found in localStorage');
-      //   setLoading(false);
-      //   return;
-      // }
-
       const res = await fetch(`/itms/ai/api/chats`, {
         method: 'GET',
         headers: getAuthHeaders(),

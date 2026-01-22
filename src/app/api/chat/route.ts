@@ -360,6 +360,7 @@ export const POST = async (req: Request) => {
       req.signal,
       body.sfcExactMatch,
       body.sfcTrainingRelated,
+      req,
     );
 
     const responseStream = new TransformStream();

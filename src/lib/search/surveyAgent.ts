@@ -2,12 +2,17 @@ import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import type { Embeddings } from '@langchain/core/embeddings';
 import { BaseMessage } from '@langchain/core/messages';
 import { EventEmitter } from 'events';
-import { getLimeSurveySummaryBySid } from '@/lib/postgres/limeSurvery';
+import {
+  getLimeSurveySummaryBySid,
+  getLimeSurveySummaryIdsByUserId,
+} from '@/lib/postgres/limeSurvery';
+import { executeSql } from '@/lib/postgres/itmsdb';
 
 import { z } from 'zod';
 import { StructuredOutputParser } from '@langchain/core/output_parsers';
 import { PromptTemplate } from '@langchain/core/prompts';
 import { RunnableSequence } from '@langchain/core/runnables';
+import { MetaSearchAgentType } from './metaSearchAgent';
 
 type SurveyItem = { id: string; text: string };
 type Cluster = { label: string; item_ids: string[] };
@@ -310,7 +315,7 @@ async function reassignUncategorizedToExistingClusters(
   );
 }
 
-class SurveyAgent {
+class SurveyAgent implements MetaSearchAgentType {
   async searchAndAnswer(
     message: string,
     history: BaseMessage[],
@@ -320,6 +325,9 @@ class SurveyAgent {
     fileIds: string[],
     systemInstructions: string,
     signal?: AbortSignal,
+    sfcExactMatch?: boolean,
+    sfcTrainingRelated?: boolean,
+    req?: Request,
   ): Promise<EventEmitter> {
     const emitter = new TypedEmitter();
 
@@ -347,6 +355,55 @@ class SurveyAgent {
           });
           return;
         }
+
+        // Permission check start
+        try {
+          const userId = req?.headers.get('x-user-id');
+
+          if (!userId) {
+            throw new Error('User ID not found');
+          }
+
+          const userRows = await executeSql(
+            `select concat(dp_id,'.',dp_dept_id) as username from cap_user where id = '${userId.replace(/'/g, "''")}'`,
+          );
+          const username = userRows?.[0]?.username;
+
+          if (!username) {
+            throw new Error('Username not found');
+          }
+
+          const permittedSurveys =
+            await getLimeSurveySummaryIdsByUserId(username);
+          const permittedSids = permittedSurveys.map((s: any) => String(s.sid));
+
+          if (!permittedSids.includes(surveyId)) {
+            setImmediate(() => {
+              emitter.emit(
+                'data',
+                JSON.stringify({
+                  type: 'response',
+                  data: 'No permission to access this survey.',
+                }),
+              );
+              emitter.emit('end');
+            });
+            return;
+          }
+        } catch (err: any) {
+          setImmediate(() => {
+            emitter.emit(
+              'data',
+              JSON.stringify({
+                type: 'response',
+                data: `Permission check failed: ${err.message}`,
+              }),
+            );
+            emitter.emit('end');
+          });
+          return;
+        }
+        // Permission check end
 
         let surveyData;
         try {
