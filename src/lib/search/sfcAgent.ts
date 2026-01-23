@@ -391,6 +391,17 @@ class SfcAgent implements MetaSearchAgentType {
             .trim();
 
           const year = this.extractYear(content);
+
+          // Extract category number from "綱領： (x)"
+          const categoryMatch = content.match(/綱領：\s*\((\d+)\)/);
+          const category = categoryMatch ? categoryMatch[1] : null;
+
+          // Extract question number
+          const questionNoMatch = content.match(
+            /(?:問題編號|Question No\.?)\s*[：:]\s*(\d+)/i,
+          );
+          const questionNo = questionNoMatch ? questionNoMatch[1] : null;
+
           // Extract first 4 lines for summary (before highlighting)
           const lines = content
             .split('\n')
@@ -414,7 +425,16 @@ class SfcAgent implements MetaSearchAgentType {
           // Create summary text with document metadata and content preview
           // let summaryText = truncatedSummary;
           let summaryText = year > 0 ? `${year} - ` : '';
-          summaryText += truncatedSummary;
+
+          if (questionNo) {
+            summaryText += `（問題編號：${questionNo}）`;
+          } else {
+            summaryText += truncatedSummary;
+          }
+
+          if (category) {
+            summaryText += ` (分類：${category})`;
+          }
 
           // Add highlighted keywords to summaryText in traditional Chinese, separated by |
           if (chunk.highlight) {
@@ -493,6 +513,7 @@ class SfcAgent implements MetaSearchAgentType {
           // Extract year for display
           const year = this.extractYear(content);
 
+
           // Extract first lines for summary, skipping the "年份：XXXX" line
           const lines = content
             .split('\n')
@@ -525,7 +546,16 @@ class SfcAgent implements MetaSearchAgentType {
           }
 
           let summaryText = year > 0 ? `${year} - ` : '';
-          summaryText += truncatedSummary;
+          // summaryText += truncatedSummary;
+          if (questionNo) {
+            summaryText += `（問題編號：${questionNo}）`;
+          } else {
+            summaryText += truncatedSummary;
+          }
+
+          if (category) {
+            summaryText += ` 分類：${category}`;
+          }
 
           // Wrap content in details/summary for collapsible functionality
           const collapsibleContent = `<details>
