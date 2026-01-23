@@ -601,19 +601,19 @@ class SfcAgent implements MetaSearchAgentType {
           }
         }
 
-        // emitter.emit(
-        //   'data',
-        //   JSON.stringify({
-        //     type: 'progress',
-        //     data: {
-        //       status: 'processing',
-        //       total: totalSteps,
-        //       current: 2,
-        //       question: '檢索資料源',
-        //       message: '正在檢索資料源…',
-        //     },
-        //   }),
-        // );
+        emitter.emit(
+          'data',
+          JSON.stringify({
+            type: 'progress',
+            data: {
+              status: 'processing',
+              total: totalSteps,
+              current: 2,
+              question: '檢索資料源',
+              message: '正在檢索資料源…',
+            },
+          }),
+        );
         let ragflowResponse: any;
 
         if (sfcExactMatch) {

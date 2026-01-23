@@ -95,18 +95,18 @@ const Page = () => {
                 </Link>
                 <div className="flex flex-row items-center justify-between w-full">
                   <div className="flex flex-row items-center space-x-4">
-                    <div className="flex flex-row items-center space-x-1 lg:space-x-1.5 text-black/70 dark:text-white/70">
-                      <ClockIcon size={15} />
-                      <p className="text-xs">
-                        {formatTimeDifference(new Date(), chat.createdAt)} Ago
-                      </p>
-                    </div>
                     {agent && (
                       <div className="flex flex-row items-center space-x-1 lg:space-x-1.5 text-black/70 dark:text-white/70">
                         <agent.icon size={15} />
                         <p className="text-xs">{agent.title}</p>
                       </div>
                     )}
+                    <div className="flex flex-row items-center space-x-1 lg:space-x-1.5 text-black/70 dark:text-white/70">
+                      <ClockIcon size={15} />
+                      <p className="text-xs">
+                        {formatTimeDifference(new Date(), chat.createdAt)} Ago
+                      </p>
+                    </div>
                   </div>
                   <DeleteChat
                     chatId={chat.id}
