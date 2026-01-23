@@ -76,7 +76,6 @@ const bodySchema = z.object({
 type Message = z.infer<typeof messageSchema>;
 type Body = z.infer<typeof bodySchema>;
 
-
 export type RatingItem = { count: number; value: string };
 export type FreeTextItem = { answer: string };
 
@@ -218,7 +217,7 @@ const handleHistorySave = async (
   });
 
   const filteredFiles = (files || []).filter(
-    (f) => typeof f === 'string' && !f.startsWith('__AGENT_IMAGE_ASPECT__:')
+    (f) => typeof f === 'string' && !f.startsWith('__AGENT_IMAGE_ASPECT__:'),
   );
   const fileData = filteredFiles.map(getFileDetails);
 
@@ -275,14 +274,14 @@ export const POST = async (req: Request) => {
   try {
     // Get userId from middleware (verified from token)
     const userId = req.headers.get('x-user-id');
-    
+
     if (!userId) {
       return Response.json(
         { message: 'Unauthorized - Authentication required' },
         { status: 401 },
       );
     }
-    
+
     let reqBody: Body;
     try {
       reqBody = (await req.json()) as Body;
@@ -325,7 +324,6 @@ export const POST = async (req: Request) => {
 
     const humanMessageId =
       message.messageId ?? crypto.randomBytes(7).toString('hex');
-
     const history: BaseMessage[] = body.history.map((msg) => {
       if (msg[0] === 'human') {
         return new HumanMessage({
@@ -367,8 +365,21 @@ export const POST = async (req: Request) => {
     const writer = responseStream.writable.getWriter();
     const encoder = new TextEncoder();
 
-    handleEmitterEvents(stream, writer, encoder, message.chatId, userId, req.signal);
-    handleHistorySave(message, humanMessageId, body.focusMode, body.files, userId);
+    handleEmitterEvents(
+      stream,
+      writer,
+      encoder,
+      message.chatId,
+      userId,
+      req.signal,
+    );
+    handleHistorySave(
+      message,
+      humanMessageId,
+      body.focusMode,
+      body.files,
+      userId,
+    );
 
     return new Response(responseStream.readable, {
       headers: {

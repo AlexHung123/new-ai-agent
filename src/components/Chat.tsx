@@ -30,8 +30,8 @@ const Chat = () => {
   }, []);
 
   useEffect(() => {
-    const scroll = () => {
-      messageEnd.current?.scrollIntoView({ behavior: 'auto' });
+    const scroll = (behavior: ScrollBehavior = 'auto') => {
+      messageEnd.current?.scrollIntoView({ behavior });
     };
 
     if (chatTurns.length === 1) {
@@ -44,11 +44,11 @@ const Chat = () => {
     const distanceFromMessageEnd = window.innerHeight - messageEndBottom;
 
     if (distanceFromMessageEnd >= -100) {
-      scroll();
+      scroll('auto');
     }
 
     if (chatTurns[chatTurns.length - 1]?.role === 'user') {
-      scroll();
+      setTimeout(() => scroll('smooth'), 100);
     }
   }, [chatTurns]);
 

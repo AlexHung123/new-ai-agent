@@ -225,60 +225,57 @@ const Navbar = () => {
           </div>
 
           <div className="flex items-center gap-1 min-w-0">
-            <Popover className="relative">
-              <PopoverButton className="p-2 rounded-lg hover:bg-light-secondary dark:hover:bg-dark-secondary transition-colors duration-200">
-                <Share size={16} className="text-black/60 dark:text-white/60" />
-              </PopoverButton>
-              <Transition
-                as={Fragment}
-                enter="transition ease-out duration-200"
-                enterFrom="opacity-0 translate-y-1"
-                enterTo="opacity-100 translate-y-0"
-                leave="transition ease-in duration-150"
-                leaveFrom="opacity-100 translate-y-0"
-                leaveTo="opacity-0 translate-y-1"
-              >
-                <PopoverPanel className="absolute right-0 mt-2 w-64 origin-top-right rounded-2xl bg-light-primary dark:bg-dark-primary border border-light-200 dark:border-dark-200 shadow-xl shadow-black/10 dark:shadow-black/30 z-50">
-                  <div className="p-3">
-                    <div className="mb-2">
-                      <p className="text-xs font-medium text-black/40 dark:text-white/40 uppercase tracking-wide">
-                        Export Chat
-                      </p>
+            {focusMode !== 'agentSFC' && (
+              <Popover className="relative">
+                <PopoverButton className="p-2 rounded-lg hover:bg-light-secondary dark:hover:bg-dark-secondary transition-colors duration-200">
+                  <Share
+                    size={16}
+                    className="text-black/60 dark:text-white/60"
+                  />
+                </PopoverButton>
+                <Transition
+                  as={Fragment}
+                  enter="transition ease-out duration-200"
+                  enterFrom="opacity-0 translate-y-1"
+                  enterTo="opacity-100 translate-y-0"
+                  leave="transition ease-in duration-150"
+                  leaveFrom="opacity-100 translate-y-0"
+                  leaveTo="opacity-0 translate-y-1"
+                >
+                  (
+                  <PopoverPanel className="absolute right-0 mt-2 w-64 origin-top-right rounded-2xl bg-light-primary dark:bg-dark-primary border border-light-200 dark:border-dark-200 shadow-xl shadow-black/10 dark:shadow-black/30 z-50">
+                    <div className="p-3">
+                      <div className="mb-2">
+                        <p className="text-xs font-medium text-black/40 dark:text-white/40 uppercase tracking-wide">
+                          Export Chat
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <button
+                          className="w-full flex items-center gap-3 px-3 py-2 text-left rounded-xl hover:bg-light-secondary dark:hover:bg-dark-secondary transition-colors duration-200"
+                          onClick={() =>
+                            exportAsMarkdown(sections, title || '')
+                          }
+                        >
+                          <FileText size={16} className="text-[#24A0ED]" />
+                          {
+                            <div>
+                              <p className="text-sm font-medium text-black dark:text-white">
+                                Markdown
+                              </p>
+                              <p className="text-xs text-black/50 dark:text-white/50">
+                                .md format
+                              </p>
+                            </div>
+                          }
+                        </button>
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <button
-                        className="w-full flex items-center gap-3 px-3 py-2 text-left rounded-xl hover:bg-light-secondary dark:hover:bg-dark-secondary transition-colors duration-200"
-                        onClick={() => exportAsMarkdown(sections, title || '')}
-                      >
-                        <FileText size={16} className="text-[#24A0ED]" />
-                        <div>
-                          <p className="text-sm font-medium text-black dark:text-white">
-                            Markdown
-                          </p>
-                          <p className="text-xs text-black/50 dark:text-white/50">
-                            .md format
-                          </p>
-                        </div>
-                      </button>
-                      {/* <button
-                        className="w-full flex items-center gap-3 px-3 py-2 text-left rounded-xl hover:bg-light-secondary dark:hover:bg-dark-secondary transition-colors duration-200"
-                        onClick={() => exportAsPDF(sections, title || '')}
-                      >
-                        <FileDown size={16} className="text-[#24A0ED]" />
-                        <div>
-                          <p className="text-sm font-medium text-black dark:text-white">
-                            PDF
-                          </p>
-                          <p className="text-xs text-black/50 dark:text-white/50">
-                            Document format
-                          </p>
-                        </div>
-                      </button> */}
-                    </div>
-                  </div>
-                </PopoverPanel>
-              </Transition>
-            </Popover>
+                  </PopoverPanel>
+                  )
+                </Transition>
+              </Popover>
+            )}
             <button
               onClick={() => (window.location.href = '/itms/ai/')}
               className="p-2 rounded-lg hover:bg-light-secondary dark:hover:bg-dark-secondary transition-colors duration-200 text-black/60 dark:text-white/60"

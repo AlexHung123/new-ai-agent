@@ -10,6 +10,7 @@ class SfcAgent implements MetaSearchAgentType {
   private metaSearchAgent: MetaSearchAgentType;
   // 靜態 Converter 實例，避免每次調用都創建新實例
   private static cnToTwConverter = Converter({ from: 'cn', to: 'tw' });
+  private static conversionCache = new Map<string, string>();
 
   constructor() {
     // Create a MetaSearchAgent instance for final analysis
@@ -308,8 +309,13 @@ class SfcAgent implements MetaSearchAgentType {
    * Using opencc-js library for accurate conversion
    */
   private simplifiedToTraditional(text: string): string {
+    if (SfcAgent.conversionCache.has(text)) {
+      return SfcAgent.conversionCache.get(text)!;
+    }
     // Use static OpenCC converter: Simplified Chinese to Traditional Chinese (Taiwan)
-    return SfcAgent.cnToTwConverter(text);
+    const converted = SfcAgent.cnToTwConverter(text);
+    SfcAgent.conversionCache.set(text, converted);
+    return converted;
   }
 
   /**
@@ -323,29 +329,26 @@ class SfcAgent implements MetaSearchAgentType {
 
     if (simplifiedKeywords.length === 0) return content;
 
-    let highlightedContent = content;
-
-    // Convert simplified keywords to traditional and highlight them in content
-    for (const simplifiedKeyword of simplifiedKeywords) {
-      const traditionalKeyword =
-        this.simplifiedToTraditional(simplifiedKeyword);
-
-      // Use regex to match the keyword (case insensitive for better matching)
-      // Escape special regex characters in the keyword
-      const escapedKeyword = traditionalKeyword.replace(
-        /[.*+?^${}()|[\]\\]/g,
-        '\\$&',
-      );
-      const regex = new RegExp(escapedKeyword, 'g');
-
-      // Replace with <em> tags
-      highlightedContent = highlightedContent.replace(
-        regex,
-        `<span style="color:red;display:inline !important;">${traditionalKeyword}</span>`,
-      );
+    // Deduplicate and convert to traditional Chinese
+    const traditionalKeywords = new Set<string>();
+    for (const keyword of simplifiedKeywords) {
+      traditionalKeywords.add(this.simplifiedToTraditional(keyword));
     }
 
-    return highlightedContent;
+    if (traditionalKeywords.size === 0) return content;
+
+    // Create a single regex pattern for all keywords
+    const patterns = Array.from(traditionalKeywords)
+      .map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) // Escape regex chars
+      .sort((a, b) => b.length - a.length); // Sort by length descending to match longest first
+
+    const regex = new RegExp(`(${patterns.join('|')})`, 'g');
+
+    // Replace all occurrences in one pass
+    return content.replace(
+      regex,
+      '<span style="color:red;display:inline !important;">$1</span>',
+    );
   }
 
   private extractYear(content: string) {
@@ -446,6 +449,7 @@ class SfcAgent implements MetaSearchAgentType {
 
       return formattedChunks;
     } catch (error) {
+      console.log(error);
       return '處理檢索結果時發生錯誤';
     }
   }
@@ -566,7 +570,7 @@ class SfcAgent implements MetaSearchAgentType {
       try {
         if (signal?.aborted) return;
 
-        const totalSteps = 2;
+        const totalSteps = 1;
 
         let keyword = '';
 
@@ -574,20 +578,6 @@ class SfcAgent implements MetaSearchAgentType {
           keyword = message.trim();
         } else {
           keyword = await this.extractKeyword(message, llm, signal);
-          emitter.emit(
-            'data',
-            JSON.stringify({
-              type: 'progress',
-              data: {
-                status: 'processing',
-                total: totalSteps,
-                current: 1,
-                question: '檢索資料源',
-                message: '正在檢索資料源…',
-              },
-            }),
-          );
-
           if (keyword === '未找到相關資料') {
             emitter.emit(
               'data',
@@ -608,7 +598,7 @@ class SfcAgent implements MetaSearchAgentType {
             data: {
               status: 'processing',
               total: totalSteps,
-              current: 2,
+              current: 1,
               question: '檢索資料源',
               message: '正在檢索資料源…',
             },

@@ -1,7 +1,7 @@
 'use client';
 
 /* eslint-disable @next/next/no-img-element */
-import React, { MutableRefObject } from 'react';
+import React, { MutableRefObject, memo } from 'react';
 import { cn } from '@/lib/utils';
 import {
   BookCopy,
@@ -30,6 +30,50 @@ const ThinkTagProcessor = ({
   );
 };
 
+const MemoizedMessageContent = memo(
+  ({
+    content,
+    thinkingEnded,
+  }: {
+    content: string;
+    thinkingEnded: boolean;
+  }) => {
+    const markdownOverrides: MarkdownToJSX.Options = {
+      overrides: {
+        think: {
+          component: ThinkTagProcessor,
+          props: {
+            thinkingEnded: thinkingEnded,
+          },
+        },
+        citation: {
+          component: Citation,
+        },
+      },
+    };
+
+    return (
+      <Markdown
+        className={cn(
+          'prose prose-h1:mb-3 prose-h2:mb-2 prose-h2:mt-6 prose-h2:font-[800] prose-h3:mt-4 prose-h3:mb-1.5 prose-h3:font-[600] dark:prose-invert prose-p:leading-relaxed prose-pre:p-0 font-[400]',
+          'max-w-none break-words text-black dark:text-white',
+        )}
+        options={markdownOverrides}
+      >
+        {content}
+      </Markdown>
+    );
+  },
+  (prevProps, nextProps) => {
+    return (
+      prevProps.content === nextProps.content &&
+      prevProps.thinkingEnded === nextProps.thinkingEnded
+    );
+  },
+);
+
+MemoizedMessageContent.displayName = 'MemoizedMessageContent';
+
 const MessageBox = ({
   section,
   sectionIndex,
@@ -48,20 +92,6 @@ const MessageBox = ({
   const thinkingEnded = section.thinkingEnded;
 
   const { speechStatus, start, stop } = useSpeech({ text: speechMessage });
-
-  const markdownOverrides: MarkdownToJSX.Options = {
-    overrides: {
-      think: {
-        component: ThinkTagProcessor,
-        props: {
-          thinkingEnded: thinkingEnded,
-        },
-      },
-      citation: {
-        component: Citation,
-      },
-    },
-  };
 
   return (
     <div className="space-y-6">
@@ -107,15 +137,10 @@ const MessageBox = ({
 
             {section.assistantMessage && (
               <>
-                <Markdown
-                  className={cn(
-                    'prose prose-h1:mb-3 prose-h2:mb-2 prose-h2:mt-6 prose-h2:font-[800] prose-h3:mt-4 prose-h3:mb-1.5 prose-h3:font-[600] dark:prose-invert prose-p:leading-relaxed prose-pre:p-0 font-[400]',
-                    'max-w-none break-words text-black dark:text-white',
-                  )}
-                  options={markdownOverrides}
-                >
-                  {parsedMessage}
-                </Markdown>
+                <MemoizedMessageContent
+                  content={parsedMessage}
+                  thinkingEnded={thinkingEnded}
+                />
 
                 {loading && isLast ? null : (
                   <div className="flex flex-row items-center justify-between w-full text-black dark:text-white py-4 -mx-2">
