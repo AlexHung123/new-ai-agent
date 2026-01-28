@@ -44,6 +44,7 @@ const MessageInput = memo(function MessageInput() {
     persistAspectIfNeeded();
     sendMessage(content);
     setMessage('');
+    inputRef.current?.focus();
   }, [loading, message, persistAspectIfNeeded, sendMessage]);
 
   // Global shortcut: press "/" to focus textarea when not typing in an input

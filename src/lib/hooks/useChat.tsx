@@ -775,6 +775,25 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       },
     ]);
 
+    // Initialize progress immediately for agentSFC to avoid UI delay
+    if (focusModeRef.current === 'agentSFC') {
+      const isExact = sfcExactMatchRef.current;
+      setProgress({
+        status: 'processing',
+        total: isExact ? 1 : 2,
+        current: 1,
+        question: isExact ? '檢索資料源' : '正在分析問題',
+        message: isExact ? '正在檢索資料源…' : '正在分析問題…',
+        tasks: [
+          {
+            id: 1,
+            question: isExact ? '檢索資料源' : '正在分析問題',
+            status: 'processing',
+          },
+        ],
+      });
+    }
+
     let receivedMessage = '';
     let assistantAdded = false;
 

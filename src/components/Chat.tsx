@@ -7,7 +7,8 @@ import MessageBoxLoading from './MessageBoxLoading';
 import { useChat, ProgressData } from '@/lib/hooks/useChat';
 
 const Chat = () => {
-  const { sections, chatTurns, loading, messageAppeared, progress } = useChat();
+  const { sections, chatTurns, loading, messageAppeared, progress, rewrite } =
+    useChat();
 
   const [dividerWidth, setDividerWidth] = useState(0);
   const dividerRef = useRef<HTMLDivElement | null>(null);
@@ -52,6 +53,16 @@ const Chat = () => {
     }
   }, [chatTurns]);
 
+  useEffect(() => {
+    if (loading) {
+      // Ensure we scroll to bottom when loading starts to show the loading indicator
+      setTimeout(
+        () => messageEnd.current?.scrollIntoView({ behavior: 'smooth' }),
+        100,
+      );
+    }
+  }, [loading]);
+
   return (
     <div className="flex flex-col space-y-6 pt-8 pb-44 lg:pb-32 sm:mx-4 md:mx-8">
       {sections.map((section, i) => {
@@ -64,6 +75,8 @@ const Chat = () => {
               sectionIndex={i}
               dividerRef={isLast ? dividerRef : undefined}
               isLast={isLast}
+              loading={loading}
+              rewrite={rewrite}
             />
             {!isLast && (
               <div className="h-px w-full bg-light-secondary dark:bg-dark-secondary" />

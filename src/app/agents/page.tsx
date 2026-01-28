@@ -34,9 +34,13 @@ const AgentsPage = () => {
         const response = await fetch(`/itms/ai/api/permissions`, {
           headers: getAuthHeaders(),
         });
-        
+
         if (!response.ok) {
-          console.error('Failed to fetch permissions:', response.status, response.statusText);
+          console.error(
+            'Failed to fetch permissions:',
+            response.status,
+            response.statusText,
+          );
           setUserPermissions([]);
           setFilteredModes([]);
           return;
@@ -44,9 +48,9 @@ const AgentsPage = () => {
 
         const data = await response.json();
         setUserPermissions(data.permissions || []);
-        
+
         // Filter agents based on permissions
-        const filtered = focusModes.filter(mode => {
+        const filtered = focusModes.filter((mode) => {
           if (!mode.permissionCode) {
             return true; // Show agents without permission requirements
           }
@@ -54,7 +58,7 @@ const AgentsPage = () => {
         });
 
         console.log('Filtered modes:', filtered);
-        
+
         setFilteredModes(filtered);
       } catch (error) {
         console.error('Error fetching permissions:', error);
@@ -80,14 +84,14 @@ const AgentsPage = () => {
     show: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.1
-      }
-    }
+        staggerChildren: 0.1,
+      },
+    },
   };
 
   const item = {
     hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0 }
+    show: { opacity: 1, y: 0 },
   };
 
   if (loading) {
@@ -105,8 +109,12 @@ const AgentsPage = () => {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <p className="text-xl text-black/60 dark:text-white/60">No agents available for your account.</p>
-          <p className="mt-2 text-sm text-black/40 dark:text-white/40">Please contact your administrator for access.</p>
+          <p className="text-xl text-black/60 dark:text-white/60">
+            No agents available for your account.
+          </p>
+          <p className="mt-2 text-sm text-black/40 dark:text-white/40">
+            Please contact your administrator for access.
+          </p>
         </div>
       </div>
     );
@@ -129,8 +137,8 @@ const AgentsPage = () => {
             <Sparkles size={16} />
             <span>AI Agents</span>
           </motion.div>
-          
-          <motion.h1 
+
+          <motion.h1
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
@@ -138,18 +146,18 @@ const AgentsPage = () => {
           >
             Choose Your AI Agent
           </motion.h1>
-          
-          <motion.p 
+
+          <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2, duration: 0.5 }}
             className="mx-auto max-w-2xl text-lg text-black/60 dark:text-white/60"
           >
-            Select a specialized agent to assist you with your research, analysis.
+            Please select a specialized AI agent as your assistant.
           </motion.p>
         </div>
 
-        <motion.div 
+        <motion.div
           variants={container}
           initial="hidden"
           animate="show"
@@ -167,7 +175,7 @@ const AgentsPage = () => {
               <div className="relative h-64 w-full overflow-hidden bg-gradient-to-b from-gray-50 to-white dark:from-gray-800/50 dark:to-gray-900">
                 {/* Gradient Overlay on Hover */}
                 <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-                
+
                 <div className="relative h-full w-full transition-transform duration-700 ease-out group-hover:scale-105">
                   <Image
                     src={mode.image}
@@ -186,17 +194,17 @@ const AgentsPage = () => {
                   </div>
                 </div>
               </div>
-              
+
               <div className="flex flex-1 flex-col gap-4 p-6">
                 <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-[#24A0ED] transition-colors duration-300 group-hover:bg-blue-600 group-hover:text-white dark:bg-blue-500/10 dark:text-blue-400 dark:group-hover:bg-blue-500 dark:group-hover:text-white">
-                          <mode.icon size={24} />
-                        </div>
-                        <h3 className="font-bold text-xl text-black dark:text-white">
-                          {mode.title}
-                        </h3>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-[#24A0ED] transition-colors duration-300 group-hover:bg-blue-600 group-hover:text-white dark:bg-blue-500/10 dark:text-blue-400 dark:group-hover:bg-blue-500 dark:group-hover:text-white">
+                      <mode.icon size={24} />
                     </div>
+                    <h3 className="font-bold text-xl text-black dark:text-white">
+                      {mode.title}
+                    </h3>
+                  </div>
                 </div>
                 <p className="text-sm leading-relaxed text-black/60 dark:text-white/60">
                   {mode.description}

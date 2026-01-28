@@ -74,88 +74,94 @@ const MemoizedMessageContent = memo(
 
 MemoizedMessageContent.displayName = 'MemoizedMessageContent';
 
-const MessageBox = ({
-  section,
-  sectionIndex,
-  dividerRef,
-  isLast,
-}: {
-  section: Section;
-  sectionIndex: number;
-  dividerRef?: MutableRefObject<HTMLDivElement | null>;
-  isLast: boolean;
-}) => {
-  const { loading, chatTurns, sendMessage, rewrite, progress } = useChat();
+const MessageBox = memo(
+  ({
+    section,
+    sectionIndex,
+    dividerRef,
+    isLast,
+    loading,
+    rewrite,
+  }: {
+    section: Section;
+    sectionIndex: number;
+    dividerRef?: MutableRefObject<HTMLDivElement | null>;
+    isLast: boolean;
+    loading: boolean;
+    rewrite: (messageId: string) => void;
+  }) => {
+    const parsedMessage = section.parsedAssistantMessage || '';
+    const speechMessage = section.speechMessage || '';
+    const thinkingEnded = section.thinkingEnded;
 
-  const parsedMessage = section.parsedAssistantMessage || '';
-  const speechMessage = section.speechMessage || '';
-  const thinkingEnded = section.thinkingEnded;
+    const { speechStatus, start, stop } = useSpeech({ text: speechMessage });
 
-  const { speechStatus, start, stop } = useSpeech({ text: speechMessage });
+    return (
+      <div className="space-y-6">
+        <div className={'w-full pt-8 break-words'}>
+          <h2 className="text-black dark:text-white font-medium text-3xl lg:w-9/12">
+            {section.userMessage.content}
+          </h2>
+        </div>
 
-  return (
-    <div className="space-y-6">
-      <div className={'w-full pt-8 break-words'}>
-        <h2 className="text-black dark:text-white font-medium text-3xl lg:w-9/12">
-          {section.userMessage.content}
-        </h2>
-      </div>
+        <div className="flex flex-col space-y-9 lg:space-y-0 lg:flex-row lg:justify-between lg:space-x-9">
+          <div
+            ref={dividerRef}
+            className="flex flex-col space-y-6 w-full lg:w-9/12"
+          >
+            {section.sourceMessage &&
+              section.sourceMessage.sources.length > 0 && (
+                <div className="flex flex-col space-y-2">
+                  <div className="flex flex-row items-center space-x-2">
+                    <BookCopy
+                      className="text-black dark:text-white"
+                      size={20}
+                    />
+                    <h3 className="text-black dark:text-white font-medium text-xl">
+                      Sources
+                    </h3>
+                  </div>
+                  <MessageSources sources={section.sourceMessage.sources} />
+                </div>
+              )}
 
-      <div className="flex flex-col space-y-9 lg:space-y-0 lg:flex-row lg:justify-between lg:space-x-9">
-        <div
-          ref={dividerRef}
-          className="flex flex-col space-y-6 w-full lg:w-9/12"
-        >
-          {section.sourceMessage &&
-            section.sourceMessage.sources.length > 0 && (
-              <div className="flex flex-col space-y-2">
+            <div className="flex flex-col space-y-2">
+              {section.sourceMessage && (
                 <div className="flex flex-row items-center space-x-2">
-                  <BookCopy className="text-black dark:text-white" size={20} />
+                  <Disc3
+                    className={cn(
+                      'text-black dark:text-white',
+                      isLast && loading ? 'animate-spin' : 'animate-none',
+                    )}
+                    size={20}
+                  />
                   <h3 className="text-black dark:text-white font-medium text-xl">
-                    Sources
+                    Answer
                   </h3>
                 </div>
-                <MessageSources sources={section.sourceMessage.sources} />
-              </div>
-            )}
+              )}
 
-          <div className="flex flex-col space-y-2">
-            {section.sourceMessage && (
-              <div className="flex flex-row items-center space-x-2">
-                <Disc3
-                  className={cn(
-                    'text-black dark:text-white',
-                    isLast && loading ? 'animate-spin' : 'animate-none',
-                  )}
-                  size={20}
-                />
-                <h3 className="text-black dark:text-white font-medium text-xl">
-                  Answer
-                </h3>
-              </div>
-            )}
+              {section.assistantMessage && (
+                <>
+                  <MemoizedMessageContent
+                    content={parsedMessage}
+                    thinkingEnded={thinkingEnded}
+                  />
 
-            {section.assistantMessage && (
-              <>
-                <MemoizedMessageContent
-                  content={parsedMessage}
-                  thinkingEnded={thinkingEnded}
-                />
-
-                {loading && isLast ? null : (
-                  <div className="flex flex-row items-center justify-between w-full text-black dark:text-white py-4 -mx-2">
-                    <div className="flex flex-row items-center space-x-1">
-                      <Rewrite
-                        rewrite={rewrite}
-                        messageId={section.assistantMessage.messageId}
-                      />
-                    </div>
-                    <div className="flex flex-row items-center space-x-1">
-                      <Copy
-                        initialMessage={section.assistantMessage.content}
-                        section={section}
-                      />
-                      {/* <button
+                  {loading && isLast ? null : (
+                    <div className="flex flex-row items-center justify-between w-full text-black dark:text-white py-4 -mx-2">
+                      <div className="flex flex-row items-center space-x-1">
+                        <Rewrite
+                          rewrite={rewrite}
+                          messageId={section.assistantMessage.messageId}
+                        />
+                      </div>
+                      <div className="flex flex-row items-center space-x-1">
+                        <Copy
+                          initialMessage={section.assistantMessage.content}
+                          section={section}
+                        />
+                        {/* <button
                         onClick={() => {
                           if (speechStatus === 'started') {
                             stop();
@@ -171,16 +177,19 @@ const MessageBox = ({
                           <Volume2 size={18} />
                         )}
                       </button> */}
+                      </div>
                     </div>
-                  </div>
-                )}
-              </>
-            )}
+                  )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  );
-};
+    );
+  },
+);
+
+MessageBox.displayName = 'MessageBox';
 
 export default MessageBox;

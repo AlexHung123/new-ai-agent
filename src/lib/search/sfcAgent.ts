@@ -392,8 +392,8 @@ class SfcAgent implements MetaSearchAgentType {
 
           const year = this.extractYear(content);
 
-          // Extract category number from "綱領： (x)"
-          const categoryMatch = content.match(/綱領：\s*\((\d+)\)/);
+          // Extract category number from "綱領： (x)" or "綱領： （x）"
+          const categoryMatch = content.match(/綱領：\s*[（\(](\d+)[）\)]/);
           const category = categoryMatch ? categoryMatch[1] : null;
 
           // Extract question number
@@ -433,7 +433,7 @@ class SfcAgent implements MetaSearchAgentType {
           }
 
           if (category) {
-            summaryText += ` (分類：${category})`;
+            summaryText += ` (綱領：${category})`;
           }
 
           // Add highlighted keywords to summaryText in traditional Chinese, separated by |
@@ -512,7 +512,15 @@ class SfcAgent implements MetaSearchAgentType {
 
           // Extract year for display
           const year = this.extractYear(content);
+          // Extract category number from "綱領： (x)" or "綱領： （x）"
+          const categoryMatch = content.match(/綱領：\s*[（\(](\d+)[）\)]/);
+          const category = categoryMatch ? categoryMatch[1] : null;
 
+          // Extract question number
+          const questionNoMatch = content.match(
+            /(?:問題編號|Question No\.?)\s*[：:]\s*(\d+)/i,
+          );
+          const questionNo = questionNoMatch ? questionNoMatch[1] : null;
 
           // Extract first lines for summary, skipping the "年份：XXXX" line
           const lines = content
@@ -554,7 +562,7 @@ class SfcAgent implements MetaSearchAgentType {
           }
 
           if (category) {
-            summaryText += ` 分類：${category}`;
+            summaryText += ` 綱領：${category}`;
           }
 
           // Wrap content in details/summary for collapsible functionality
@@ -600,13 +608,27 @@ class SfcAgent implements MetaSearchAgentType {
       try {
         if (signal?.aborted) return;
 
-        const totalSteps = 1;
+        const totalSteps = sfcExactMatch ? 1 : 2;
 
         let keyword = '';
 
         if (sfcExactMatch) {
           keyword = message.trim();
         } else {
+          emitter.emit(
+            'data',
+            JSON.stringify({
+              type: 'progress',
+              data: {
+                status: 'processing',
+                total: totalSteps,
+                current: 1,
+                question: '正在分析問題',
+                message: '正在分析問題…',
+              },
+            }),
+          );
+
           keyword = await this.extractKeyword(message, llm, signal);
           if (keyword === '未找到相關資料') {
             emitter.emit(
@@ -628,7 +650,7 @@ class SfcAgent implements MetaSearchAgentType {
             data: {
               status: 'processing',
               total: totalSteps,
-              current: 1,
+              current: sfcExactMatch ? 1 : 2,
               question: '檢索資料源',
               message: '正在檢索資料源…',
             },

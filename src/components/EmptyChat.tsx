@@ -10,8 +10,8 @@ const EmptyChat = () => {
   const focusDescriptions: Record<string, string> = {
     agentData: 'Your assistant for retrieving training data',
     agentGuide: 'You assistant on training policy',
-    agentSFC: 'Your assistant for searching SFC meetings',
-    agentSurvey: 'Your assistant for analyzing survey',
+    agentSFC: 'Your assistant for searching SFC questions and replies',
+    agentSurvey: 'Your assistant for summarizing survey results',
   };
 
   const heading = focusDescriptions[focusMode] || 'Research begins here.';
@@ -32,7 +32,9 @@ const EmptyChat = () => {
       </div>
       <div className="flex flex-col items-center justify-center min-h-screen max-w-screen-sm mx-auto p-2 space-y-4">
         <div className="flex flex-col items-center justify-center w-full space-y-8">
-          <h2 className="text-black/70 dark:text-white/70 text-3xl font-medium -mt-8">{heading}</h2>
+          <h2 className="text-black/70 dark:text-white/70 text-3xl font-medium -mt-8">
+            {heading}
+          </h2>
           <EmptyChatMessageInput />
         </div>
       </div>
