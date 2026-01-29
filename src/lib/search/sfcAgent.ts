@@ -630,6 +630,11 @@ class SfcAgent implements MetaSearchAgentType {
           );
 
           keyword = await this.extractKeyword(message, llm, signal);
+          if (keyword.includes('</think>')) {
+            keyword = keyword.split('</think>').pop()?.trim() || keyword;
+          }
+          console.log('----------');
+          console.log('Extracted keyword:', keyword);
           if (keyword === '未找到相關資料') {
             emitter.emit(
               'data',
