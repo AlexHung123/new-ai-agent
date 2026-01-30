@@ -148,7 +148,7 @@ export const chatContext = createContext<ChatContext>({
 const getPreferredModelByFocusMode = (focusMode: string) => {
   return focusMode === 'agentSurvey'
     ? 'qwen3-next-80b-a3b-instruct-mlx'
-    : 'glm-4.7-flash-mlx';
+    : 'gpt-oss-120b';
 };
 
 const safeLocalStorageGet = (key: string) => {
