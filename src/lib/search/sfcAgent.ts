@@ -512,9 +512,19 @@ class SfcAgent implements MetaSearchAgentType {
 
           // Extract year for display
           const year = this.extractYear(content);
-          // Extract category number from "綱領： (x)" or "綱領： （x）"
-          const categoryMatch = content.match(/綱領：\s*[（\(](\d+)[）\)]/);
-          const category = categoryMatch ? categoryMatch[1] : null;
+          // Extract category number from "綱領： (x)", "綱領： （x）", "Programme: (x)", or "Programme （x）"
+          const chineseCategoryMatch = content.match(
+            /綱領：\s*[（\(](\d+)[）\)]/,
+          );
+          const englishCategoryMatch = content.match(
+            /Programme: \s*[（\(](\d+)[）\)]/,
+          );
+          const category = chineseCategoryMatch
+            ? chineseCategoryMatch[1]
+            : englishCategoryMatch
+              ? englishCategoryMatch[1]
+              : null;
+          const isEnglishCategory = !!englishCategoryMatch;
 
           // Extract question number
           const questionNoMatch = content.match(
@@ -562,7 +572,9 @@ class SfcAgent implements MetaSearchAgentType {
           }
 
           if (category) {
-            summaryText += ` 綱領：${category}`;
+            summaryText += isEnglishCategory
+              ? ` Programme: ${category}`
+              : ` 綱領：${category}`;
           }
 
           // Wrap content in details/summary for collapsible functionality
