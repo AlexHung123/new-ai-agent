@@ -36,3 +36,12 @@ export const chats = sqliteTable('chats', {
     .$type<File[]>()
     .default(sql`'[]'`),
 });
+
+export const sfcQuestionM = sqliteTable('sfc_question_m', {
+  id: integer('id').primaryKey(),
+  year: text('year').notNull(),
+  answerNo: text('answerNo').notNull(),
+  questionNo: text('questionNo').notNull(),
+  enLink: text('enLink'),
+  tcLink: text('tcLink'),
+});

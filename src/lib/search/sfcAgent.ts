@@ -5,6 +5,9 @@ import eventEmitter from 'events';
 import { Converter } from 'opencc-js';
 import MetaSearchAgent, { MetaSearchAgentType } from './metaSearchAgent';
 import configManager from '../config';
+import db from '../db';
+import { sfcQuestionM } from '../db/schema';
+import { eq, and } from 'drizzle-orm';
 
 class SfcAgent implements MetaSearchAgentType {
   private metaSearchAgent: MetaSearchAgentType;
@@ -359,7 +362,7 @@ class SfcAgent implements MetaSearchAgentType {
   /**
    * Extract chunks from RAGFlow response
    */
-  private extractChunks(ragflowResponse: any): string {
+  private async extractChunks(ragflowResponse: any): Promise<string> {
     try {
       if (
         !ragflowResponse ||
@@ -380,8 +383,8 @@ class SfcAgent implements MetaSearchAgentType {
       });
 
       // Format chunks for display - only raw content
-      const formattedChunks = sortedChunks
-        .map((chunk: any) => {
+      const formattedChunks = await Promise.all(
+        sortedChunks.map(async (chunk: any) => {
           let content = chunk.content || '';
 
           // Remove unwanted patterns
@@ -454,20 +457,63 @@ class SfcAgent implements MetaSearchAgentType {
             }
           }
 
+          // Add preview button if question number is available
+          let previewButton = '';
+          if (questionNo && year > 0) {
+            let pdfUrl = '';
+            try {
+              const sfcData = await db
+                .select()
+                .from(sfcQuestionM)
+                .where(
+                  and(
+                    eq(sfcQuestionM.year, String(year)),
+                    eq(sfcQuestionM.questionNo, String(questionNo)),
+                  ),
+                )
+                .limit(1);
+
+              if (sfcData && sfcData.length > 0 && sfcData[0].tcLink) {
+                pdfUrl = sfcData[0].tcLink + '#' + sfcData[0].answerNo;
+              }
+            } catch (err) {
+              console.error('Error fetching SFC link:', err);
+            }
+
+            if (pdfUrl) {
+              previewButton = `<div style="margin-bottom: 12px;">
+              <a href="${pdfUrl}" target="_blank" rel="noopener noreferrer" style="
+                display: inline-block;
+                padding: 6px 12px;
+                background-color: #0070f3;
+                color: white;
+                text-decoration: none;
+                border-radius: 4px;
+                font-size: 14px;
+                font-weight: 500;
+              ">📄 立法會原文</a>
+            </div>`;
+            }
+          }
+
           // Wrap content in details/summary for collapsible functionality
           const collapsibleContent = `<details>
 <summary style="cursor: pointer; font-weight: bold; padding: 8px; background-color: #f5f5f5; border-radius: 4px; margin-bottom: 8px;">${summaryText}</summary>
-<div style="padding: 12px; border-left: 3px solid #ddd; margin-left: 4px;">${content}</div>
+<div style="padding: 12px; border-left: 3px solid #ddd; margin-left: 4px;">
+  ${previewButton}
+  ${content}
+</div>
 </details>`;
 
           return collapsibleContent;
 
           // return content;
-        })
+        }),
+      );
+
+      return formattedChunks
         .filter((content: string) => content.length > 0)
         .join('\n\n');
-
-      return formattedChunks;
     } catch (error) {
       console.log(error);
       return '處理檢索結果時發生錯誤';
@@ -479,7 +525,9 @@ class SfcAgent implements MetaSearchAgentType {
    * This method handles the different data structure returned by Elasticsearch
    * where highlight is just a pattern string, not formatted text with <em> tags
    */
-  private extractChunksFromElasticsearch(elasticsearchResponse: any): string {
+  private async extractChunksFromElasticsearch(
+    elasticsearchResponse: any,
+  ): Promise<string> {
     try {
       if (
         !elasticsearchResponse ||
@@ -500,8 +548,8 @@ class SfcAgent implements MetaSearchAgentType {
       });
 
       // Format chunks for display with collapsible functionality
-      const formattedChunks = sortedChunks
-        .map((chunk: any, index: number) => {
+      const formattedChunks = await Promise.all(
+        sortedChunks.map(async (chunk: any, index: number) => {
           let content = chunk.content || '';
 
           // Remove unwanted patterns
@@ -577,18 +625,63 @@ class SfcAgent implements MetaSearchAgentType {
               : ` 綱領：${category}`;
           }
 
+          // Add preview button if question number is available
+          let previewButton = '';
+          if (questionNo && year > 0) {
+            let pdfUrl = '';
+            try {
+              const sfcData = await db
+                .select()
+                .from(sfcQuestionM)
+                .where(
+                  and(
+                    eq(sfcQuestionM.year, String(year)),
+                    eq(sfcQuestionM.questionNo, String(questionNo)),
+                  ),
+                )
+                .limit(1);
+
+              if (sfcData && sfcData.length > 0) {
+                pdfUrl = isEnglishCategory
+                  ? sfcData[0].enLink || ''
+                  : sfcData[0].tcLink || '';
+              }
+            } catch (err) {
+              console.error('Error fetching SFC link:', err);
+            }
+
+            if (pdfUrl) {
+              previewButton = `<div style="margin-bottom: 12px;">
+              <a href="${pdfUrl}" target="_blank" rel="noopener noreferrer" style="
+                display: inline-block;
+                padding: 6px 12px;
+                background-color: #0070f3;
+                color: white;
+                text-decoration: none;
+                border-radius: 4px;
+                font-size: 14px;
+                font-weight: 500;
+              ">📄 立法會原文</a>
+            </div>`;
+            }
+          }
+
           // Wrap content in details/summary for collapsible functionality
           const collapsibleContent = `<details>
 <summary style="cursor: pointer; font-weight: bold; padding: 8px; background-color: #f5f5f5; border-radius: 4px; margin-bottom: 8px;">${summaryText}</summary>
-<div style="padding: 12px; border-left: 3px solid #ddd; margin-left: 4px;">${content}</div>
+<div style="padding: 12px; border-left: 3px solid #ddd; margin-left: 4px;">
+  ${previewButton}
+  ${content}
+</div>
 </details>`;
 
           return collapsibleContent;
-        })
+        }),
+      );
+
+      return formattedChunks
         .filter((content: string) => content.length > 0)
         .join('\n\n');
-
-      return formattedChunks;
     } catch (error) {
       return '處理檢索結果時發生錯誤';
     }
@@ -645,8 +738,6 @@ class SfcAgent implements MetaSearchAgentType {
           if (keyword.includes('</think>')) {
             keyword = keyword.split('</think>').pop()?.trim() || keyword;
           }
-          console.log('----------');
-          console.log('Extracted keyword:', keyword);
           if (keyword === '未找到相關資料') {
             emitter.emit(
               'data',
@@ -693,10 +784,10 @@ class SfcAgent implements MetaSearchAgentType {
 
         if (sfcExactMatch) {
           // Use the new method for Elasticsearch response
-          chunks = this.extractChunksFromElasticsearch(ragflowResponse);
+          chunks = await this.extractChunksFromElasticsearch(ragflowResponse);
         } else {
           // Use the existing method for RAGFlow response
-          chunks = this.extractChunks(ragflowResponse);
+          chunks = await this.extractChunks(ragflowResponse);
         }
         if (chunks === '未找到相關資料') {
           emitter.emit(
