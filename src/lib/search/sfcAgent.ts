@@ -460,7 +460,8 @@ class SfcAgent implements MetaSearchAgentType {
           // Add preview button if question number is available
           let previewButton = '';
           if (questionNo && year > 0) {
-            let pdfUrl = '';
+            let tcPdfUrl = '';
+            let enPdfUrl = '';
             try {
               const sfcData = await db
                 .select()
@@ -473,26 +474,48 @@ class SfcAgent implements MetaSearchAgentType {
                 )
                 .limit(1);
 
-              if (sfcData && sfcData.length > 0 && sfcData[0].tcLink) {
-                pdfUrl = sfcData[0].tcLink + '#' + sfcData[0].answerNo;
+              if (sfcData && sfcData.length > 0) {
+                if (sfcData[0].tcLink) {
+                  tcPdfUrl = sfcData[0].tcLink + '#' + sfcData[0].answerNo;
+                }
+                if (sfcData[0].enLink) {
+                  enPdfUrl = sfcData[0].enLink + '#' + sfcData[0].answerNo;
+                }
               }
             } catch (err) {
               console.error('Error fetching SFC link:', err);
             }
 
-            if (pdfUrl) {
-              previewButton = `<div style="margin-bottom: 12px;">
-              <a href="${pdfUrl}" target="_blank" rel="noopener noreferrer" style="
-                display: inline-block;
-                padding: 6px 12px;
-                background-color: #0070f3;
-                color: white;
-                text-decoration: none;
-                border-radius: 4px;
-                font-size: 14px;
-                font-weight: 500;
-              ">📄 立法會原文</a>
-            </div>`;
+            if (tcPdfUrl || enPdfUrl) {
+              previewButton = `<div style="margin-bottom: 12px; display: flex; gap: 8px;">`;
+
+              if (tcPdfUrl) {
+                previewButton += `<a href="${tcPdfUrl}" target="_blank" rel="noopener noreferrer" style="
+                  display: inline-block;
+                  padding: 6px 12px;
+                  background-color: #0070f3;
+                  color: white;
+                  text-decoration: none;
+                  border-radius: 4px;
+                  font-size: 14px;
+                  font-weight: 500;
+                ">📄 立法會原文</a>`;
+              }
+
+              if (enPdfUrl) {
+                previewButton += `<a href="${enPdfUrl}" target="_blank" rel="noopener noreferrer" style="
+                  display: inline-block;
+                  padding: 6px 12px;
+                  background-color: #0070f3;
+                  color: white;
+                  text-decoration: none;
+                  border-radius: 4px;
+                  font-size: 14px;
+                  font-weight: 500;
+                ">📄 LegCo Doc</a>`;
+              }
+
+              previewButton += `</div>`;
             }
           }
 
@@ -501,6 +524,7 @@ class SfcAgent implements MetaSearchAgentType {
 <summary style="cursor: pointer; font-weight: bold; padding: 8px; background-color: #f5f5f5; border-radius: 4px; margin-bottom: 8px;">${summaryText}</summary>
 <div style="padding: 12px; border-left: 3px solid #ddd; margin-left: 4px;">
   ${previewButton}
+
   ${content}
 </div>
 </details>`;
@@ -631,7 +655,8 @@ class SfcAgent implements MetaSearchAgentType {
           // Add preview button if question number is available
           let previewButton = '';
           if (questionNo && year > 0) {
-            let pdfUrl = '';
+            let tcPdfUrl = '';
+            let enPdfUrl = '';
             try {
               const sfcData = await db
                 .select()
@@ -645,27 +670,47 @@ class SfcAgent implements MetaSearchAgentType {
                 .limit(1);
 
               if (sfcData && sfcData.length > 0) {
-                pdfUrl = isEnglishCategory
-                  ? sfcData[0].enLink + '#' + sfcData[0].answerNo || ''
-                  : sfcData[0].tcLink + '#' + sfcData[0].answerNo || '';
+                if (sfcData[0].tcLink) {
+                  tcPdfUrl = sfcData[0].tcLink + '#' + sfcData[0].answerNo;
+                }
+                if (sfcData[0].enLink) {
+                  enPdfUrl = sfcData[0].enLink + '#' + sfcData[0].answerNo;
+                }
               }
             } catch (err) {
               console.error('Error fetching SFC link:', err);
             }
 
-            if (pdfUrl) {
-              previewButton = `<div style="margin-bottom: 12px;">
-              <a href="${pdfUrl}" target="_blank" rel="noopener noreferrer" style="
-                display: inline-block;
-                padding: 6px 12px;
-                background-color: #0070f3;
-                color: white;
-                text-decoration: none;
-                border-radius: 4px;
-                font-size: 14px;
-                font-weight: 500;
-              ">📄 立法會原文</a>
-            </div>`;
+            if (tcPdfUrl || enPdfUrl) {
+              previewButton = `<div style="margin-bottom: 12px; display: flex; gap: 8px;">`;
+
+              if (tcPdfUrl) {
+                previewButton += `<a href="${tcPdfUrl}" target="_blank" rel="noopener noreferrer" style="
+                  display: inline-block;
+                  padding: 6px 12px;
+                  background-color: #0070f3;
+                  color: white;
+                  text-decoration: none;
+                  border-radius: 4px;
+                  font-size: 14px;
+                  font-weight: 500;
+                ">📄 立法會原文</a>`;
+              }
+
+              if (enPdfUrl) {
+                previewButton += `<a href="${enPdfUrl}" target="_blank" rel="noopener noreferrer" style="
+                  display: inline-block;
+                  padding: 6px 12px;
+                  background-color: #0070f3;
+                  color: white;
+                  text-decoration: none;
+                  border-radius: 4px;
+                  font-size: 14px;
+                  font-weight: 500;
+                ">📄 LegCo Doc</a>`;
+              }
+
+              previewButton += `</div>`;
             }
           }
 
@@ -674,6 +719,7 @@ class SfcAgent implements MetaSearchAgentType {
 <summary style="cursor: pointer; font-weight: bold; padding: 8px; background-color: #f5f5f5; border-radius: 4px; margin-bottom: 8px;">${summaryText}</summary>
 <div style="padding: 12px; border-left: 3px solid #ddd; margin-left: 4px;">
   ${previewButton}
+
   ${content}
 </div>
 </details>`;
