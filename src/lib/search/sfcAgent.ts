@@ -576,7 +576,9 @@ class SfcAgent implements MetaSearchAgentType {
 
           // Extract question number
           const questionNoMatch = content.match(
-            /(?:問題編號|Question No\.?)\s*[：:]\s*(\d+)/i,
+            // /(?:問題編號|Question Serial No\.?)\s*[：:]\s*(\d+)/i,
+            // /(?:問題編號|Question Serial No\.?)\s*(?:[：:]\s*)?(\d+)/i,
+            /(?:問題編號|Question Serial No\.?)\s*(?:[：:]\s*)?([A-Z]*\d+)/i,
           );
           const questionNo = questionNoMatch ? questionNoMatch[1] : null;
 
@@ -614,7 +616,8 @@ class SfcAgent implements MetaSearchAgentType {
           let summaryText = year > 0 ? `${year} - ` : '';
           // summaryText += truncatedSummary;
           if (questionNo) {
-            summaryText += `（問題編號：${questionNo}）`;
+            // summaryText += `（問題編號：${questionNo}）`;
+            summaryText += `（${englishCategoryMatch ? 'Question Serial No.' : '問題編號：'}：${questionNo}）`;
           } else {
             summaryText += truncatedSummary;
           }
@@ -643,8 +646,8 @@ class SfcAgent implements MetaSearchAgentType {
 
               if (sfcData && sfcData.length > 0) {
                 pdfUrl = isEnglishCategory
-                  ? sfcData[0].enLink || ''
-                  : sfcData[0].tcLink || '';
+                  ? sfcData[0].enLink + '#' + sfcData[0].answerNo || ''
+                  : sfcData[0].tcLink + '#' + sfcData[0].answerNo || '';
               }
             } catch (err) {
               console.error('Error fetching SFC link:', err);
