@@ -401,7 +401,7 @@ class SfcAgent implements MetaSearchAgentType {
 
           // Extract question number
           const questionNoMatch = content.match(
-            /(?:問題編號|Question No\.?)\s*[：:]\s*(\d+)/i,
+            /(?:問題編號|Question Serial No\.?)\s*(?:[：:]\s*)?([A-Z]*\d+)/i,
           );
           const questionNo = questionNoMatch ? questionNoMatch[1] : null;
 
@@ -589,7 +589,7 @@ class SfcAgent implements MetaSearchAgentType {
             /綱領：\s*[（\(](\d+)[）\)]/,
           );
           const englishCategoryMatch = content.match(
-            /Programme: \s*[（\(](\d+)[）\)]/,
+            /Programme:\s*[（\(](\d+)[）\)]/,
           );
           const category = chineseCategoryMatch
             ? chineseCategoryMatch[1]
@@ -600,8 +600,6 @@ class SfcAgent implements MetaSearchAgentType {
 
           // Extract question number
           const questionNoMatch = content.match(
-            // /(?:問題編號|Question Serial No\.?)\s*[：:]\s*(\d+)/i,
-            // /(?:問題編號|Question Serial No\.?)\s*(?:[：:]\s*)?(\d+)/i,
             /(?:問題編號|Question Serial No\.?)\s*(?:[：:]\s*)?([A-Z]*\d+)/i,
           );
           const questionNo = questionNoMatch ? questionNoMatch[1] : null;
@@ -641,7 +639,7 @@ class SfcAgent implements MetaSearchAgentType {
           // summaryText += truncatedSummary;
           if (questionNo) {
             // summaryText += `（問題編號：${questionNo}）`;
-            summaryText += `（${englishCategoryMatch ? 'Question Serial No.' : '問題編號：'}：${questionNo}）`;
+            summaryText += `（${chineseCategoryMatch ? '問題編號：' : 'Question Serial No.'} ${questionNo}）`;
           } else {
             summaryText += truncatedSummary;
           }

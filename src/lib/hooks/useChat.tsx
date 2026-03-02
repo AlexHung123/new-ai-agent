@@ -126,9 +126,9 @@ export const chatContext = createContext<ChatContext>({
   embeddingModelProvider: { key: '', providerId: '' },
   progress: null,
   clearProgress: () => {},
-  sfcExactMatch: false,
+  sfcExactMatch: true,
   setSfcExactMatch: () => {},
-  sfcTrainingRelated: false,
+  sfcTrainingRelated: true,
   setSfcTrainingRelated: () => {},
   rewrite: () => {},
   sendMessage: async () => {},
@@ -492,8 +492,8 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   });
 
   const [optimizationMode, setOptimizationMode] = useState('speed');
-  const [sfcExactMatch, setSfcExactMatch] = useState(false);
-  const [sfcTrainingRelated, setSfcTrainingRelated] = useState(false);
+  const [sfcExactMatch, setSfcExactMatch] = useState(true);
+  const [sfcTrainingRelated, setSfcTrainingRelated] = useState(true);
 
   const [isMessagesLoaded, setIsMessagesLoaded] = useState(false);
   const [notFound, setNotFound] = useState(false);
