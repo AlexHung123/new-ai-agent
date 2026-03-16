@@ -152,7 +152,8 @@ class SfcAgent implements MetaSearchAgentType {
           'docnm_kwd',
           'page_num_int',
           'position_int',
-          'content_with_weight_kw',
+          // 'content_with_weight_kw',
+          'important_kwd',
         ],
         query: {
           bool: {
@@ -160,21 +161,21 @@ class SfcAgent implements MetaSearchAgentType {
               { term: { kb_id: datasetId } },
               { term: { doc_id: docId } },
               {
-                wildcard: {
-                  content_with_weight_kw: {
-                    value: `*${pattern}*`,
-                    case_insensitive: true,
-                  },
+                match_phrase: {
+                  content_with_weight: `${pattern}`,
                 },
               },
+              // {
+              //   wildcard: {
+              //     content_with_weight_kw: {
+              //       value: `*${pattern}*`,
+              //       case_insensitive: true,
+              //     },
+              //   },
+              // },
             ],
           },
         },
-        sort: [
-          { doc_id: 'asc' },
-          { page_num_int: 'asc' },
-          { position_int: 'asc' },
-        ],
       };
 
       const response = await fetch(
@@ -202,11 +203,12 @@ class SfcAgent implements MetaSearchAgentType {
 
       // Transform Elasticsearch response to match RAGFlow response format
       const chunks = (data.hits?.hits || []).map((hit: any) => ({
-        content: hit._source?.content_with_weight_kw || '',
+        content: hit._source?.content_with_weight || '',
         doc_id: hit._source?.doc_id || '',
         docnm_kwd: hit._source?.docnm_kwd || '',
         page_num_int: hit._source?.page_num_int || 0,
         position_int: hit._source?.position_int || 0,
+        important_kwd: hit._source?.important_kwd || [],
         highlight: pattern, // Use pattern as highlight for exact match
         score: hit._score || 0,
       }));
@@ -524,14 +526,11 @@ class SfcAgent implements MetaSearchAgentType {
 <summary style="cursor: pointer; font-weight: bold; padding: 8px; background-color: #f5f5f5; border-radius: 4px; margin-bottom: 8px;">${summaryText}</summary>
 <div style="padding: 12px; border-left: 3px solid #ddd; margin-left: 4px;">
   ${previewButton}
-
-  ${content}
+  <div style="white-space: pre-wrap; word-break: break-word;">${content}</div>
 </div>
 </details>`;
 
           return collapsibleContent;
-
-          // return content;
         }),
       );
 
@@ -584,7 +583,13 @@ class SfcAgent implements MetaSearchAgentType {
 
           // Extract year for display
           const year = this.extractYear(content);
-          // Extract category number from "綱領： (x)", "綱領： （x）", "Programme: (x)", or "Programme （x）"
+
+          const hasTC = chunk.important_kwd.some(
+            (kwd: string) => kwd.toLowerCase() === 'tc',
+          );
+          const hasEN = chunk.important_kwd.some(
+            (kwd: string) => kwd.toLowerCase() === 'en',
+          );
           const chineseCategoryMatch = content.match(
             /綱領：\s*[（\(](\d+)[）\)]/,
           );
@@ -596,7 +601,7 @@ class SfcAgent implements MetaSearchAgentType {
             : englishCategoryMatch
               ? englishCategoryMatch[1]
               : null;
-          const isEnglishCategory = !!englishCategoryMatch;
+          // const isEnglishCategory = !!englishCategoryMatch;
 
           // Extract question number
           const questionNoMatch = content.match(
@@ -639,13 +644,13 @@ class SfcAgent implements MetaSearchAgentType {
           // summaryText += truncatedSummary;
           if (questionNo) {
             // summaryText += `（問題編號：${questionNo}）`;
-            summaryText += `（${chineseCategoryMatch ? '問題編號：' : 'Question Serial No.'} ${questionNo}）`;
+            summaryText += `（${hasTC ? '問題編號：' : 'Question Serial No.'} ${questionNo}）`;
           } else {
             summaryText += truncatedSummary;
           }
 
           if (category) {
-            summaryText += isEnglishCategory
+            summaryText += hasEN
               ? ` Programme: ${category}`
               : ` 綱領：${category}`;
           }
@@ -717,8 +722,7 @@ class SfcAgent implements MetaSearchAgentType {
 <summary style="cursor: pointer; font-weight: bold; padding: 8px; background-color: #f5f5f5; border-radius: 4px; margin-bottom: 8px;">${summaryText}</summary>
 <div style="padding: 12px; border-left: 3px solid #ddd; margin-left: 4px;">
   ${previewButton}
-
-  ${content}
+  <div style="white-space: pre-wrap; word-break: break-word;">${content}</div>
 </div>
 </details>`;
 

@@ -31,7 +31,9 @@ const SfcTrainingRelatedToggle = () => {
             pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out`}
         />
       </Switch>
-      <span className="text-sm text-black/70 dark:text-white/70">Training and Development Related</span>
+      <span className="text-sm text-black/70 dark:text-white/70">
+        CSC Handled Questions Only
+      </span>
     </motion.div>
   );
 };
