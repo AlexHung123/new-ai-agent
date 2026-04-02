@@ -345,10 +345,16 @@ export default class NewSfcAgent implements MetaSearchAgentType {
     req?: Request
   ): Promise<eventEmitter> {
     const emitter = new eventEmitter()
+    let hasEnded = false
+    const emitEndOnce = () => {
+      if (hasEnded) return
+      hasEnded = true
+      emitter.emit('end')
+    }
 
     if (signal) {
       signal.addEventListener('abort', () => {
-        emitter.emit('end')
+        emitEndOnce()
       })
     }
 
@@ -388,7 +394,7 @@ export default class NewSfcAgent implements MetaSearchAgentType {
           })
         )
       } finally {
-        emitter.emit('end')
+        emitEndOnce()
       }
     })()
 
