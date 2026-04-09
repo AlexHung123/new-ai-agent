@@ -19,6 +19,7 @@ type Cluster = { label: string; item_ids: string[] };
 
 type FreeTextAnswer = { id: number | string; value: string };
 type FreeTextMap = Record<string, FreeTextAnswer[]>;
+const UNCATEGORIZED_LABEL = '未分類/其他';
 
 type ProgressPayload = {
   status: 'started' | 'processing' | 'reassigning' | 'completed' | 'finished';
@@ -65,7 +66,7 @@ type ClusteringOutput = z.infer<typeof ClusteringOutputSchema>;
 const ReassignSchema = z.object({
   assignments: z
     .record(z.string(), z.array(z.string()))
-    .describe('key=label(可為既有或新增), value=item_ids'),
+    .describe('key=existing label, value=item_ids'),
   uncategorized: z.array(z.string()).describe('still not fit any label'),
 });
 type ReassignOutput = z.infer<typeof ReassignSchema>;
@@ -123,12 +124,19 @@ function renderMarkdown(
 
 function splitOutUncategorized(clusters: Cluster[]) {
   const kept: Cluster[] = [];
-  let uncategorized: Cluster | null = null;
+  const uncategorizedIds: string[] = [];
 
   for (const c of clusters) {
-    if (c.label === '未分類/其他') uncategorized = c;
+    if (c.label === UNCATEGORIZED_LABEL) uncategorizedIds.push(...c.item_ids);
     else kept.push(c);
   }
+  const uncategorized =
+    uncategorizedIds.length > 0
+      ? {
+          label: UNCATEGORIZED_LABEL,
+          item_ids: [...new Set(uncategorizedIds)],
+        }
+      : null;
   return { kept, uncategorized };
 }
 
@@ -145,12 +153,11 @@ function mergeReassigned(
   for (const [label, ids] of Object.entries(assignments)) {
     const target = byLabel.get(label);
     if (target) target.item_ids.push(...ids);
-    else byLabel.set(label, { label, item_ids: [...ids] }); // ✅ 新 label 直接加入
   }
 
   const out = [...byLabel.values()];
   if (uncategorizedIds.length > 0)
-    out.push({ label: '未分類/其他', item_ids: uncategorizedIds });
+    out.push({ label: UNCATEGORIZED_LABEL, item_ids: uncategorizedIds });
   return out;
 }
 
@@ -185,12 +192,15 @@ function validateReassignCoverage(
 
 function normalizeReassignOutput(
   expectedIds: string[],
+  allowedLabels: string[],
   raw: ReassignOutput,
 ): ReassignOutput {
   const expected = new Set(expectedIds);
+  const allowed = new Set(allowedLabels);
 
   const cleanedAssignments: Record<string, string[]> = {};
   for (const [label, ids] of Object.entries(raw.assignments ?? {})) {
+    if (!allowed.has(label)) continue;
     cleanedAssignments[label] = (ids ?? []).filter((id) => expected.has(id));
   }
 
@@ -220,6 +230,26 @@ function normalizeReassignOutput(
     assignments: cleanedAssignments,
     uncategorized: cleanedUncategorized,
   };
+}
+
+function sanitizeClustersByInputIds(
+  clusters: Cluster[],
+  inputItems: SurveyItem[],
+): Cluster[] {
+  const validIds = new Set(inputItems.map((i) => i.id));
+  const seen = new Set<string>();
+
+  return clusters
+    .map((c) => {
+      const item_ids = c.item_ids.filter((id) => {
+        if (!validIds.has(id)) return false;
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
+      return { ...c, item_ids };
+    })
+    .filter((c) => c.item_ids.length > 0);
 }
 
 async function clusterWithStructuredOutput(
@@ -273,7 +303,7 @@ async function reassignUncategorizedToExistingClusters(
 
   const existingLabels = existingClusters
     .map((c) => c.label)
-    .filter((l) => l !== '未分類/其他');
+    .filter((l) => l !== UNCATEGORIZED_LABEL);
 
   const prompt = PromptTemplate.fromTemplate(
     `
@@ -287,9 +317,9 @@ async function reassignUncategorizedToExistingClusters(
     - uncategorized_items（只含 id/text）
 
     任務：
-    - 優先分配到 existing_labels；若全部都不適合，允許創造新 label（簡短、能概括主題、不可重複）
+    - 只能分配到 existing_labels；不可創造新 label
     - 每個 item id 必須且只能出現一次（不可漏、不可重複）
-    - assignments 的 key 可為 existing_labels 或你新創 label
+    - assignments 的 key 只能是 existing_labels 內的值
     - 輸出只可包含 item 的 id（不可重寫 text）
 
     輸出必須符合以下格式要求：
@@ -363,9 +393,12 @@ class SurveyAgent implements MetaSearchAgentType {
           if (!userId) {
             throw new Error('User ID not found');
           }
+          if (!/^\d+$/.test(userId)) {
+            throw new Error('Invalid user ID');
+          }
 
           const userRows = await executeSql(
-            `select concat(dp_id,'.',dp_dept_id) as username from cap_user where id = '${userId.replace(/'/g, "''")}'`,
+            `select concat(dp_id,'.',dp_dept_id) as username from cap_user where id = '${userId}'`,
           );
           const username = userRows?.[0]?.username;
 
@@ -396,7 +429,7 @@ class SurveyAgent implements MetaSearchAgentType {
               'data',
               JSON.stringify({
                 type: 'response',
-                data: `Permission check failed: ${err.message}`,
+                data: 'Permission check failed.',
               }),
             );
             emitter.emit('end');
@@ -498,6 +531,27 @@ class SurveyAgent implements MetaSearchAgentType {
           }));
           const itemsById = new Map(items.map((i) => [i.id, i.text]));
 
+          if (items.length === 0) {
+            results.push({
+              question,
+              markdown: renderMarkdown(question, [], itemsById),
+            });
+            emitter.emit(
+              'data',
+              JSON.stringify({
+                type: 'progress',
+                data: {
+                  status: 'completed',
+                  total: totalQuestions,
+                  current: currentQuestionIndex,
+                  question,
+                  message: `Completed analysis of question ${currentQuestionIndex} of ${totalQuestions}`,
+                } satisfies ProgressPayload,
+              }),
+            );
+            continue;
+          }
+
           try {
             const structured = await clusterWithStructuredOutput(
               question,
@@ -507,32 +561,20 @@ class SurveyAgent implements MetaSearchAgentType {
               signal,
             );
 
-            const coverage = validateCoverage(items, structured.clusters);
-            let finalClusters = structured.clusters;
+            let finalClusters = sanitizeClustersByInputIds(
+              structured.clusters,
+              items,
+            );
 
-            if (!coverage.valid) {
-              const seen = new Set<string>();
-              finalClusters = finalClusters
-                .map((c) => {
-                  const dedupedIds = c.item_ids.filter((id) => {
-                    if (seen.has(id)) return false;
-                    seen.add(id);
-                    return true;
-                  });
-                  return { ...c, item_ids: dedupedIds };
-                })
-                .filter((c) => c.item_ids.length > 0);
-
-              const coverageAfterDedup = validateCoverage(items, finalClusters);
-              if (coverageAfterDedup.missingIds.length > 0) {
-                finalClusters = [
-                  ...finalClusters,
-                  {
-                    label: '未分類/其他',
-                    item_ids: coverageAfterDedup.missingIds,
-                  },
-                ];
-              }
+            const coverage = validateCoverage(items, finalClusters);
+            if (coverage.missingIds.length > 0) {
+              finalClusters = [
+                ...finalClusters,
+                {
+                  label: UNCATEGORIZED_LABEL,
+                  item_ids: coverage.missingIds,
+                },
+              ];
             }
 
             const { kept, uncategorized } =
@@ -570,6 +612,7 @@ class SurveyAgent implements MetaSearchAgentType {
 
               const normalized = normalizeReassignOutput(
                 uncategorized.item_ids,
+                kept.map((c) => c.label),
                 reassigned,
               );
               const reassignCoverage = validateReassignCoverage(

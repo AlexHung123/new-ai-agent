@@ -11,7 +11,7 @@ const ASPECT_KEY = 'agentImageAspect';
 const DEFAULT_ASPECT = '1:1';
 
 const MessageInput = memo(function MessageInput() {
-  const { loading, sendMessage, stop, focusMode, sfcExactMatch } = useChat();
+  const { loading, sendMessage, stop, focusMode, sfcExactMatch, setToolExecution } = useChat();
 
   const [message, setMessage] = useState('');
   const [aspect, setAspect] = useState<string>(() => {
@@ -43,6 +43,7 @@ const MessageInput = memo(function MessageInput() {
 
     persistAspectIfNeeded();
     sendMessage(content);
+    setToolExecution?.(null); // This assumes useChat context is updated to expose setToolExecution
     setMessage('');
     inputRef.current?.focus();
   }, [loading, message, persistAspectIfNeeded, sendMessage]);

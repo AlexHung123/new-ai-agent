@@ -85,6 +85,7 @@ type ChatContext = {
   chatModelProvider: ChatModelProvider;
   embeddingModelProvider: EmbeddingModelProvider;
   progress: ProgressData | null;
+  toolExecution: any | null;
   sfcExactMatch: boolean;
   setSfcExactMatch: (exact: boolean) => void;
   sfcTrainingRelated: boolean;
@@ -93,6 +94,7 @@ type ChatContext = {
   setFocusMode: (mode: string) => void;
   setFiles: (files: FileItem[]) => void;
   setFileIds: (fileIds: string[]) => void;
+  setToolExecution: (toolExecution: any | null) => void;
   sendMessage: (
     message: string,
     messageId?: string,
@@ -125,6 +127,7 @@ export const chatContext = createContext<ChatContext>({
   chatModelProvider: { key: '', providerId: '' },
   embeddingModelProvider: { key: '', providerId: '' },
   progress: null,
+  toolExecution: null,
   clearProgress: () => {},
   sfcExactMatch: true,
   setSfcExactMatch: () => {},
@@ -136,6 +139,7 @@ export const chatContext = createContext<ChatContext>({
   setFiles: () => {},
   setFocusMode: () => {},
   setOptimizationMode: () => {},
+  setToolExecution: () => {},
   setChatModelProvider: () => {},
   setEmbeddingModelProvider: () => {},
   stop: () => {},
@@ -480,6 +484,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(false);
   const [messageAppeared, setMessageAppeared] = useState(false);
   const [progress, setProgress] = useState<ProgressData | null>(null);
+  const [toolExecution, setToolExecution] = useState<any | null>(null);
 
   const [chatHistory, setChatHistory] = useState<[string, string][]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -754,6 +759,8 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     setLoading(true);
     setMessageAppeared(false);
     clearProgress();
+    // Reset per-turn tool UI state so each request can re-open the panel on fresh events.
+    setToolExecution(null);
 
     if (abortControllerRef.current) abortControllerRef.current.abort();
     const controller = new AbortController();
@@ -831,6 +838,11 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
 
+      if (data.type === 'tool_execution') {
+        setToolExecution(data.data);
+        return;
+      }
+
       if (data.type === 'sources') {
         setMessages((prev) => [
           ...prev,
@@ -904,6 +916,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
 
     try {
       const fm = focusModeRef.current;
+      const stableAgentId = `sfc-chat-agent-${chatId}`;
       const outgoingFiles =
         fm === 'agentImage'
           ? [
@@ -914,7 +927,11 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
 
       const res = await fetch('/itms/ai/api/chat', {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers: {
+          ...getAuthHeaders(),
+          'x-chat-id': chatId!,
+          'x-agent-id': stableAgentId,
+        },
         body: JSON.stringify({
           content: message,
           message: { messageId: userMsgId, chatId: chatId!, content: message },
@@ -999,6 +1016,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       notFound,
       optimizationMode,
       progress,
+      toolExecution,
       sfcExactMatch,
       setSfcExactMatch,
       sfcTrainingRelated,
@@ -1007,6 +1025,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       setFiles,
       setFocusMode: handleSetFocusMode,
       setOptimizationMode,
+      setToolExecution,
       rewrite,
       sendMessage,
       setChatModelProvider,
@@ -1034,6 +1053,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       notFound,
       optimizationMode,
       progress,
+      toolExecution,
       sfcExactMatch,
       sfcTrainingRelated,
       handleSetFocusMode,

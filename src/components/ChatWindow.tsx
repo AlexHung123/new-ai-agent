@@ -12,6 +12,7 @@ import AgentCard from './AgentCard';
 import EmptyChat from './EmptyChat';
 import Loader from './ui/Loader';
 import SettingsButtonMobile from './Settings/SettingsButtonMobile';
+import ToolExecutionPanel from './ToolExecutionPanel';
 import { useChat } from '@/lib/hooks/useChat';
 
 export interface BaseMessage {
@@ -64,18 +65,19 @@ const ChatWindow = () => {
         <div className="absolute right-5 top-5">
           <SettingsButtonMobile />
         </div>
-        <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.3 }}
-            className="flex w-full max-w-md flex-col items-center rounded-2xl border border-red-100 bg-red-50/50 p-8 shadow-sm backdrop-blur-sm dark:border-red-900/30 dark:bg-red-900/10"
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3 }}
+          className="flex w-full max-w-md flex-col items-center rounded-2xl border border-red-100 bg-red-50/50 p-8 shadow-sm backdrop-blur-sm dark:border-red-900/30 dark:bg-red-900/10"
         >
           <AlertCircle className="mb-4 h-12 w-12 text-red-500" />
           <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
             Connection Failed
           </h2>
           <p className="mb-6 text-sm text-gray-600 dark:text-gray-300">
-            We couldn't connect to the server. Please check your internet connection and try again.
+            We couldn't connect to the server. Please check your internet
+            connection and try again.
           </p>
           <button
             onClick={() => window.location.reload()}
@@ -102,7 +104,7 @@ const ChatWindow = () => {
 
   return (
     <AnimatePresence mode="wait">
-      <motion.div 
+      <motion.div
         key="chat-window"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -112,14 +114,15 @@ const ChatWindow = () => {
       >
         {messages.length > 0 ? (
           <>
-            <motion.div 
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2, duration: 0.5, ease: "easeOut" }}
-                className="fixed left-20 top-24 z-30 ml-4 hidden xl:block"
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2, duration: 0.5, ease: 'easeOut' }}
+              className="fixed left-20 top-24 z-30 ml-4 hidden xl:block"
             >
               <AgentCard />
             </motion.div>
+            <ToolExecutionPanel />
             <Navbar />
             <Chat />
           </>

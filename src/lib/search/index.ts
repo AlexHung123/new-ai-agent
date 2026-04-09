@@ -5,6 +5,7 @@ import DataAgent from '@/lib/search/dataAgent';
 import SurveyAgent from '@/lib/search/surveyAgent';
 import SfcAgent from '@/lib/search/sfcAgent';
 import AgentImage from '@/lib/search/agentImage';
+import NewSfcAgent from '@/lib/search/newSfcAgent';
 import prompts from '../prompts';
 
 export const searchHandlers: Record<string, MetaSearchAgentType> = {
@@ -21,4 +22,5 @@ export const searchHandlers: Record<string, MetaSearchAgentType> = {
   agentSurvey: new SurveyAgent(),
   agentData: new DataAgent(),
   agentImage: new AgentImage(),
+  newSfcAgent: new NewSfcAgent(),
 };

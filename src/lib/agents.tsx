@@ -60,6 +60,16 @@ export const focusModes: AgentMode[] = [
     followUpPlaceholder: 'Search keyword ...',
   },
   {
+    key: 'newSfcAgent',
+    title: 'Agent SFC (New)',
+    description: 'Your assistant for searching SFC questions and replies',
+    icon: UsersRound,
+    image: '/itms/ai/agent_sfc.png',
+    permissionCode: 'chatSfcAgent:execute',
+    placeholder: 'Search keyword ...',
+    followUpPlaceholder: 'Search keyword ...',
+  },
+  {
     key: 'agentSurvey',
     title: 'Agent Survey',
     description: 'Your assistant for summarizing survey results',

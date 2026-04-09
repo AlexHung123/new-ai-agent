@@ -168,6 +168,15 @@ const handleEmitterEvents = async (
           }) + '\n',
         ),
       );
+    } else if (parsedData.type === 'tool_execution') {
+      writer.write(
+        encoder.encode(
+          JSON.stringify({
+            type: 'tool_execution',
+            data: parsedData.data,
+          }) + '\n',
+        ),
+      );
     }
   });
   stream.on('end', () => {
