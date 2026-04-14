@@ -843,6 +843,20 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
 
+      if (data.type === 'tool_error') {
+        toast.error(`Tool execution failed: ${data.data.error || 'Unknown error'}`);
+        setToolExecution({
+          ...data.data,
+          resultPreview: data.data.error,
+        });
+        setLoading(false);
+        clearProgress();
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+        return;
+      }
+
       if (data.type === 'sources') {
         setMessages((prev) => [
           ...prev,

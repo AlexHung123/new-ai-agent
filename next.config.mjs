@@ -11,7 +11,7 @@ const nextConfig = {
       },
     ],
   },
-  serverExternalPackages: ['pdf-parse'],
+  serverExternalPackages: ['pdf-parse', '@shareai-lab/kode-sdk', 'better-sqlite3', 'e2b'],
 };
 
 export default nextConfig;

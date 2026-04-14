@@ -152,7 +152,7 @@ class SfcAgent implements MetaSearchAgentType {
           'docnm_kwd',
           'page_num_int',
           'position_int',
-          // 'content_with_weight_kw',
+          'content_with_weight',
           'important_kwd',
         ],
         query: {

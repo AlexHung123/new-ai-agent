@@ -26,7 +26,7 @@
     "@langchain/textsplitters": "^1.0.0",
     "@prisma/adapter-pg": "^6.17.0",
     "@prisma/client": "^6.17.0",
-    "@shareai-lab/kode-sdk": "^2.7.5",
+    "@shareai-lab/kode-sdk": "file:../Kode-agent-sdk/shareai-lab-kode-sdk-2.7.4.tgz",
     "@tailwindcss/typography": "^0.5.12",
     "@types/jsonwebtoken": "^9.0.10",
     "axios": "^1.8.3",
