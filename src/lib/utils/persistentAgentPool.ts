@@ -55,7 +55,9 @@ export function createPersistentAgentPoolManager(
     agentLastUsedAt.set(agentId, Date.now());
   };
 
-  const pickEvictionCandidate = (excludeAgentId?: string): string | undefined => {
+  const pickEvictionCandidate = (
+    excludeAgentId?: string,
+  ): string | undefined => {
     const ids = pool.list();
     const candidates = ids.filter(
       (id) => id !== excludeAgentId && !busyAgentIds.has(id),
@@ -101,12 +103,8 @@ export function createPersistentAgentPoolManager(
 
   const getOrCreateAgent = async (agentId?: string): Promise<Agent> => {
     const stableAgentId = normalizeAgentId(agentId);
-    console.log('[persistentAgentPool] getOrCreateAgent called for:', stableAgentId);
-
     if (!agentCache.has(stableAgentId)) {
-      console.log('[persistentAgentPool] Agent not in cache, creating promise...');
       const creationPromise = (async () => {
-        console.log('[persistentAgentPool] Checking if agent exists in pool...');
         const existing = pool.get(stableAgentId);
         if (existing) {
           console.log('[persistentAgentPool] Found existing agent in pool');
@@ -114,7 +112,9 @@ export function createPersistentAgentPoolManager(
           return existing;
         }
 
-        console.log('[persistentAgentPool] Getting config and checking store...');
+        console.log(
+          '[persistentAgentPool] Getting config and checking store...',
+        );
         const config = createConfig(stableAgentId);
         const existsInStore = await store.exists(stableAgentId);
         console.log('[persistentAgentPool] existsInStore:', existsInStore);
@@ -124,15 +124,15 @@ export function createPersistentAgentPoolManager(
         const loadAgent = async () => {
           console.log('[persistentAgentPool] loadAgent starting...');
           if (existsInStore) {
-             console.log('[persistentAgentPool] Calling pool.resume...');
-             const res = await pool.resume(stableAgentId, config);
-             console.log('[persistentAgentPool] pool.resume finished');
-             return res;
+            console.log('[persistentAgentPool] Calling pool.resume...');
+            const res = await pool.resume(stableAgentId, config);
+            console.log('[persistentAgentPool] pool.resume finished');
+            return res;
           } else {
-             console.log('[persistentAgentPool] Calling pool.create...');
-             const res = await pool.create(stableAgentId, config);
-             console.log('[persistentAgentPool] pool.create finished');
-             return res;
+            console.log('[persistentAgentPool] Calling pool.create...');
+            const res = await pool.create(stableAgentId, config);
+            console.log('[persistentAgentPool] pool.create finished');
+            return res;
           }
         };
 

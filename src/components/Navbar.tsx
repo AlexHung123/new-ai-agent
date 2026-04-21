@@ -225,7 +225,7 @@ const Navbar = () => {
           </div>
 
           <div className="flex items-center gap-1 min-w-0">
-            {focusMode !== 'agentSFC' && (
+            {focusMode !== 'agentSFC' && focusMode !== 'newSfcAgent' && (
               <Popover className="relative">
                 <PopoverButton className="p-2 rounded-lg hover:bg-light-secondary dark:hover:bg-dark-secondary transition-colors duration-200">
                   <Share

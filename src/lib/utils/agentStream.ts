@@ -33,14 +33,14 @@ export async function streamAgentProgressToEmitter(
         );
         break;
       case 'tool:start':
-        console.log('\n[progress:tool:start]');
-        console.log(
-          safeJson({
-            id: event.call.id,
-            name: event.call.name,
-            inputPreview: event.call.inputPreview || event.call.args,
-          }),
-        );
+        // console.log('\n[progress:tool:start]');
+        // console.log(
+        //   safeJson({
+        //     id: event.call.id,
+        //     name: event.call.name,
+        //     inputPreview: event.call.inputPreview || event.call.args,
+        //   }),
+        // );
         emitter.emit(
           'data',
           JSON.stringify({
@@ -57,15 +57,15 @@ export async function streamAgentProgressToEmitter(
       case 'tool:end':
         break;
       case 'tool:error':
-        console.error('\n[progress:tool:error]');
-        console.error(
-          safeJson({
-            id: event.call.id,
-            name: event.call.name,
-            state: event.call.state,
-            error: event.error,
-          }),
-        );
+        // console.error('\n[progress:tool:error]');
+        // console.error(
+        //   safeJson({
+        //     id: event.call.id,
+        //     name: event.call.name,
+        //     state: event.call.state,
+        //     error: event.error,
+        //   }),
+        // );
         emitter.emit(
           'data',
           JSON.stringify({

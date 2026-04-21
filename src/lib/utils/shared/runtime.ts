@@ -56,7 +56,7 @@ export function createRuntime(setup: (ctx: RuntimeContext) => void, options?: Ru
   return {
     store,
     templateRegistry: templates,
-    sandboxFactory,
+    sandboxFactory: sandboxFactory as any,
     toolRegistry: tools,
     modelFactory: (config) => createDemoModelProvider({ ...(options?.modelDefaults ?? {}), ...config }),
   };

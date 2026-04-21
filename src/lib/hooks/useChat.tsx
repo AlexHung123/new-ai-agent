@@ -131,7 +131,7 @@ export const chatContext = createContext<ChatContext>({
   clearProgress: () => {},
   sfcExactMatch: true,
   setSfcExactMatch: () => {},
-  sfcTrainingRelated: true,
+  sfcTrainingRelated: false,
   setSfcTrainingRelated: () => {},
   rewrite: () => {},
   sendMessage: async () => {},
@@ -844,7 +844,18 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       if (data.type === 'tool_error') {
+        // Tool failure can be recoverable. Keep stream alive so fallback text
+        // from the same turn (e.g. "No related source found.") can still arrive.
         toast.error(`Tool execution failed: ${data.data.error || 'Unknown error'}`);
+        setToolExecution({
+          ...data.data,
+          resultPreview: data.data.error,
+        });
+        return;
+      }
+
+      if (data.type === 'monitor_error') {
+        toast.error(`Agent execution failed: ${data.data.error || 'Unknown error'}`);
         setToolExecution({
           ...data.data,
           resultPreview: data.data.error,

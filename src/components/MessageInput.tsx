@@ -11,7 +11,14 @@ const ASPECT_KEY = 'agentImageAspect';
 const DEFAULT_ASPECT = '1:1';
 
 const MessageInput = memo(function MessageInput() {
-  const { loading, sendMessage, stop, focusMode, sfcExactMatch, setToolExecution } = useChat();
+  const {
+    loading,
+    sendMessage,
+    stop,
+    focusMode,
+    sfcExactMatch,
+    setToolExecution,
+  } = useChat();
 
   const [message, setMessage] = useState('');
   const [aspect, setAspect] = useState<string>(() => {
@@ -117,7 +124,7 @@ const MessageInput = memo(function MessageInput() {
 
       <div className="flex flex-row items-center justify-end mt-4">
         <SfcExactMatchToggle />
-        <SfcTrainingRelatedToggle />
+        {/* <SfcTrainingRelatedToggle /> */}
 
         {focusMode === 'agentImage' && (
           <select

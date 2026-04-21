@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 const SfcTrainingRelatedToggle = () => {
   const { focusMode, sfcTrainingRelated, setSfcTrainingRelated } = useChat();
 
-  if (focusMode !== 'agentSFC') {
+  if (focusMode !== 'agentSFC' && focusMode !== 'newSfcAgent') {
     return null;
   }
 

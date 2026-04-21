@@ -177,6 +177,15 @@ const handleEmitterEvents = async (
           }) + '\n',
         ),
       );
+    } else if (parsedData.type === 'tool_error' || parsedData.type === 'monitor_error') {
+      writer.write(
+        encoder.encode(
+          JSON.stringify({
+            type: parsedData.type,
+            data: parsedData.data,
+          }) + '\n',
+        ),
+      );
     }
   });
   stream.on('end', () => {

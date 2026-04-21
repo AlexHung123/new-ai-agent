@@ -4,14 +4,18 @@ import { useChat } from '@/lib/hooks/useChat';
 import { focusModes } from '@/lib/agents';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
+import { UsersRound } from 'lucide-react';
 
 const AgentCard = () => {
   const { focusMode } = useChat();
 
   // Find the current focus mode details
-  const currentFocusMode = focusModes.find((mode) => mode.key === focusMode);
-
-  if (!currentFocusMode) return null;
+  const currentFocusMode = focusModes.find((mode) => mode.key === focusMode) || {
+    title: 'Agent SFC',
+    description: 'Your assistant for searching SFC questions and replies',
+    icon: UsersRound,
+    image: '/itms/ai/agent_sfc.png',
+  };
 
   return (
     <motion.div

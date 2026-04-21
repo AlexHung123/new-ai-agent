@@ -25,7 +25,7 @@ export default class NewSfcAgent implements MetaSearchAgentType {
   ): Promise<eventEmitter> {
     const emitter = new eventEmitter();
     let hasEnded = false;
-    console.log('\n[SFC Agent] searchAndAnswer called with message:', message);
+    // console.log('\n[SFC Agent] searchAndAnswer called with message:', message);
     const emitEndOnce = () => {
       if (hasEnded) return;
       hasEnded = true;
@@ -55,10 +55,8 @@ export default class NewSfcAgent implements MetaSearchAgentType {
             },
           }),
         );
-    console.log('--1--');
         const { manager: harnessAgentManager, progressBookmarkByAgent } =
           getSharedAgentContext();
-        console.log('--2-- getSharedAgentContext done');
 
         const requestAgentId =
           req?.headers.get('x-agent-id') ??
@@ -67,16 +65,13 @@ export default class NewSfcAgent implements MetaSearchAgentType {
 
         const stableAgentId =
           harnessAgentManager.normalizeAgentId(requestAgentId);
-        console.log(`--3-- stableAgentId: ${stableAgentId}, calling getOrCreateAgent...`);
-        
+
         const agent = await harnessAgentManager.getOrCreateAgent(stableAgentId);
-        console.log('--4-- getOrCreateAgent done');
-        
+
         harnessAgentManager.markBusy(stableAgentId);
         harnessAgentManager.touchAgent(stableAgentId);
 
         const onToolExecuted = (event: any) => {
-          console.log(`-- tool_executed --: ${event.call.name}`);
           emitter.emit(
             'data',
             JSON.stringify({
@@ -94,8 +89,22 @@ export default class NewSfcAgent implements MetaSearchAgentType {
         };
         const disposeToolExecuted = agent.on('tool_executed', onToolExecuted);
 
+        const onAgentError = (event: any) => {
+          emitter.emit(
+            'data',
+            JSON.stringify({
+              type: 'tool_error',
+              data: {
+                error: event.message || 'An unknown agent error occurred',
+                phase: event.phase,
+                detail: event.detail,
+              },
+            }),
+          );
+        };
+        const disposeAgentError = agent.on('error', onAgentError);
+
         try {
-          console.log('--5-- calling streamAgentProgressToEmitter...');
           const subscriptionPromise = streamAgentProgressToEmitter({
             agent,
             emitter,
@@ -103,17 +112,13 @@ export default class NewSfcAgent implements MetaSearchAgentType {
             progressBookmarkByAgent,
             safeJson,
           });
-          console.log('--6-- streamAgentProgressToEmitter done');
 
-          console.log('\n[SFC Agent] Sending message to agent:', agent.id || 'unknown id');
           await agent.send(message);
-          console.log('--7-- agent.send done, waiting for subscriptionPromise...');
-          
           await subscriptionPromise;
-          console.log('--8-- subscriptionPromise resolved');
         } finally {
           harnessAgentManager.markIdle(stableAgentId);
           disposeToolExecuted();
+          disposeAgentError();
         }
       } catch (error: unknown) {
         console.error('-- ERROR IN SFC AGENT --', error);

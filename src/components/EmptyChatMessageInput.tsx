@@ -108,7 +108,7 @@ const EmptyChatMessageInput = () => {
               </select>
             )}
             <div className="flex flex-row items-center space-x-1">
-              <ModelSelector />
+              {/* <ModelSelector /> */}
               {/* <Focus /> */}
               {/* <Attach /> */}
             </div>
