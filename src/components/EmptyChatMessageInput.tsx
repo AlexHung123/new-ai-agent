@@ -8,7 +8,7 @@ import { useChat } from '@/lib/hooks/useChat';
 import ModelSelector from './MessageInputActions/ChatModelSelector';
 import { focusModes } from '@/lib/agents';
 import SfcExactMatchToggle from './SfcExactMatchToggle';
-import SfcTrainingRelatedToggle from './SfcTrainingRelatedToggle';
+// import SfcTrainingRelatedToggle from './SfcTrainingRelatedToggle';
 
 const EmptyChatMessageInput = () => {
   const { sendMessage, focusMode, sfcExactMatch } = useChat();
@@ -25,7 +25,7 @@ const EmptyChatMessageInput = () => {
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const currentAgent = focusModes.find((mode) => mode.key === focusMode);
-  let placeholder = currentAgent?.placeholder || 'Ask anything...';
+  let placeholder = currentAgent?.placeholder || 'Input SFC question...';
 
   if (focusMode === 'agentSFC' && sfcExactMatch) {
     placeholder = 'Search exact wording ...';
@@ -88,7 +88,7 @@ const EmptyChatMessageInput = () => {
         />
         <div className="flex flex-row items-center justify-end mt-4">
           <SfcExactMatchToggle />
-          <SfcTrainingRelatedToggle />
+          {/* <SfcTrainingRelatedToggle /> */}
           {/* <Optimization /> */}
           <div className="flex flex-row items-center space-x-2">
             {focusMode === 'agentImage' && (

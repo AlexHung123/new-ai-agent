@@ -26,7 +26,8 @@ const ToolExecutionPanel = () => {
   }, [toolExecution]);
 
   const isWaitingForToken = loading && !messageAppeared;
-  const shouldShowPanel = (internalToolExecution && showToolExecution) || isWaitingForToken;
+  const shouldShowPanel =
+    (internalToolExecution && showToolExecution) || isWaitingForToken;
 
   if (!shouldShowPanel) return null;
 
@@ -51,7 +52,9 @@ const ToolExecutionPanel = () => {
                 <Loader2 className="w-5 h-5 animate-spin flex-shrink-0" />
                 <div className="flex flex-col">
                   <span className="font-semibold text-sm">Processing...</span>
-                  <span className="text-xs opacity-90">Please wait patiently, generating response.</span>
+                  <span className="text-xs opacity-90">
+                    Please wait patiently, generating response.
+                  </span>
                 </div>
               </motion.div>
             )}
@@ -101,19 +104,26 @@ const ToolExecutionPanel = () => {
                     Input Parameters
                   </p>
                   <pre className="bg-light-primary dark:bg-dark-primary border border-light-200 dark:border-dark-200 p-3 rounded-lg text-black dark:text-white whitespace-pre-wrap break-all font-mono text-[11px] leading-relaxed">
-                    {typeof internalToolExecution.inputPreview === 'string'
-                      ? internalToolExecution.inputPreview
-                      : JSON.stringify(internalToolExecution.inputPreview, null, 2)}
+                    {/* {internalToolExecution.inputPreview?.query ||
+                      (typeof internalToolExecution.inputPreview === 'string'
+                        ? internalToolExecution.inputPreview
+                        : JSON.stringify(
+                            internalToolExecution.inputPreview,
+                            null,
+                            2,
+                          ))} */}
+                    {internalToolExecution.inputPreview}
                   </pre>
                 </div>
 
-                {(internalToolExecution.state === 'COMPLETED' || internalToolExecution.state === 'FAILED') && (
+                {(internalToolExecution.state === 'COMPLETED' ||
+                  internalToolExecution.state === 'FAILED') && (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3 }}
                   >
-                    <p className={`${internalToolExecution.state === 'FAILED' ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'} font-medium mb-1.5 uppercase tracking-wider text-[10px]`}>
+                    {/* <p className={`${internalToolExecution.state === 'FAILED' ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'} font-medium mb-1.5 uppercase tracking-wider text-[10px]`}>
                       Result Output
                     </p>
                     <pre className={`bg-light-primary dark:bg-dark-primary border ${internalToolExecution.state === 'FAILED' ? 'border-red-500/50 text-red-500' : 'border-light-200 dark:border-dark-200 text-black dark:text-white'} p-3 rounded-lg whitespace-pre-wrap break-all font-mono text-[11px] leading-relaxed`}>
@@ -124,20 +134,23 @@ const ToolExecutionPanel = () => {
                             null,
                             2,
                           )}
-                    </pre>
+                    </pre> */}
                   </motion.div>
                 )}
 
-                {internalToolExecution.state === 'COMPLETED' && isWaitingForToken && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mt-4 flex items-center justify-center gap-2 text-sky-500 dark:text-sky-400 py-3 bg-sky-500/10 rounded-lg border border-sky-500/20 shadow-sm"
-                  >
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span className="text-xs font-medium tracking-wide">分析中...</span>
-                  </motion.div>
-                )}
+                {internalToolExecution.state === 'COMPLETED' &&
+                  isWaitingForToken && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-4 flex items-center justify-center gap-2 text-sky-500 dark:text-sky-400 py-3 bg-sky-500/10 rounded-lg border border-sky-500/20 shadow-sm"
+                    >
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span className="text-xs font-medium tracking-wide">
+                        Continuing...
+                      </span>
+                    </motion.div>
+                  )}
               </div>
             </>
           )}

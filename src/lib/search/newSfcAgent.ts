@@ -81,7 +81,9 @@ export default class NewSfcAgent implements MetaSearchAgentType {
                 name: event.call.name,
                 state: event.call.state,
                 durationMs: event.call.durationMs,
-                inputPreview: event.call.inputPreview,
+                inputPreview:
+                  JSON.parse(event.call.inputPreview).query ||
+                  JSON.parse(event.call.args).query,
                 resultPreview: event.call.result,
               },
             }),

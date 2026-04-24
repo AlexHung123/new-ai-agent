@@ -1,7 +1,6 @@
 'use client';
 
 import { useChat } from '@/lib/hooks/useChat';
-import { Switch } from '@headlessui/react';
 import { motion } from 'framer-motion';
 
 const SfcExactMatchToggle = () => {
@@ -25,22 +24,32 @@ const SfcExactMatchToggle = () => {
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
-      className="flex items-center space-x-2 p-2 bg-light-secondary dark:bg-dark-secondary rounded-lg"
+      className="flex items-center justify-center my-2"
     >
-      <Switch
-        checked={sfcExactMatch}
-        onChange={handleToggle}
-        className={`${sfcExactMatch ? 'bg-blue-600' : 'bg-gray-400'}
-          relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2  focus-visible:ring-white/75`}
-      >
-        <span className="sr-only">Use exact match</span>
-        <span
-          aria-hidden="true"
-          className={`${sfcExactMatch ? 'translate-x-5' : 'translate-x-0'}
-            pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out`}
-        />
-      </Switch>
-      <span className="text-sm text-black/70 dark:text-white/70">Exact Match</span>
+      <div className="inline-flex rounded-md shadow-sm" role="group">
+        <button
+          type="button"
+          onClick={() => handleToggle(true)}
+          className={`px-4 py-2 text-sm font-medium border rounded-s-lg transition-colors ${
+            sfcExactMatch
+              ? 'bg-[#24A0ED] text-white border-[#24A0ED]'
+              : 'bg-transparent text-[#24A0ED] border-[#24A0ED] hover:bg-[#24A0ED]/10'
+          }`}
+        >
+          Keyword Search
+        </button>
+        <button
+          type="button"
+          onClick={() => handleToggle(false)}
+          className={`px-4 py-2 text-sm font-medium border border-s-0 rounded-e-lg transition-colors ${
+            !sfcExactMatch
+              ? 'bg-[#24A0ED] text-white border-[#24A0ED]'
+              : 'bg-transparent text-[#24A0ED] border-[#24A0ED] hover:bg-[#24A0ED]/10'
+          }`}
+        >
+          Reply Generation
+        </button>
+      </div>
     </motion.div>
   );
 };

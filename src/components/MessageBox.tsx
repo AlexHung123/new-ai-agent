@@ -3,12 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 import React, { MutableRefObject, memo } from 'react';
 import { cn } from '@/lib/utils';
-import {
-  BookCopy,
-  Disc3,
-  Volume2,
-  StopCircle,
-} from 'lucide-react';
+import { BookCopy, Disc3, Volume2, StopCircle } from 'lucide-react';
 import Markdown, { MarkdownToJSX } from 'markdown-to-jsx';
 import Copy from './MessageActions/Copy';
 import Rewrite from './MessageActions/Rewrite';
@@ -16,7 +11,6 @@ import MessageSources from './MessageSources';
 import { useSpeech } from 'react-text-to-speech';
 import ThinkBox from './ThinkBox';
 import { useChat, Section } from '@/lib/hooks/useChat';
-import Citation from './Citation';
 
 const ThinkTagProcessor = ({
   children,
@@ -31,13 +25,7 @@ const ThinkTagProcessor = ({
 };
 
 const MemoizedMessageContent = memo(
-  ({
-    content,
-    thinkingEnded,
-  }: {
-    content: string;
-    thinkingEnded: boolean;
-  }) => {
+  ({ content, thinkingEnded }: { content: string; thinkingEnded: boolean }) => {
     const markdownOverrides: MarkdownToJSX.Options = {
       overrides: {
         think: {
@@ -45,9 +33,6 @@ const MemoizedMessageContent = memo(
           props: {
             thinkingEnded: thinkingEnded,
           },
-        },
-        citation: {
-          component: Citation,
         },
       },
     };
@@ -91,10 +76,10 @@ const MessageBox = memo(
     rewrite: (messageId: string) => void;
   }) => {
     const parsedMessage = section.parsedAssistantMessage || '';
-    const speechMessage = section.speechMessage || '';
+    // const speechMessage = section.speechMessage || '';
     const thinkingEnded = section.thinkingEnded;
 
-    const { speechStatus, start, stop } = useSpeech({ text: speechMessage });
+    // const { speechStatus, start, stop } = useSpeech({ text: speechMessage });
 
     return (
       <div className="space-y-6">
@@ -109,22 +94,6 @@ const MessageBox = memo(
             ref={dividerRef}
             className="flex flex-col space-y-6 w-full lg:w-9/12"
           >
-            {section.sourceMessage &&
-              section.sourceMessage.sources.length > 0 && (
-                <div className="flex flex-col space-y-2">
-                  <div className="flex flex-row items-center space-x-2">
-                    <BookCopy
-                      className="text-black dark:text-white"
-                      size={20}
-                    />
-                    <h3 className="text-black dark:text-white font-medium text-xl">
-                      Sources
-                    </h3>
-                  </div>
-                  <MessageSources sources={section.sourceMessage.sources} />
-                </div>
-              )}
-
             <div className="flex flex-col space-y-2">
               {section.sourceMessage && (
                 <div className="flex flex-row items-center space-x-2">
@@ -155,6 +124,10 @@ const MessageBox = memo(
                           rewrite={rewrite}
                           messageId={section.assistantMessage.messageId}
                         />
+                        {section.sourceMessage &&
+                          section.sourceMessage.sources.length > 0 && (
+                            <MessageSources sources={section.sourceMessage.sources} />
+                          )}
                       </div>
                       <div className="flex flex-row items-center space-x-1">
                         <Copy

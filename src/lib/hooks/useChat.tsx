@@ -403,7 +403,6 @@ const buildSections = (messages: Message[]): Section[] => {
     let suggestions: string[] = [];
 
     if (aiMessage) {
-      const citationRegex = /\[([^\]]+)\]/g;
       const bareNumberCiteRegex = /\[(\d+)\]/g;
 
       if (processedMessage.includes('<think>')) {
@@ -416,27 +415,6 @@ const buildSections = (messages: Message[]): Section[] => {
       if (aiMessage.content.includes('</think>')) thinkingEnded = true;
 
       if (sourceMessage?.sources?.length) {
-        processedMessage = processedMessage.replace(
-          citationRegex,
-          (_, capturedContent: string) => {
-            const numbers = capturedContent.split(',').map((n) => n.trim());
-
-            return numbers
-              .map((numStr) => {
-                const number = Number.parseInt(numStr, 10);
-                if (!Number.isFinite(number) || number <= 0)
-                  return `[${numStr}]`;
-
-                const source = sourceMessage.sources?.[number - 1];
-                const url = source?.metadata?.url;
-                return url
-                  ? `<citation href="${url}">${numStr}</citation>`
-                  : '';
-              })
-              .join('');
-          },
-        );
-
         speechMessage = aiMessage.content.replace(bareNumberCiteRegex, '');
       } else {
         processedMessage = processedMessage.replace(bareNumberCiteRegex, '');

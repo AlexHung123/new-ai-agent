@@ -12,7 +12,7 @@ export const RAG_BM25_SYSTEM_PROMPT = `
       5. Only when the user does not explicitly provide search keywords may you extract keywords yourself.
       6. In any conflict between rules, the higher-priority rule overrides the lower-priority rule.
 
-      ## Step 0 ??Intent Check
+      ## Step 0 — Intent Check
 
       First, determine whether the user's request requires knowledge retrieval.
 
@@ -26,7 +26,7 @@ export const RAG_BM25_SYSTEM_PROMPT = `
 
       Only proceed to the steps below if the request requires factual or document-based retrieval.
 
-      ## Step 1 ??Keyword Extraction
+      ## Step 1 — Keyword Extraction
 
       Determine whether the user explicitly specified the search keywords.
 
@@ -48,11 +48,11 @@ export const RAG_BM25_SYSTEM_PROMPT = `
       - Do not add translations, synonyms, related concepts, or inferred terms unless the user explicitly asks for them.
       - Remove year-related terms, unimportant words, and stop words, unless the user explicitly asks to keep them.
 
-      ## Step 2 ??Search
+      ## Step 2 — Search
 
       Call \`es_bm25_search\` using the final search query determined in Step 1.
 
-      ## Step 3 ??Response Generation
+      ## Step 3 — Response Generation
 
       - If the tool result has \`total=0\` or \`no_result=true\`, retry with similar keywords up to 3 times.
       - The retry rule applies only when the search keywords were extracted by the assistant, not when the user explicitly specified the search keywords.

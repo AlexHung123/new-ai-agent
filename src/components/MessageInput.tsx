@@ -5,7 +5,7 @@ import TextareaAutosize from 'react-textarea-autosize';
 import { useChat } from '@/lib/hooks/useChat';
 import { focusModes } from '@/lib/agents';
 import SfcExactMatchToggle from './SfcExactMatchToggle';
-import SfcTrainingRelatedToggle from './SfcTrainingRelatedToggle';
+// import SfcTrainingRelatedToggle from './SfcTrainingRelatedToggle';
 
 const ASPECT_KEY = 'agentImageAspect';
 const DEFAULT_ASPECT = '1:1';
@@ -122,7 +122,7 @@ const MessageInput = memo(function MessageInput() {
         placeholder={placeholder}
       />
 
-      <div className="flex flex-row items-center justify-end mt-4">
+      <div className="flex flex-row items-center justify-end mt-4 gap-3">
         <SfcExactMatchToggle />
         {/* <SfcTrainingRelatedToggle /> */}
 
