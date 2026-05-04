@@ -5,10 +5,8 @@ import { createRuntime } from '../../../utils/shared/runtime';
 import { getAgentModelConfig } from '../config/ragflowConfig';
 
 interface CreateAgentRuntimeOptions {
-  templateId: string;
-  systemPrompt: string;
-  toolName: string;
-  registerTool: (tools: any) => void;
+  registerTemplates: (templates: any, modelId: string) => void;
+  registerTools: (tools: any) => void;
   sqliteDbPath?: string;
   sqliteDataDir?: string;
 }
@@ -32,10 +30,8 @@ function resolvePathValue(
 
 export function createSqliteAgentRuntime(options: CreateAgentRuntimeOptions) {
   const {
-    templateId,
-    systemPrompt,
-    toolName,
-    registerTool,
+    registerTemplates,
+    registerTools,
     sqliteDbPath,
     sqliteDataDir,
   } = options;
@@ -53,14 +49,8 @@ export function createSqliteAgentRuntime(options: CreateAgentRuntimeOptions) {
 
   const runtimeDeps = createRuntime(
     ({ templates, tools }: any) => {
-      registerTool(tools);
-      templates.register({
-        id: templateId,
-        systemPrompt,
-        tools: [toolName],
-        model: modelConfig.modelId,
-        runtime: {},
-      });
+      registerTools(tools);
+      registerTemplates(templates, modelConfig.modelId);
     },
     {
       store,

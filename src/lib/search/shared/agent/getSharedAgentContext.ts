@@ -1,30 +1,56 @@
 import { createManagedAgentContext } from './createManagedAgentContext';
 import { getMaxActiveAgents } from '../config/ragflowConfig';
 import { RAG_BM25_SYSTEM_PROMPT } from '../prompts/ragBm25SystemPrompt';
+import { RAG_BM25_SYSTEM_PROMPT_TRAINING_GUIDE } from '../prompts/ragBm25SystemPromptTrainingGuide';
+import { RAG_SURVEY_SYSTEM_PROMPT } from '../prompts/ragSurveySystemPrompt';
 import { createSqliteAgentRuntime } from '../runtime/createAgentRuntime';
 import { createEsBm25SearchTool } from '../tools/esBm25Tool';
+import { createGuideSearchTool } from '../tools/guideSearchTool';
+import { createSurveySearchTool } from '../tools/surveySearchTool';
 
-const DEFAULT_TEMPLATE_ID = 'rag-elasticsearch-bm25';
-const AGENT_ID_PREFIX = 'sfc-chat-agent';
+const DEFAULT_TEMPLATE_ID = 'rag-base-template';
+const AGENT_ID_PREFIX = 'rag-chat-agent';
 
 function initSharedAgentDependencies() {
-  // 1. 初始化所有共用的 Tools
   const esBm25SearchTool = createEsBm25SearchTool();
-  
-  // 2. 建立共用的 SQLite Runtime (這裡只會建立一次連線)
+  const guideSearchTool = createGuideSearchTool();
+  const surveySearchTool = createSurveySearchTool();
+
   const { runtimeDeps } = createSqliteAgentRuntime({
-    templateId: DEFAULT_TEMPLATE_ID,
-    systemPrompt: RAG_BM25_SYSTEM_PROMPT,
-    toolName: esBm25SearchTool.name,
-    registerTool: (tools) => {
-      // 如果未來有其他 Tools，統一在這裡註冊
+    registerTools: (tools) => {
       tools.register(esBm25SearchTool.name, () => esBm25SearchTool);
+      tools.register(guideSearchTool.name, () => guideSearchTool);
+      tools.register(surveySearchTool.name, () => surveySearchTool);
+    },
+    registerTemplates: (templates, modelId) => {
+      templates.register({
+        id: DEFAULT_TEMPLATE_ID,
+        systemPrompt: RAG_BM25_SYSTEM_PROMPT,
+        tools: [],
+        model: modelId,
+        runtime: {},
+      });
+
+      templates.register({
+        id: 'rag-training-guide-template',
+        systemPrompt: RAG_BM25_SYSTEM_PROMPT_TRAINING_GUIDE,
+        tools: [],
+        model: modelId,
+        runtime: {},
+      });
+
+      templates.register({
+        id: 'rag-survey-template',
+        systemPrompt: RAG_SURVEY_SYSTEM_PROMPT,
+        tools: [],
+        model: modelId,
+        runtime: {},
+      });
     },
   });
 
   const maxActiveAgents = getMaxActiveAgents();
-  
-  // 3. 建立共用的 Manager Context
+
   return createManagedAgentContext({
     dependencies: runtimeDeps,
     maxActiveAgents,
@@ -35,7 +61,9 @@ function initSharedAgentDependencies() {
 
 declare global {
   // eslint-disable-next-line no-var
-  var __sharedAgentContext: ReturnType<typeof initSharedAgentDependencies> | undefined;
+  var __sharedAgentContext:
+    | ReturnType<typeof initSharedAgentDependencies>
+    | undefined;
 }
 
 export function getSharedAgentContext() {

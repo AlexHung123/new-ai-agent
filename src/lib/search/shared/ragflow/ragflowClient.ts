@@ -30,7 +30,7 @@ export async function queryRagflow(
         similarity_threshold: config.similarityThreshold,
         vector_similarity_weight: config.vectorSimilarityWeight,
         page: 1,
-        page_size: 10,
+        page_size: config.page_size ?? 10,
       }),
     });
 

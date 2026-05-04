@@ -7,6 +7,7 @@ export interface RagflowRetrievalConfig {
   documentIds: string[];
   similarityThreshold: number;
   vectorSimilarityWeight: number;
+  page_size?: number;
 }
 
 export interface AgentModelConfig {
@@ -17,7 +18,10 @@ export interface AgentModelConfig {
 
 const DEFAULT_MAX_ACTIVE_AGENTS = 100;
 
-export function getRagflowRetrievalConfig(): RagflowRetrievalConfig {
+export function getRagflowRetrievalConfig(
+  datasetIds?: string[],
+  documentIds?: string[]
+): RagflowRetrievalConfig {
   return {
     apiUrl:
       configManager.getConfig('ragflow.apiUrl') ||
@@ -25,10 +29,10 @@ export function getRagflowRetrievalConfig(): RagflowRetrievalConfig {
     apiKey:
       configManager.getConfig('ragflow.apiKey') ||
       'ragflow-g4OTUwYjU2NDFiYjExZjBhYmY5MDI0Mm',
-    datasetIds: configManager.getConfig('ragflow.datasetIds') || [
+    datasetIds: datasetIds || configManager.getConfig('ragflow.datasetIds') || [
       '387232b21eaa11f1b4a62e82040d3310',
     ],
-    documentIds: configManager.getConfig('ragflow.documentIds') || [
+    documentIds: documentIds || configManager.getConfig('ragflow.documentIds') || [
       '658f16801eae11f1b4a62e82040d3310',
     ],
     similarityThreshold: configManager.getConfig('ragflow.similarityThreshold') ?? 0.3,

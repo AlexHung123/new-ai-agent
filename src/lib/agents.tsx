@@ -79,4 +79,14 @@ export const focusModes: AgentMode[] = [
     placeholder: 'Please enter survey ID ...',
     followUpPlaceholder: 'Please enter survey id ...',
   },
+  {
+    key: 'newSurveyAgent',
+    title: 'New Survey Agent',
+    description: 'Your assistant for summarizing survey results',
+    icon: NotepadText,
+    image: '/itms/ai/agent_survey.png',
+    permissionCode: 'chatSurveyAgent:execute',
+    placeholder: 'Please enter survey ID ...',
+    followUpPlaceholder: 'Please enter survey id ...',
+  },
 ];

@@ -152,7 +152,7 @@ export const chatContext = createContext<ChatContext>({
 const getPreferredModelByFocusMode = (focusMode: string) => {
   return focusMode === 'agentSurvey'
     ? 'qwen3-next-80b-a3b-instruct-mlx'
-    : 'gpt-oss-120b';
+    : 'qwen3.6-35b-a3b-mlx';
 };
 
 const safeLocalStorageGet = (key: string) => {
@@ -824,7 +824,9 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       if (data.type === 'tool_error') {
         // Tool failure can be recoverable. Keep stream alive so fallback text
         // from the same turn (e.g. "No related source found.") can still arrive.
-        toast.error(`Tool execution failed: ${data.data.error || 'Unknown error'}`);
+        toast.error(
+          `Tool execution failed: ${data.data.error || 'Unknown error'}`,
+        );
         setToolExecution({
           ...data.data,
           resultPreview: data.data.error,
@@ -833,7 +835,9 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       if (data.type === 'monitor_error') {
-        toast.error(`Agent execution failed: ${data.data.error || 'Unknown error'}`);
+        toast.error(
+          `Agent execution failed: ${data.data.error || 'Unknown error'}`,
+        );
         setToolExecution({
           ...data.data,
           resultPreview: data.data.error,

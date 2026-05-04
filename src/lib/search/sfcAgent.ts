@@ -165,14 +165,6 @@ class SfcAgent implements MetaSearchAgentType {
                   content_with_weight: `${pattern}`,
                 },
               },
-              // {
-              //   wildcard: {
-              //     content_with_weight_kw: {
-              //       value: `*${pattern}*`,
-              //       case_insensitive: true,
-              //     },
-              //   },
-              // },
             ],
           },
         },

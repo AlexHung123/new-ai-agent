@@ -9,7 +9,7 @@ import { streamAgentProgressToEmitter } from '../utils/agentStream';
 import { getSharedAgentContext } from './shared/agent/getSharedAgentContext';
 import { safeJson } from './shared/utils/safeJson';
 
-export default class NewSfcAgent implements MetaSearchAgentType {
+export default class GuideAgent implements MetaSearchAgentType {
   async searchAndAnswer(
     message: string,
     history: BaseMessage[],
@@ -25,10 +25,6 @@ export default class NewSfcAgent implements MetaSearchAgentType {
   ): Promise<eventEmitter> {
     const emitter = new eventEmitter();
     let hasEnded = false;
-    const emitJsonLine = (payload: unknown) => {
-      emitter.emit('data', `${safeJson(payload)}\n`);
-    };
-    // console.log('\n[SFC Agent] searchAndAnswer called with message:', message);
     const emitEndOnce = () => {
       if (hasEnded) return;
       hasEnded = true;
@@ -45,16 +41,19 @@ export default class NewSfcAgent implements MetaSearchAgentType {
       try {
         if (signal?.aborted) return;
 
-        emitJsonLine({
-          type: 'progress',
-          data: {
-            status: 'processing',
-            total: 2,
-            current: 1,
-            question: 'Initializing SFC Agent',
-            message: 'Initializing SFC Kode Agent...',
-          },
-        });
+        emitter.emit(
+          'data',
+          JSON.stringify({
+            type: 'progress',
+            data: {
+              status: 'processing',
+              total: 2,
+              current: 1,
+              question: 'Initializing Guide Agent',
+              message: 'Initializing Guide Kode Agent...',
+            },
+          }),
+        );
         const { manager: harnessAgentManager, progressBookmarkByAgent } =
           getSharedAgentContext();
 
@@ -65,41 +64,48 @@ export default class NewSfcAgent implements MetaSearchAgentType {
 
         const stableAgentId =
           harnessAgentManager.normalizeAgentId(requestAgentId);
+
         const agent = await harnessAgentManager.getOrCreateAgent(
           stableAgentId,
-          ['es_bm25_search'],
-          'rag-base-template' // Explicitly specify the template
+          ['guide_search'],
+          'rag-training-guide-template', // Explicitly specify the template
         );
 
         harnessAgentManager.markBusy(stableAgentId);
         harnessAgentManager.touchAgent(stableAgentId);
 
         const onToolExecuted = (event: any) => {
-          emitJsonLine({
-            type: 'tool_execution',
-            data: {
-              id: event.call.id,
-              name: event.call.name,
-              state: event.call.state,
-              durationMs: event.call.durationMs,
-              inputPreview:
-                JSON.parse(event.call.inputPreview).query ||
-                JSON.parse(event.call.args).query,
-              resultPreview: event.call.result,
-            },
-          });
+          emitter.emit(
+            'data',
+            JSON.stringify({
+              type: 'tool_execution',
+              data: {
+                id: event.call.id,
+                name: event.call.name,
+                state: event.call.state,
+                durationMs: event.call.durationMs,
+                inputPreview:
+                  JSON.parse(event.call.inputPreview).query ||
+                  JSON.parse(event.call.args).query,
+                resultPreview: event.call.result,
+              },
+            }),
+          );
         };
         const disposeToolExecuted = agent.on('tool_executed', onToolExecuted);
 
         const onAgentError = (event: any) => {
-          emitJsonLine({
-            type: 'tool_error',
-            data: {
-              error: event.message || 'An unknown agent error occurred',
-              phase: event.phase,
-              detail: event.detail,
-            },
-          });
+          emitter.emit(
+            'data',
+            JSON.stringify({
+              type: 'tool_error',
+              data: {
+                error: event.message || 'An unknown agent error occurred',
+                phase: event.phase,
+                detail: event.detail,
+              },
+            }),
+          );
         };
         const disposeAgentError = agent.on('error', onAgentError);
 
@@ -120,14 +126,17 @@ export default class NewSfcAgent implements MetaSearchAgentType {
           disposeAgentError();
         }
       } catch (error: unknown) {
-        console.error('-- ERROR IN SFC AGENT --', error);
+        console.error('-- ERROR IN GUIDE AGENT --', error);
         if (error instanceof Error && error.name === 'AbortError') {
           return;
         }
-        emitJsonLine({
-          type: 'response',
-          data: `\n\nError: ${error instanceof Error ? error.message : String(error)}`,
-        });
+        emitter.emit(
+          'data',
+          JSON.stringify({
+            type: 'response',
+            data: `\n\nError: ${error instanceof Error ? error.message : String(error)}`,
+          }),
+        );
       } finally {
         emitEndOnce();
       }

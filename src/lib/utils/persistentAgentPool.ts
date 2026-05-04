@@ -23,7 +23,7 @@ export interface PersistentAgentPoolManager {
   touchAgent: (agentId: string) => void;
   markBusy: (agentId: string) => void;
   markIdle: (agentId: string) => void;
-  getOrCreateAgent: (agentId?: string) => Promise<Agent>;
+  getOrCreateAgent: (agentId?: string, toolsOverride?: string[], templateIdOverride?: string) => Promise<Agent>;
 }
 
 function isPoolFullError(error: unknown): boolean {
@@ -101,7 +101,7 @@ export function createPersistentAgentPoolManager(
     return evicted;
   };
 
-  const getOrCreateAgent = async (agentId?: string): Promise<Agent> => {
+  const getOrCreateAgent = async (agentId?: string, toolsOverride?: string[], templateIdOverride?: string): Promise<Agent> => {
     const stableAgentId = normalizeAgentId(agentId);
     if (!agentCache.has(stableAgentId)) {
       const creationPromise = (async () => {
@@ -115,7 +115,11 @@ export function createPersistentAgentPoolManager(
         console.log(
           '[persistentAgentPool] Getting config and checking store...',
         );
-        const config = createConfig(stableAgentId);
+        const baseConfig = createConfig(stableAgentId);
+        const config = { ...baseConfig };
+        if (toolsOverride) config.tools = toolsOverride;
+        if (templateIdOverride) config.templateId = templateIdOverride;
+        
         const existsInStore = await store.exists(stableAgentId);
         console.log('[persistentAgentPool] existsInStore:', existsInStore);
         ensurePoolCapacity(stableAgentId);

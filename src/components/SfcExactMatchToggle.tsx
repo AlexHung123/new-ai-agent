@@ -6,16 +6,18 @@ import { motion } from 'framer-motion';
 const SfcExactMatchToggle = () => {
   const { focusMode, setFocusMode, sfcExactMatch, setSfcExactMatch } = useChat();
 
-  if (focusMode !== 'agentSFC' && focusMode !== 'newSfcAgent') {
+  const isSfc = focusMode === 'agentSFC' || focusMode === 'newSfcAgent';
+
+  if (!isSfc) {
     return null;
   }
 
   const handleToggle = (checked: boolean) => {
     setSfcExactMatch(checked);
     if (checked) {
-      setFocusMode('agentSFC');
+      if (isSfc) setFocusMode('agentSFC');
     } else {
-      setFocusMode('newSfcAgent');
+      if (isSfc) setFocusMode('newSfcAgent');
     }
   };
 
