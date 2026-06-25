@@ -25,6 +25,7 @@ export default class NewSurverAgent implements MetaSearchAgentType {
   ): Promise<eventEmitter> {
     const emitter = new eventEmitter();
     let hasEnded = false;
+    let finalMarkdownFromTool = '';
     const emitEndOnce = () => {
       if (hasEnded) return;
       hasEnded = true;
@@ -67,7 +68,12 @@ export default class NewSurverAgent implements MetaSearchAgentType {
 
         const agent = await harnessAgentManager.getOrCreateAgent(
           stableAgentId,
-          ['survey_search'],
+          [
+            'load_survey_questions',
+            'get_question_payload',
+            'process_survey_question',
+            'assemble_markdown_report',
+          ],
           'rag-survey-template', // Explicitly specify the template
         );
 
@@ -75,19 +81,47 @@ export default class NewSurverAgent implements MetaSearchAgentType {
         harnessAgentManager.touchAgent(stableAgentId);
 
         const onToolExecuted = (event: any) => {
+          const call = event.call ?? event;
+          const result = event.result ?? call?.result;
+
+          // Debug logging as requested
+          console.log(
+            `\n[survey-orchestrator-main] [tool_executed] ${call?.name ?? 'unknown'} (${call?.durationMs ?? 0}ms)`,
+          );
+          if (call?.args)
+            console.log(
+              `[survey-orchestrator-main] args: ${safeJson(call.args)}`,
+            );
+          if (result)
+            console.log(
+              `[survey-orchestrator-main] result: ${safeJson(result)}`,
+            );
+
+          if (call?.name === 'assemble_markdown_report' && result?.markdown) {
+            finalMarkdownFromTool = result.markdown;
+          }
+
+          let inputPreview = undefined;
+          try {
+            if (call?.inputPreview) {
+              inputPreview = call.inputPreview;
+            } else if (call?.args) {
+              inputPreview =
+                typeof call.args === 'string' ? call.args : call.args;
+            }
+          } catch (e) {}
+
           emitter.emit(
             'data',
             JSON.stringify({
               type: 'tool_execution',
               data: {
-                id: event.call?.id,
-                name: event.call?.name,
-                state: event.call?.state,
-                durationMs: event.call?.durationMs,
-                inputPreview:
-                  (event.call?.inputPreview ? JSON.parse(event.call.inputPreview).query : undefined) ||
-                  (event.call?.args ? JSON.parse(event.call.args).query : undefined),
-                resultPreview: event.call?.result,
+                id: call?.id,
+                name: call?.name,
+                state: call?.state,
+                durationMs: call?.durationMs,
+                inputPreview,
+                resultPreview: result,
               },
             }),
           );
@@ -95,6 +129,14 @@ export default class NewSurverAgent implements MetaSearchAgentType {
         const disposeToolExecuted = agent.on('tool_executed', onToolExecuted);
 
         const onAgentError = (event: any) => {
+          console.error(
+            `\n[survey-orchestrator-main] [error] phase=${event?.phase ?? 'unknown'} message=${event?.message ?? event}`,
+          );
+          if (event?.detail) {
+            console.error(
+              `[survey-orchestrator-main] detail: ${safeJson(event.detail)}`,
+            );
+          }
           emitter.emit(
             'data',
             JSON.stringify({
@@ -117,9 +159,19 @@ export default class NewSurverAgent implements MetaSearchAgentType {
             progressBookmarkByAgent,
             safeJson,
           });
-
           await agent.send(message);
           await subscriptionPromise;
+
+          // Use the finalMarkdownFromTool if agent doesn't emit any response text
+          // if (finalMarkdownFromTool) {
+          //   emitter.emit(
+          //     'data',
+          //     JSON.stringify({
+          //       type: 'response',
+          //       data: `\n\n${finalMarkdownFromTool}`,
+          //     }),
+          //   );
+          // }
         } finally {
           harnessAgentManager.markIdle(stableAgentId);
           disposeToolExecuted();

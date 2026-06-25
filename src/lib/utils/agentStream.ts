@@ -45,7 +45,26 @@ export async function streamAgentProgressToEmitter(
           JSON.stringify({ type: 'response', data: event.delta }),
         );
         break;
-      case 'tool:start':
+      case 'tool:start': {
+        let inputPreviewValue = undefined;
+        try {
+          if (event.call.inputPreview) {
+            const parsed =
+              typeof event.call.inputPreview === 'string'
+                ? JSON.parse(event.call.inputPreview)
+                : event.call.inputPreview;
+            inputPreviewValue = parsed?.query || parsed;
+          } else if (event.call.args) {
+            const parsed =
+              typeof event.call.args === 'string'
+                ? JSON.parse(event.call.args)
+                : event.call.args;
+            inputPreviewValue = parsed?.query || parsed;
+          }
+        } catch (e) {
+          inputPreviewValue = event.call.inputPreview || event.call.args;
+        }
+
         emitter.emit(
           'data',
           JSON.stringify({
@@ -56,12 +75,14 @@ export async function streamAgentProgressToEmitter(
               description: event.call.description,
               state: 'RUNNING',
               inputPreview:
-                JSON.parse(event.call.inputPreview).query ||
-                JSON.parse(event.call.args).query,
+                // JSON.parse(event.call.inputPreview).query ||
+                // JSON.parse(event.call.args).query,
+                event.call.inputPreview || event.call.args,
             },
           }),
         );
         break;
+      }
       case 'tool:end':
         if (
           event.call?.result?.chunks &&

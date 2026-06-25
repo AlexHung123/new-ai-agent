@@ -1,33 +1,110 @@
 import React, { useState, useEffect } from 'react';
 import { useChat } from '@/lib/hooks/useChat';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ChevronDown, ChevronRight } from 'lucide-react';
+
+const ToolExecutionItem = ({ execution }: { execution: any }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="border border-light-200 dark:border-dark-200 rounded-lg overflow-hidden mb-3 bg-white dark:bg-dark-primary shadow-sm">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          {expanded ? (
+            <ChevronDown className="w-4 h-4 text-gray-500" />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-gray-500" />
+          )}
+          <span className="font-semibold text-black dark:text-white flex items-center gap-2 text-sm">
+            ⚙️ {execution.name}
+          </span>
+        </div>
+
+        <div>
+          {execution.state === 'COMPLETED' ? (
+            <span className="text-green-500 font-medium bg-green-500/10 px-2 py-1 rounded-md text-xs">
+              COMPLETED ({execution.durationMs}ms)
+            </span>
+          ) : execution.state === 'FAILED' ? (
+            <span className="text-red-500 font-medium bg-red-500/10 px-2 py-1 rounded-md text-xs">
+              FAILED
+            </span>
+          ) : (
+            <span className="text-sky-500 font-medium bg-sky-500/10 px-2 py-1 rounded-md text-xs flex items-center gap-1 w-max">
+              RUNNING
+              <span className="animate-pulse flex space-x-1 ml-1">
+                <span className="w-1 h-1 bg-sky-500 rounded-full"></span>
+                <span className="w-1 h-1 bg-sky-500 rounded-full animation-delay-150"></span>
+                <span className="w-1 h-1 bg-sky-500 rounded-full animation-delay-300"></span>
+              </span>
+            </span>
+          )}
+        </div>
+      </button>
+
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="border-t border-light-200 dark:border-dark-200 p-3 bg-gray-50/50 dark:bg-dark-secondary"
+          >
+            <div>
+              <p className="text-gray-500 dark:text-gray-400 font-medium mb-1.5 uppercase tracking-wider text-[10px]">
+                Input Parameters
+              </p>
+              <pre className="bg-light-primary dark:bg-dark-primary border border-light-200 dark:border-dark-200 p-3 rounded-lg text-black dark:text-white whitespace-pre-wrap break-all font-mono text-[11px] leading-relaxed max-h-40 overflow-y-auto scrollbar-thin">
+                {execution.inputPreview}
+              </pre>
+            </div>
+            
+            {(execution.state === 'COMPLETED' || execution.state === 'FAILED') && execution.resultPreview && (
+              <div className="mt-3">
+                <p className={`${execution.state === 'FAILED' ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'} font-medium mb-1.5 uppercase tracking-wider text-[10px]`}>
+                  Result Output
+                </p>
+                <pre className={`bg-light-primary dark:bg-dark-primary border ${execution.state === 'FAILED' ? 'border-red-500/50 text-red-500' : 'border-light-200 dark:border-dark-200 text-black dark:text-white'} p-3 rounded-lg whitespace-pre-wrap break-all font-mono text-[11px] leading-relaxed max-h-40 overflow-y-auto scrollbar-thin`}>
+                  {typeof execution.resultPreview === 'string'
+                    ? execution.resultPreview
+                    : JSON.stringify(
+                        execution.resultPreview,
+                        null,
+                        2,
+                      )}
+                </pre>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
 
 const ToolExecutionPanel = () => {
-  const { toolExecution, loading, messageAppeared } = useChat();
+  const { toolExecutions, loading, messageAppeared } = useChat();
   const [showToolExecution, setShowToolExecution] = useState(false);
-  const [internalToolExecution, setInternalToolExecution] = useState<
-    any | null
-  >(null);
 
   useEffect(() => {
-    if (toolExecution) {
-      setInternalToolExecution(toolExecution);
+    if (toolExecutions && toolExecutions.length > 0) {
       setShowToolExecution(true);
     }
-  }, [toolExecution]);
+  }, [toolExecutions]);
 
-  // Remove the internal state when toolExecution becomes null (like when starting a new message)
   useEffect(() => {
-    if (toolExecution === null) {
-      setInternalToolExecution(null);
+    if (!toolExecutions || toolExecutions.length === 0) {
       setShowToolExecution(false);
     }
-  }, [toolExecution]);
+  }, [toolExecutions]);
 
   const isWaitingForToken = loading && !messageAppeared;
   const shouldShowPanel =
-    (internalToolExecution && showToolExecution) || isWaitingForToken;
+    (toolExecutions && toolExecutions.length > 0 && showToolExecution) || isWaitingForToken;
 
   if (!shouldShowPanel) return null;
 
@@ -47,7 +124,7 @@ const ToolExecutionPanel = () => {
                 initial={{ opacity: 0, y: -10, height: 0 }}
                 animate={{ opacity: 1, y: 0, height: 'auto' }}
                 exit={{ opacity: 0, y: -10, height: 0 }}
-                className="bg-[#24A0ED]/10 border border-[#24A0ED]/30 text-[#24A0ED] dark:text-[#5ab8f5] rounded-xl p-3 flex items-center gap-3 overflow-hidden shadow-sm"
+                className="bg-[#24A0ED]/10 border border-[#24A0ED]/30 text-[#24A0ED] dark:text-[#5ab8f5] rounded-xl p-3 flex items-center gap-3 overflow-hidden shadow-sm mb-2"
               >
                 <Loader2 className="w-5 h-5 animate-spin flex-shrink-0" />
                 <div className="flex flex-col">
@@ -60,13 +137,11 @@ const ToolExecutionPanel = () => {
             )}
           </AnimatePresence>
 
-          {internalToolExecution && showToolExecution && (
+          {toolExecutions && toolExecutions.length > 0 && showToolExecution && (
             <>
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center mb-2">
                 <span className="font-semibold text-black dark:text-white flex items-center gap-2 text-sm">
-                  <span className="flex items-center gap-2">
-                    ⚙️ {internalToolExecution.name}
-                  </span>
+                  <span>🛠️ Tool Executions ({toolExecutions.length})</span>
                 </span>
                 <button
                   type="button"
@@ -77,80 +152,23 @@ const ToolExecutionPanel = () => {
                 </button>
               </div>
 
-              <div className="mb-1">
-                {internalToolExecution.state === 'COMPLETED' ? (
-                  <span className="text-green-500 font-medium bg-green-500/10 px-2 py-1 rounded-md">
-                    COMPLETED ({internalToolExecution.durationMs}ms)
-                  </span>
-                ) : internalToolExecution.state === 'FAILED' ? (
-                  <span className="text-red-500 font-medium bg-red-500/10 px-2 py-1 rounded-md">
-                    FAILED
-                  </span>
-                ) : (
-                  <span className="text-sky-500 font-medium bg-sky-500/10 px-2 py-1 rounded-md flex items-center w-max gap-1">
-                    RUNNING
-                    <span className="animate-pulse flex space-x-1 ml-1">
-                      <span className="w-1 h-1 bg-sky-500 rounded-full"></span>
-                      <span className="w-1 h-1 bg-sky-500 rounded-full animation-delay-150"></span>
-                      <span className="w-1 h-1 bg-sky-500 rounded-full animation-delay-300"></span>
-                    </span>
-                  </span>
-                )}
-              </div>
+              <div className="max-h-[60vh] overflow-y-auto space-y-1 scrollbar-thin pr-1">
+                {toolExecutions.map((execution, i) => (
+                  <ToolExecutionItem key={execution.id || i} execution={execution} />
+                ))}
 
-              <div className="max-h-[50vh] overflow-y-auto space-y-4 scrollbar-thin pr-1">
-                <div>
-                  <p className="text-gray-500 dark:text-gray-400 font-medium mb-1.5 uppercase tracking-wider text-[10px]">
-                    Input Parameters
-                  </p>
-                  <pre className="bg-light-primary dark:bg-dark-primary border border-light-200 dark:border-dark-200 p-3 rounded-lg text-black dark:text-white whitespace-pre-wrap break-all font-mono text-[11px] leading-relaxed">
-                    {/* {internalToolExecution.inputPreview?.query ||
-                      (typeof internalToolExecution.inputPreview === 'string'
-                        ? internalToolExecution.inputPreview
-                        : JSON.stringify(
-                            internalToolExecution.inputPreview,
-                            null,
-                            2,
-                          ))} */}
-                    {internalToolExecution.inputPreview}
-                  </pre>
-                </div>
-
-                {(internalToolExecution.state === 'COMPLETED' ||
-                  internalToolExecution.state === 'FAILED') && (
+                {isWaitingForToken && toolExecutions.every(e => e.state === 'COMPLETED' || e.state === 'FAILED') && (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3 }}
+                    className="mt-4 flex items-center justify-center gap-2 text-sky-500 dark:text-sky-400 py-3 bg-sky-500/10 rounded-lg border border-sky-500/20 shadow-sm"
                   >
-                    {/* <p className={`${internalToolExecution.state === 'FAILED' ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'} font-medium mb-1.5 uppercase tracking-wider text-[10px]`}>
-                      Result Output
-                    </p>
-                    <pre className={`bg-light-primary dark:bg-dark-primary border ${internalToolExecution.state === 'FAILED' ? 'border-red-500/50 text-red-500' : 'border-light-200 dark:border-dark-200 text-black dark:text-white'} p-3 rounded-lg whitespace-pre-wrap break-all font-mono text-[11px] leading-relaxed`}>
-                      {typeof internalToolExecution.resultPreview === 'string'
-                        ? internalToolExecution.resultPreview
-                        : JSON.stringify(
-                            internalToolExecution.resultPreview,
-                            null,
-                            2,
-                          )}
-                    </pre> */}
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="text-xs font-medium tracking-wide">
+                      Continuing...
+                    </span>
                   </motion.div>
                 )}
-
-                {internalToolExecution.state === 'COMPLETED' &&
-                  isWaitingForToken && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="mt-4 flex items-center justify-center gap-2 text-sky-500 dark:text-sky-400 py-3 bg-sky-500/10 rounded-lg border border-sky-500/20 shadow-sm"
-                    >
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span className="text-xs font-medium tracking-wide">
-                        Continuing...
-                      </span>
-                    </motion.div>
-                  )}
               </div>
             </>
           )}

@@ -86,6 +86,7 @@ type ChatContext = {
   embeddingModelProvider: EmbeddingModelProvider;
   progress: ProgressData | null;
   toolExecution: any | null;
+  toolExecutions: any[];
   sfcExactMatch: boolean;
   setSfcExactMatch: (exact: boolean) => void;
   sfcTrainingRelated: boolean;
@@ -95,6 +96,7 @@ type ChatContext = {
   setFiles: (files: FileItem[]) => void;
   setFileIds: (fileIds: string[]) => void;
   setToolExecution: (toolExecution: any | null) => void;
+  setToolExecutions: (toolExecutions: any[]) => void;
   sendMessage: (
     message: string,
     messageId?: string,
@@ -128,6 +130,7 @@ export const chatContext = createContext<ChatContext>({
   embeddingModelProvider: { key: '', providerId: '' },
   progress: null,
   toolExecution: null,
+  toolExecutions: [],
   clearProgress: () => {},
   sfcExactMatch: true,
   setSfcExactMatch: () => {},
@@ -140,6 +143,7 @@ export const chatContext = createContext<ChatContext>({
   setFocusMode: () => {},
   setOptimizationMode: () => {},
   setToolExecution: () => {},
+  setToolExecutions: () => {},
   setChatModelProvider: () => {},
   setEmbeddingModelProvider: () => {},
   stop: () => {},
@@ -463,6 +467,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   const [messageAppeared, setMessageAppeared] = useState(false);
   const [progress, setProgress] = useState<ProgressData | null>(null);
   const [toolExecution, setToolExecution] = useState<any | null>(null);
+  const [toolExecutions, setToolExecutions] = useState<any[]>([]);
 
   const [chatHistory, setChatHistory] = useState<[string, string][]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -739,6 +744,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     clearProgress();
     // Reset per-turn tool UI state so each request can re-open the panel on fresh events.
     setToolExecution(null);
+    setToolExecutions([]);
 
     if (abortControllerRef.current) abortControllerRef.current.abort();
     const controller = new AbortController();
@@ -818,6 +824,18 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (data.type === 'tool_execution') {
         setToolExecution(data.data);
+        setToolExecutions((prev) => {
+          const newExecutions = [...prev];
+          const existingIndex = newExecutions.findIndex(
+            (e) => e.id === data.data.id && e.name === data.data.name
+          );
+          if (existingIndex !== -1) {
+            newExecutions[existingIndex] = data.data;
+          } else {
+            newExecutions.push(data.data);
+          }
+          return newExecutions;
+        });
         return;
       }
 
@@ -827,9 +845,22 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         toast.error(
           `Tool execution failed: ${data.data.error || 'Unknown error'}`,
         );
-        setToolExecution({
+        const errorData = {
           ...data.data,
           resultPreview: data.data.error,
+        };
+        setToolExecution(errorData);
+        setToolExecutions((prev) => {
+          const newExecutions = [...prev];
+          const existingIndex = newExecutions.findIndex(
+            (e) => e.id === data.data.id && e.name === data.data.name
+          );
+          if (existingIndex !== -1) {
+            newExecutions[existingIndex] = errorData;
+          } else {
+            newExecutions.push(errorData);
+          }
+          return newExecutions;
         });
         return;
       }
@@ -1024,6 +1055,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       optimizationMode,
       progress,
       toolExecution,
+      toolExecutions,
       sfcExactMatch,
       setSfcExactMatch,
       sfcTrainingRelated,
@@ -1033,6 +1065,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       setFocusMode: handleSetFocusMode,
       setOptimizationMode,
       setToolExecution,
+      setToolExecutions,
       rewrite,
       sendMessage,
       setChatModelProvider,

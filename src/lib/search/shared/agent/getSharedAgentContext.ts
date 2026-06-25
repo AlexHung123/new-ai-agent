@@ -6,7 +6,7 @@ import { RAG_SURVEY_SYSTEM_PROMPT } from '../prompts/ragSurveySystemPrompt';
 import { createSqliteAgentRuntime } from '../runtime/createAgentRuntime';
 import { createEsBm25SearchTool } from '../tools/esBm25Tool';
 import { createGuideSearchTool } from '../tools/guideSearchTool';
-import { createSurveySearchTool } from '../tools/surveySearchTool';
+import { createSurveySearchTools } from '../tools/surveySearchTool';
 
 const DEFAULT_TEMPLATE_ID = 'rag-base-template';
 const AGENT_ID_PREFIX = 'rag-chat-agent';
@@ -14,13 +14,13 @@ const AGENT_ID_PREFIX = 'rag-chat-agent';
 function initSharedAgentDependencies() {
   const esBm25SearchTool = createEsBm25SearchTool();
   const guideSearchTool = createGuideSearchTool();
-  const surveySearchTool = createSurveySearchTool();
+  const surveySearchTools = createSurveySearchTools();
 
   const { runtimeDeps } = createSqliteAgentRuntime({
     registerTools: (tools) => {
       tools.register(esBm25SearchTool.name, () => esBm25SearchTool);
       tools.register(guideSearchTool.name, () => guideSearchTool);
-      tools.register(surveySearchTool.name, () => surveySearchTool);
+      surveySearchTools.forEach((tool) => tools.register(tool.name, () => tool));
     },
     registerTemplates: (templates, modelId) => {
       templates.register({
@@ -42,7 +42,7 @@ function initSharedAgentDependencies() {
       templates.register({
         id: 'rag-survey-template',
         systemPrompt: RAG_SURVEY_SYSTEM_PROMPT,
-        tools: [],
+        tools: surveySearchTools.map(t => t.name),
         model: modelId,
         runtime: {},
       });
