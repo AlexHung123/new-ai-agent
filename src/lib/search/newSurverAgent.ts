@@ -26,6 +26,14 @@ export default class NewSurverAgent implements MetaSearchAgentType {
     const emitter = new eventEmitter();
     let hasEnded = false;
     let finalMarkdownFromTool = '';
+    let hasTextResponse = false;
+    let surveyProgress = {
+      total: 0,
+      current: 0,
+      question: 'Initializing Survey Agent',
+      message: 'Initializing Survey Kode Agent...',
+    };
+
     const emitEndOnce = () => {
       if (hasEnded) return;
       hasEnded = true;
@@ -48,13 +56,14 @@ export default class NewSurverAgent implements MetaSearchAgentType {
             type: 'progress',
             data: {
               status: 'processing',
-              total: 2,
-              current: 1,
-              question: 'Initializing Survey Agent',
-              message: 'Initializing Survey Kode Agent...',
+              total: 1,
+              current: 0,
+              question: surveyProgress.question,
+              message: surveyProgress.message,
             },
           }),
         );
+
         const { manager: harnessAgentManager, progressBookmarkByAgent } =
           getSharedAgentContext();
 
@@ -74,7 +83,7 @@ export default class NewSurverAgent implements MetaSearchAgentType {
             'process_survey_question',
             'assemble_markdown_report',
           ],
-          'rag-survey-template', // Explicitly specify the template
+          'rag-survey-template',
         );
 
         harnessAgentManager.markBusy(stableAgentId);
@@ -84,18 +93,66 @@ export default class NewSurverAgent implements MetaSearchAgentType {
           const call = event.call ?? event;
           const result = event.result ?? call?.result;
 
-          // Debug logging as requested
           console.log(
             `\n[survey-orchestrator-main] [tool_executed] ${call?.name ?? 'unknown'} (${call?.durationMs ?? 0}ms)`,
           );
-          if (call?.args)
+          if (call?.args) {
             console.log(
               `[survey-orchestrator-main] args: ${safeJson(call.args)}`,
             );
-          if (result)
+          }
+          if (result) {
             console.log(
               `[survey-orchestrator-main] result: ${safeJson(result)}`,
             );
+          }
+
+          if (call?.name === 'load_survey_questions' && result?.ok) {
+            surveyProgress = {
+              total: result.total ?? 0,
+              current: 0,
+              question: 'Survey loaded',
+              message: `Loaded ${result.total ?? 0} questions`,
+            };
+
+            emitter.emit(
+              'data',
+              JSON.stringify({
+                type: 'progress',
+                data: {
+                  status: 'processing',
+                  total: surveyProgress.total || 1,
+                  current: 0,
+                  question: surveyProgress.question,
+                  message: surveyProgress.message,
+                },
+              }),
+            );
+          }
+
+          if (call?.name === 'process_survey_question' && result?.ok) {
+            surveyProgress = {
+              total: result.totalCount ?? surveyProgress.total,
+              current: result.processedCount ?? surveyProgress.current,
+              question:
+                result.question ?? result.questionId ?? 'Processing question',
+              message: `Processed ${result.processedCount ?? 0}/${result.totalCount ?? surveyProgress.total}`,
+            };
+
+            emitter.emit(
+              'data',
+              JSON.stringify({
+                type: 'progress',
+                data: {
+                  status: 'processing',
+                  total: surveyProgress.total || 1,
+                  current: surveyProgress.current,
+                  question: surveyProgress.question,
+                  message: surveyProgress.message,
+                },
+              }),
+            );
+          }
 
           if (call?.name === 'assemble_markdown_report' && result?.markdown) {
             finalMarkdownFromTool = result.markdown;
@@ -103,13 +160,8 @@ export default class NewSurverAgent implements MetaSearchAgentType {
 
           let inputPreview = undefined;
           try {
-            if (call?.inputPreview) {
-              inputPreview = call.inputPreview;
-            } else if (call?.args) {
-              inputPreview =
-                typeof call.args === 'string' ? call.args : call.args;
-            }
-          } catch (e) {}
+            inputPreview = call?.inputPreview ?? call?.args;
+          } catch {}
 
           emitter.emit(
             'data',
@@ -126,7 +178,14 @@ export default class NewSurverAgent implements MetaSearchAgentType {
             }),
           );
         };
+
         const disposeToolExecuted = agent.on('tool_executed', onToolExecuted);
+
+        const onTextChunk = () => {
+          hasTextResponse = true;
+        };
+        // agent.on?.('text_chunk', onTextChunk);
+        (agent as any).on?.('text_chunk', onTextChunk);
 
         const onAgentError = (event: any) => {
           console.error(
@@ -159,19 +218,19 @@ export default class NewSurverAgent implements MetaSearchAgentType {
             progressBookmarkByAgent,
             safeJson,
           });
+
           await agent.send(message);
           await subscriptionPromise;
 
-          // Use the finalMarkdownFromTool if agent doesn't emit any response text
-          // if (finalMarkdownFromTool) {
-          //   emitter.emit(
-          //     'data',
-          //     JSON.stringify({
-          //       type: 'response',
-          //       data: `\n\n${finalMarkdownFromTool}`,
-          //     }),
-          //   );
-          // }
+          if (!hasTextResponse && finalMarkdownFromTool) {
+            emitter.emit(
+              'data',
+              JSON.stringify({
+                type: 'response',
+                data: `\n\n${finalMarkdownFromTool}`,
+              }),
+            );
+          }
         } finally {
           harnessAgentManager.markIdle(stableAgentId);
           disposeToolExecuted();
