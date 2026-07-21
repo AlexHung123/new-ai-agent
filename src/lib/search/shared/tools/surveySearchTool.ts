@@ -531,7 +531,12 @@ export function slimSurveyToolResultForClient(
       return {
         ok: r.ok,
         questionId: r.questionId,
+        question:
+          typeof r.question === 'string'
+            ? r.question.slice(0, 80)
+            : undefined,
         clusterCount: r.clusterCount,
+        itemCount: r.itemCount,
         error: r.error,
       };
     default:

@@ -30,8 +30,10 @@ export const POST = async (req: Request) => {
     body.optimizationMode = body.optimizationMode || 'balanced';
     body.stream = body.stream || false;
 
+    // Live turns use 'human'; reloaded chats may use 'user'.
     const history: BaseMessage[] = body.history.map((msg) => {
-      return msg[0] === 'human'
+      const role = (msg[0] || '').toLowerCase();
+      return role === 'human' || role === 'user'
         ? new HumanMessage({ content: msg[1] })
         : new AIMessage({ content: msg[1] });
     });

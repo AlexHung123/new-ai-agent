@@ -369,16 +369,17 @@ export const POST = async (req: Request) => {
 
     const humanMessageId =
       message.messageId ?? crypto.randomBytes(7).toString('hex');
+    // Frontend live turns use 'human'; reloaded chats may use 'user'.
     const history: BaseMessage[] = body.history.map((msg) => {
-      if (msg[0] === 'human') {
+      const role = (msg[0] || '').toLowerCase();
+      if (role === 'human' || role === 'user') {
         return new HumanMessage({
           content: msg[1],
         });
-      } else {
-        return new AIMessage({
-          content: msg[1],
-        });
       }
+      return new AIMessage({
+        content: msg[1],
+      });
     });
 
     const handler = searchHandlers[body.focusMode];

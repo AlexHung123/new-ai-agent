@@ -8,7 +8,6 @@ import { MetaSearchAgentType } from './metaSearchAgent';
 import { getSharedAgentContext } from './shared/agent/getSharedAgentContext';
 import {
   assembleSurveyReportFromCache,
-  extractSurveyId,
   getSurveyQuestionPayloadService,
   listSurveyQuestions,
   loadSurveyQuestionsService,
@@ -19,42 +18,203 @@ import { clusterQuestionViaKodeAgent } from './shared/survey/clusterViaKodeAgent
 
 const SURVEY_AGENT_ID_PREFIX = 'survey:';
 
-/** Build a short prompt for Kode chat when no survey ID is present. */
+/** Max chars for the prior survey report injected into follow-up chat. */
+const SURVEY_CHAT_REPORT_BUDGET = 28000;
+/** Max chars per earlier history line (non-report turns). */
+const SURVEY_CHAT_HISTORY_LINE_BUDGET = 4000;
+/** How many recent history turns to include besides the report. */
+const SURVEY_CHAT_HISTORY_TURNS = 12;
+
+function getMessageText(m: BaseMessage): string {
+  if (typeof m.content === 'string') return m.content;
+  if (Array.isArray(m.content)) {
+    return m.content
+      .map((c: any) => (typeof c === 'string' ? c : c?.text ?? ''))
+      .join('');
+  }
+  return String(m.content ?? '');
+}
+
+function getMessageRole(m: BaseMessage): 'user' | 'assistant' {
+  const t = typeof m._getType === 'function' ? m._getType() : '';
+  if (t === 'human' || t === 'user') return 'user';
+  if (m.constructor?.name === 'HumanMessage') return 'user';
+  return 'assistant';
+}
+
+/**
+ * Only enter the LimeSurvey analysis pipeline when the user clearly intends
+ * that. Arbitrary prose with digits (e.g. "總結下面文字…2024…") must stay
+ * on the general Kode chat path.
+ */
+export function resolveSurveyAnalysisId(message: string): string {
+  const text = (message || '').trim();
+  if (!text) return '';
+
+  // Most common: message is only the survey id
+  if (/^\d{3,}$/.test(text)) return text;
+
+  // Short command: "分析 12345" / "survey 12345" / "問卷ID 12345"
+  const shortCmd = text.match(
+    /^(?:請?(?:幫我)?(?:分析|跑|看|查|分群)|analyze|survey|limesurvey|sid|問卷(?:\s*id)?)\s*[:：#]?\s*(\d{3,})\s*[。.!！]?$/i,
+  );
+  if (shortCmd?.[1]) return shortCmd[1];
+
+  // "12345 分析一下" / pure id + brief trailing phrase
+  const leadingId = text.match(
+    /^(\d{3,})\s*(?:請?(?:幫我)?(?:分析|跑|看|分群|摘要)|analyze|survey)?\s*[。.!！]?$/i,
+  );
+  if (leadingId?.[1] && text.length <= 48) return leadingId[1];
+
+  // Explicit label in a short message only (avoid long pasted text)
+  if (text.length <= 120) {
+    const labeled = text.match(
+      /(?:survey\s*id|surveyId|問卷\s*ID|LimeSurvey(?:\s*ID)?|sid)\s*[=:：#]?\s*(\d{3,})/i,
+    )?.[1];
+    if (labeled) return labeled;
+  }
+
+  return '';
+}
+
+/**
+ * Prefer short pure-digit user turns (typical first message = LimeSurvey ID).
+ * Fall back to explicit surveyId mentions; avoid grabbing random numbers from long text.
+ */
+function findSurveyIdInHistory(history: BaseMessage[]): string {
+  for (const m of history ?? []) {
+    if (getMessageRole(m) !== 'user') continue;
+    const id = resolveSurveyAnalysisId(getMessageText(m));
+    if (id) return id;
+  }
+
+  for (const m of history ?? []) {
+    const text = getMessageText(m);
+    const labeled = text.match(
+      /(?:surveyId|survey\s*id|問卷\s*ID|LimeSurvey)[^\d]{0,20}(\d{3,})/i,
+    )?.[1];
+    if (labeled) return labeled;
+  }
+
+  return '';
+}
+
+/** Heuristic: assistant turn that looks like a generated cluster summary report. */
+function looksLikeSurveyReport(text: string): boolean {
+  if (!text || text.length < 200) return false;
+  // Common markers from assemble markdown / disclaimer
+  if (text.includes('AI生成的回覆可能不準確')) return true;
+  // "## question" + "- **label (n)**" is the assemble markdown shape
+  if (/^##\s+/m.test(text) && /\*\*[^*]+\(\d+\)\*\*/.test(text)) return true;
+  if (/#{1,3}\s/.test(text) && text.includes('未分類')) return true;
+  const clusterHits = (text.match(/^\s*[-*]\s+.+/gm) || []).length;
+  return clusterHits >= 5 && text.length > 800;
+}
+
+function truncateKeepHead(text: string, budget: number): string {
+  if (text.length <= budget) return text;
+  return `${text.slice(0, budget)}\n\n…（內容過長，已截斷）`;
+}
+
+/**
+ * General Kode chat prompt (no survey pipeline).
+ * Handles greetings, free-form summarization, Q&A, and follow-ups on a prior
+ * cluster report — without demanding a survey ID unless user wants LimeSurvey analysis.
+ */
 function buildSurveyChatPrompt(
   message: string,
   history: BaseMessage[],
 ): string {
-  const recent = (history ?? [])
-    .slice(-6)
-    .map((m) => {
-      const role =
-        m._getType?.() === 'human' || m.constructor?.name === 'HumanMessage'
-          ? 'user'
-          : 'assistant';
-      const content =
-        typeof m.content === 'string'
-          ? m.content
-          : Array.isArray(m.content)
-            ? m.content
-                .map((c: any) => (typeof c === 'string' ? c : c?.text ?? ''))
-                .join('')
-            : String(m.content ?? '');
-      return `${role}: ${content.slice(0, 500)}`;
-    })
-    .filter((line) => line.length > 8)
-    .join('\n');
+  const turns = (history ?? [])
+    .map((m) => ({
+      role: getMessageRole(m),
+      content: getMessageText(m).trim(),
+    }))
+    .filter((t) => t.content.length > 0);
 
-  if (!recent) {
-    return message;
+  const surveyIdFromHistory = findSurveyIdInHistory(history);
+
+  // Prefer in-memory report (same process) over truncated chat history.
+  let reportFromCache = '';
+  if (surveyIdFromHistory) {
+    try {
+      const cached = assembleSurveyReportFromCache(surveyIdFromHistory);
+      if (cached.ok && cached.markdown?.trim()) {
+        reportFromCache = cached.markdown.trim();
+      }
+    } catch {
+      /* cache miss / cold start — fall back to history */
+    }
   }
 
-  return `以下是最近對話（供參考，請用繁體中文回覆最新訊息）：\n${recent}\n\nuser: ${message}\n\n請直接回覆使用者最新訊息。`;
+  const lastAssistantReport = [...turns]
+    .reverse()
+    .find((t) => t.role === 'assistant' && looksLikeSurveyReport(t.content));
+
+  const analysisBody = reportFromCache || lastAssistantReport?.content || '';
+  const hasAnalysis = analysisBody.length > 0;
+
+  // Recent dialogue; collapse huge report body if already injected above.
+  const recentTurns = turns.slice(-SURVEY_CHAT_HISTORY_TURNS).map((t) => {
+    let content = t.content;
+    if (
+      t.role === 'assistant' &&
+      hasAnalysis &&
+      looksLikeSurveyReport(content)
+    ) {
+      content =
+        '（已在上方「既有問卷分析結果」提供完整分群報告，此處省略重複全文）';
+    } else {
+      // User-pasted text for summarization needs a larger budget than short chat.
+      const budget =
+        t.role === 'user'
+          ? Math.max(SURVEY_CHAT_HISTORY_LINE_BUDGET, 12000)
+          : SURVEY_CHAT_HISTORY_LINE_BUDGET;
+      content = truncateKeepHead(content, budget);
+    }
+    return `${t.role}: ${content}`;
+  });
+
+  const parts: string[] = [
+    '你是通用對話助理（Kode agent），同時具備 LimeSurvey 自由文字問卷分析能力。請用繁體中文回覆。',
+    '預設行為：像一般助理一樣處理使用者請求（總結、改寫、解釋、問答、翻譯、條列重點等）。不要無故索取問卷 ID。',
+  ];
+
+  if (surveyIdFromHistory) {
+    parts.push(`本對話已知問卷 ID：${surveyIdFromHistory}（僅在討論該問卷時參考）`);
+  }
+
+  if (hasAnalysis) {
+    parts.push(
+      '## 既有問卷分析結果（若相關可引用）',
+      '以下是稍早已完成的自由文字分群／摘要。若使用者問的是這份報告，請依此回答，不要再要 survey ID。',
+      truncateKeepHead(analysisBody, SURVEY_CHAT_REPORT_BUDGET),
+    );
+  }
+
+  if (recentTurns.length > 0) {
+    parts.push('## 最近對話', recentTurns.join('\n'));
+  }
+
+  parts.push(
+    '## 使用者最新訊息',
+    message,
+    '',
+    '回覆規則：',
+    '1. 一般任務（總結一段文字、問答、改寫、翻譯、條列重點等）：直接完成，不要提到 survey ID。',
+    '2. 若上文有「既有問卷分析結果」且問題與之相關：依報告回答（總結／摘錄／比較等），禁止再要問卷 ID。',
+    '3. 僅當使用者明確要「分析 LimeSurvey 問卷／開始分群」且上下文完全沒有可用報告或 ID 時，才禮貌請他提供問卷 ID。',
+    '4. 不要虛構資料；資料不足時清楚說明。',
+    '5. 不要輸出 JSON、不要描述系統內部流程。',
+  );
+
+  return parts.join('\n\n');
 }
 
 /**
  * Scheme A orchestrator:
- * - No survey ID → Kode chat agent (rag-survey-chat-template) for greetings / Q&A
- * - With survey ID → code owns load → for-each question → process → assemble
+ * - Clear survey-analysis intent + ID → load → cluster each question → assemble
+ * - Everything else → general Kode chat agent (summarize, Q&A, report follow-up)
  * - Kode agent.complete used for single-question clustering (no tools)
  */
 export default class NewSurverAgent implements MetaSearchAgentType {
@@ -94,17 +254,21 @@ export default class NewSurverAgent implements MetaSearchAgentType {
       emitJson({ type: 'progress', data });
     };
 
+    /** Stable tool id so RUNNING → COMPLETED updates one row (not two). */
     const emitTool = (
       name: string,
       state: string,
       inputPreview: unknown,
       resultPreview: unknown,
       durationMs?: number,
+      stableId?: string,
     ) => {
       emitJson({
         type: 'tool_execution',
         data: {
-          id: `${name}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          id:
+            stableId ||
+            `${name}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
           name,
           state,
           durationMs,
@@ -146,19 +310,21 @@ export default class NewSurverAgent implements MetaSearchAgentType {
           ? baseId
           : `${SURVEY_AGENT_ID_PREFIX}${baseId}`;
 
-        const surveyId = extractSurveyId('', message);
+        // Only pure/explicit survey-analysis entry runs the pipeline.
+        // Long text, summarization, Q&A, etc. → general Kode chat.
+        const surveyId = resolveSurveyAnalysisId(message);
 
-        // ── No survey ID: conversational reply via Kode chat agent ───────
+        // ── General Kode chat (default) ──────────────────────────────────
         if (!surveyId) {
           emitProgress({
             status: 'processing',
             total: 1,
             current: 0,
-            question: 'Survey chat',
-            message: 'Responding via Kode survey chat agent…',
+            question: 'Chat',
+            message: 'Responding via Kode chat agent…',
           });
 
-          // Dedicated chat agent (stable per chat) so multi-turn greetings keep context.
+          // Dedicated chat agent (stable per chat) so multi-turn context is kept.
           // Do not reuse the analysis shell agent — different template / tools.
           shellAgentId = `${stableBaseId}:chat`;
           const chatAgent = await harnessAgentManager.getOrCreateAgent(
@@ -174,14 +340,14 @@ export default class NewSurverAgent implements MetaSearchAgentType {
             const result = await chatAgent.complete(chatPrompt);
             const text =
               (result?.text && result.text.trim()) ||
-              '你好！我是問卷分析助理。請提供 LimeSurvey 問卷 ID，我就可以開始分析自由文字題。';
+              '你好！我可以幫你總結文字、回答問題，或在你提供 LimeSurvey 問卷 ID 後分析自由文字題。';
 
             emitResponse(text);
             emitProgress({
               status: 'finished',
               total: 1,
               current: 1,
-              message: 'Survey chat finished',
+              message: 'Chat finished',
             });
           } finally {
             harnessAgentManager.markIdle(shellAgentId);
@@ -216,12 +382,15 @@ export default class NewSurverAgent implements MetaSearchAgentType {
         const userId = req?.headers.get('x-user-id') ?? null;
 
         // ── 1. Load (programmatic, same service as Kode tool) ─────────────
+        const loadToolId = `load_survey_questions:${surveyId}`;
         const loadStarted = Date.now();
         emitTool(
           'load_survey_questions',
           'RUNNING',
           { surveyId, query: message.slice(0, 80) },
           undefined,
+          undefined,
+          loadToolId,
         );
 
         const loadResult = await loadSurveyQuestionsService({
@@ -236,6 +405,7 @@ export default class NewSurverAgent implements MetaSearchAgentType {
           { surveyId },
           loadResult,
           Date.now() - loadStarted,
+          loadToolId,
         );
 
         if (!loadResult.ok) {
@@ -292,38 +462,22 @@ export default class NewSurverAgent implements MetaSearchAgentType {
             continue;
           }
 
-          emitTool(
-            'get_question_payload',
-            'COMPLETED',
-            { surveyId: loadResult.surveyId, questionId: q.questionId },
-            {
-              ok: true,
-              surveyId: payload.surveyId,
-              questionId: payload.questionId,
-              question: payload.question,
-              items: payload.items,
-            },
-          );
-
-          // Empty answers → store empty section
+          // Empty answers → store empty section (no tool row; not user-facing work)
           if (payload.items.length === 0) {
             const processed = processSurveyQuestionService({
               surveyId: loadResult.surveyId,
               questionId: q.questionId,
               clusters: [],
             });
-            emitTool(
-              'process_survey_question',
-              processed.ok ? 'COMPLETED' : 'FAILED',
-              { surveyId: loadResult.surveyId, questionId: q.questionId },
-              processed,
-            );
             if (processed.ok) successCount += 1;
+            else failures.push(`${q.questionId}: ${processed.error}`);
             continue;
           }
 
           // Dedicated Kode agent per question — no multi-turn history pollution
           const clusterAgentId = `${shellAgentId}:run${runId}:q${i}`;
+          // One stable row per question (RUNNING → COMPLETED/FAILED)
+          const clusterToolId = `cluster_survey_question:${loadResult.surveyId}:${q.questionId}`;
 
           const clusterStarted = Date.now();
           emitTool(
@@ -332,9 +486,14 @@ export default class NewSurverAgent implements MetaSearchAgentType {
             {
               surveyId: loadResult.surveyId,
               questionId: q.questionId,
+              question: shortQ,
               itemCount: payload.items.length,
+              index: current,
+              total,
             },
             undefined,
+            undefined,
+            clusterToolId,
           );
 
           try {
@@ -353,23 +512,6 @@ export default class NewSurverAgent implements MetaSearchAgentType {
               maxRetries: 1,
             });
 
-            emitTool(
-              'cluster_survey_question',
-              'COMPLETED',
-              {
-                surveyId: loadResult.surveyId,
-                questionId: q.questionId,
-                itemCount: payload.items.length,
-              },
-              {
-                ok: true,
-                questionId: q.questionId,
-                clusterCount: clusters.length,
-              },
-              Date.now() - clusterStarted,
-            );
-
-            const processStarted = Date.now();
             const processed = processSurveyQuestionService({
               surveyId: loadResult.surveyId,
               questionId: q.questionId,
@@ -377,15 +519,26 @@ export default class NewSurverAgent implements MetaSearchAgentType {
             });
 
             emitTool(
-              'process_survey_question',
+              'cluster_survey_question',
               processed.ok ? 'COMPLETED' : 'FAILED',
               {
                 surveyId: loadResult.surveyId,
                 questionId: q.questionId,
-                clusterCount: clusters.length,
+                question: shortQ,
+                itemCount: payload.items.length,
+                index: current,
+                total,
               },
-              processed,
-              Date.now() - processStarted,
+              {
+                ok: processed.ok,
+                questionId: q.questionId,
+                question: payload.question,
+                clusterCount: clusters.length,
+                itemCount: payload.items.length,
+                error: processed.ok ? undefined : processed.error,
+              },
+              Date.now() - clusterStarted,
+              clusterToolId,
             );
 
             if (processed.ok) {
@@ -409,9 +562,15 @@ export default class NewSurverAgent implements MetaSearchAgentType {
             emitTool(
               'cluster_survey_question',
               'FAILED',
-              { questionId: q.questionId },
-              { ok: false, error: msg },
+              {
+                questionId: q.questionId,
+                question: shortQ,
+                index: current,
+                total,
+              },
+              { ok: false, error: msg, questionId: q.questionId },
               Date.now() - clusterStarted,
+              clusterToolId,
             );
             emitJson({
               type: 'tool_error',
@@ -438,12 +597,15 @@ export default class NewSurverAgent implements MetaSearchAgentType {
         if (signal?.aborted) return;
 
         // ── 3. Assemble from cache (programmatic) ─────────────────────────
+        const assembleToolId = `assemble_markdown_report:${loadResult.surveyId}`;
         const assembleStarted = Date.now();
         emitTool(
           'assemble_markdown_report',
           'RUNNING',
           { surveyId: loadResult.surveyId },
           undefined,
+          undefined,
+          assembleToolId,
         );
 
         const report = assembleSurveyReportFromCache(loadResult.surveyId);
@@ -454,6 +616,7 @@ export default class NewSurverAgent implements MetaSearchAgentType {
           { surveyId: loadResult.surveyId },
           report,
           Date.now() - assembleStarted,
+          assembleToolId,
         );
 
         if (report.ok && report.markdown) {

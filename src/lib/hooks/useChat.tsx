@@ -836,11 +836,17 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         setToolExecution(data.data);
         setToolExecutions((prev) => {
           const newExecutions = [...prev];
-          const existingIndex = newExecutions.findIndex(
-            (e) => e.id === data.data.id && e.name === data.data.name
+          // Prefer stable id match so RUNNING → COMPLETED replaces one row
+          const existingIndex = newExecutions.findIndex((e) =>
+            data.data?.id
+              ? e.id === data.data.id
+              : e.id === data.data.id && e.name === data.data.name,
           );
           if (existingIndex !== -1) {
-            newExecutions[existingIndex] = data.data;
+            newExecutions[existingIndex] = {
+              ...newExecutions[existingIndex],
+              ...data.data,
+            };
           } else {
             newExecutions.push(data.data);
           }
