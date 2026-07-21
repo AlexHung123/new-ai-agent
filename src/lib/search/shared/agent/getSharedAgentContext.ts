@@ -3,6 +3,7 @@ import { getMaxActiveAgents } from '../config/ragflowConfig';
 import { RAG_BM25_SYSTEM_PROMPT } from '../prompts/ragBm25SystemPrompt';
 import { RAG_BM25_SYSTEM_PROMPT_TRAINING_GUIDE } from '../prompts/ragBm25SystemPromptTrainingGuide';
 import { RAG_SURVEY_SYSTEM_PROMPT } from '../prompts/ragSurveySystemPrompt';
+import { RAG_SURVEY_CHAT_SYSTEM_PROMPT } from '../prompts/ragSurveyChatSystemPrompt';
 import { createSqliteAgentRuntime } from '../runtime/createAgentRuntime';
 import { createEsBm25SearchTool } from '../tools/esBm25Tool';
 import { createGuideSearchTool } from '../tools/guideSearchTool';
@@ -43,6 +44,15 @@ function initSharedAgentDependencies() {
         id: 'rag-survey-template',
         systemPrompt: RAG_SURVEY_SYSTEM_PROMPT,
         tools: surveySearchTools.map(t => t.name),
+        model: modelId,
+        runtime: {},
+      });
+
+      // Conversational mode when no survey ID is present (no tools)
+      templates.register({
+        id: 'rag-survey-chat-template',
+        systemPrompt: RAG_SURVEY_CHAT_SYSTEM_PROMPT,
+        tools: [],
         model: modelId,
         runtime: {},
       });

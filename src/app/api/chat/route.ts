@@ -169,11 +169,38 @@ const handleEmitterEvents = async (
         ),
       );
     } else if (parsedData.type === 'tool_execution') {
+      // Cap oversized tool payloads so a single NDJSON line cannot stall the
+      // client parser or drop subsequent message chunks (survey summaries).
+      const toolData = parsedData.data ?? {};
+      let safeToolData = toolData;
+      try {
+        const encoded = JSON.stringify(toolData);
+        if (encoded.length > 80_000) {
+          safeToolData = {
+            id: toolData.id,
+            name: toolData.name,
+            state: toolData.state,
+            durationMs: toolData.durationMs,
+            inputPreview: toolData.inputPreview,
+            resultPreview: {
+              truncated: true,
+              note: 'Tool result omitted from stream (too large)',
+            },
+          };
+        }
+      } catch {
+        safeToolData = {
+          id: toolData.id,
+          name: toolData.name,
+          state: toolData.state,
+          resultPreview: { truncated: true },
+        };
+      }
       writer.write(
         encoder.encode(
           JSON.stringify({
             type: 'tool_execution',
-            data: parsedData.data,
+            data: safeToolData,
           }) + '\n',
         ),
       );

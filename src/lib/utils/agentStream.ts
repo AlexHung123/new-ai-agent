@@ -7,15 +7,34 @@ interface StreamAgentProgressOptions {
   signal?: AbortSignal;
   progressBookmarkByAgent: WeakMap<Agent, string>;
   safeJson: (value: unknown) => string;
+  /** Override the finished progress message (default: SFC wording for backward compat). */
+  finishedMessage?: string;
+  /** Called when a text_chunk is streamed so callers can track hasTextResponse. */
+  onTextChunk?: (delta: string) => void;
+  /** When true, skip emitting tool:start as tool_execution (caller handles tool events). */
+  skipToolStartEvents?: boolean;
+}
+
+export interface StreamAgentProgressResult {
+  hasTextResponse: boolean;
 }
 
 export async function streamAgentProgressToEmitter(
   options: StreamAgentProgressOptions,
-): Promise<void> {
-  const { agent, emitter, signal, progressBookmarkByAgent, safeJson } = options;
+): Promise<StreamAgentProgressResult> {
+  const {
+    agent,
+    emitter,
+    signal,
+    progressBookmarkByAgent,
+    finishedMessage = 'SFC Kode Agent execution finished',
+    onTextChunk,
+    skipToolStartEvents = false,
+  } = options;
 
   let lastBookmark = progressBookmarkByAgent.get(agent as Agent);
   let hasEmittedWarning = false;
+  let hasTextResponse = false;
   const collectedSources: any[] = [];
 
   for await (const envelope of agent.subscribe(['progress'], {
@@ -29,6 +48,8 @@ export async function streamAgentProgressToEmitter(
 
     switch (event.type) {
       case 'text_chunk':
+        hasTextResponse = true;
+        onTextChunk?.(event.delta ?? '');
         if (!hasEmittedWarning) {
           // Emit the warning message before the first text chunk
           emitter.emit(
@@ -46,24 +67,7 @@ export async function streamAgentProgressToEmitter(
         );
         break;
       case 'tool:start': {
-        let inputPreviewValue = undefined;
-        try {
-          if (event.call.inputPreview) {
-            const parsed =
-              typeof event.call.inputPreview === 'string'
-                ? JSON.parse(event.call.inputPreview)
-                : event.call.inputPreview;
-            inputPreviewValue = parsed?.query || parsed;
-          } else if (event.call.args) {
-            const parsed =
-              typeof event.call.args === 'string'
-                ? JSON.parse(event.call.args)
-                : event.call.args;
-            inputPreviewValue = parsed?.query || parsed;
-          }
-        } catch (e) {
-          inputPreviewValue = event.call.inputPreview || event.call.args;
-        }
+        if (skipToolStartEvents) break;
 
         emitter.emit(
           'data',
@@ -74,10 +78,7 @@ export async function streamAgentProgressToEmitter(
               name: event.call.name,
               description: event.call.description,
               state: 'RUNNING',
-              inputPreview:
-                // JSON.parse(event.call.inputPreview).query ||
-                // JSON.parse(event.call.args).query,
-                event.call.inputPreview || event.call.args,
+              inputPreview: event.call.inputPreview || event.call.args,
             },
           }),
         );
@@ -147,15 +148,17 @@ export async function streamAgentProgressToEmitter(
               status: 'finished',
               total: 2,
               current: 2,
-              message: 'SFC Kode Agent execution finished',
+              message: finishedMessage,
             },
           }),
         );
-        return;
+        return { hasTextResponse };
     }
   }
 
   if (lastBookmark) {
     progressBookmarkByAgent.set(agent as Agent, lastBookmark);
   }
+
+  return { hasTextResponse };
 }

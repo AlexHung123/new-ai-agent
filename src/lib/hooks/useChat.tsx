@@ -184,7 +184,17 @@ const parseJsonLines = (buffer: string) => {
 
   for (const line of lines) {
     if (!line.trim()) continue;
-    jsonObjects.push(JSON.parse(line));
+    try {
+      jsonObjects.push(JSON.parse(line));
+    } catch (err) {
+      // One corrupt NDJSON line (e.g. oversized tool payload) must not kill
+      // the rest of the stream — otherwise message/summary chunks are lost.
+      console.warn(
+        '[useChat] skip invalid SSE JSON line',
+        err,
+        line.slice(0, 200),
+      );
+    }
   }
 
   return { jsonObjects, rest };
