@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useChat } from '@/lib/hooks/useChat';
+import { stripHtml } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Loader2,
@@ -66,7 +67,7 @@ function toolLabel(name: string): string {
 
 function str(v: unknown): string | undefined {
   if (v == null) return undefined;
-  if (typeof v === 'string') return v;
+  if (typeof v === 'string') return stripHtml(v) || v;
   if (typeof v === 'number' || typeof v === 'boolean') return String(v);
   return undefined;
 }
@@ -172,7 +173,8 @@ function DetailPairs({ execution }: { execution: ToolExecution }) {
       const v = obj[k];
       if (v == null || v === '') continue;
       if (typeof v === 'object') continue;
-      rows.push([k, String(v)]);
+      const text = typeof v === 'string' ? stripHtml(v) || v : String(v);
+      rows.push([k, text]);
     }
   };
 
@@ -321,10 +323,10 @@ const ToolExecutionPanel = () => {
     }
   }, [toolExecutions]);
 
+  const hasTools = Boolean(toolExecutions && toolExecutions.length > 0);
+  // Only open the Tools panel when real tool events exist — never for plain chat.
+  const shouldShowPanel = hasTools && showToolExecution;
   const isWaitingForToken = loading && !messageAppeared;
-  const shouldShowPanel =
-    (toolExecutions && toolExecutions.length > 0 && showToolExecution) ||
-    isWaitingForToken;
 
   const stats = useMemo(() => {
     const list = toolExecutions || [];
@@ -380,10 +382,13 @@ const ToolExecutionPanel = () => {
 
   const progressLabel =
     progress && progress.total > 0
-      ? progress.message ||
-        (progress.current > 0
-          ? `${progress.current}/${progress.total}`
-          : null)
+      ? stripHtml(
+          progress.message ||
+            (progress.current > 0
+              ? `${progress.current}/${progress.total}`
+              : '') ||
+            '',
+        ) || null
       : null;
 
   const progressPct =
@@ -424,18 +429,14 @@ const ToolExecutionPanel = () => {
             </button>
           </div>
 
-          {/* Compact status / progress */}
+          {/* Compact status / progress — only while tools are active or finishing */}
           {(isWaitingForToken || progressLabel || stats.running > 0) && (
             <div className="px-3.5 py-2 border-b border-light-200/60 dark:border-dark-200/60 space-y-1.5">
               {isWaitingForToken && (
                 <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400">
                   <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
                   <span className="text-[11px] font-medium truncate">
-                    {stats.running > 0
-                      ? 'Working…'
-                      : stats.total > 0
-                        ? 'Finishing response…'
-                        : 'Processing…'}
+                    {stats.running > 0 ? 'Working…' : 'Finishing response…'}
                   </span>
                 </div>
               )}
@@ -455,48 +456,38 @@ const ToolExecutionPanel = () => {
             </div>
           )}
 
-          {/* List */}
-          {toolExecutions && toolExecutions.length > 0 && showToolExecution && (
-            <div
-              ref={listRef}
-              className="flex-1 overflow-y-auto px-2 py-2 space-y-1 scrollbar-thin min-h-0"
-            >
-              {hiddenCompletedCount > 0 && !showAllCompleted && (
-                <button
-                  type="button"
-                  onClick={() => setShowAllCompleted(true)}
-                  className="w-full text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 py-1.5 px-2 rounded-md hover:bg-black/[0.03] dark:hover:bg-white/[0.04] transition-colors text-center"
-                >
-                  Show {hiddenCompletedCount} earlier completed
-                </button>
-              )}
+          {/* Tool list */}
+          <div
+            ref={listRef}
+            className="flex-1 overflow-y-auto px-2 py-2 space-y-1 scrollbar-thin min-h-0"
+          >
+            {hiddenCompletedCount > 0 && !showAllCompleted && (
+              <button
+                type="button"
+                onClick={() => setShowAllCompleted(true)}
+                className="w-full text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 py-1.5 px-2 rounded-md hover:bg-black/[0.03] dark:hover:bg-white/[0.04] transition-colors text-center"
+              >
+                Show {hiddenCompletedCount} earlier completed
+              </button>
+            )}
 
-              {visibleExecutions.map((execution, i) => (
-                <ToolExecutionItem
-                  key={execution.id || `${execution.name}-${i}`}
-                  execution={execution}
-                />
-              ))}
+            {visibleExecutions.map((execution, i) => (
+              <ToolExecutionItem
+                key={execution.id || `${execution.name}-${i}`}
+                execution={execution}
+              />
+            ))}
 
-              {showAllCompleted && stats.total > 8 && (
-                <button
-                  type="button"
-                  onClick={() => setShowAllCompleted(false)}
-                  className="w-full text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 py-1.5 px-2 rounded-md hover:bg-black/[0.03] dark:hover:bg-white/[0.04] transition-colors text-center"
-                >
-                  Collapse completed
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Empty waiting state */}
-          {(!toolExecutions || toolExecutions.length === 0) && isWaitingForToken && (
-            <div className="px-3.5 py-4 flex items-center gap-2 text-sky-600 dark:text-sky-400">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span className="text-xs font-medium">Starting…</span>
-            </div>
-          )}
+            {showAllCompleted && stats.total > 8 && (
+              <button
+                type="button"
+                onClick={() => setShowAllCompleted(false)}
+                className="w-full text-[11px] text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 py-1.5 px-2 rounded-md hover:bg-black/[0.03] dark:hover:bg-white/[0.04] transition-colors text-center"
+              >
+                Collapse completed
+              </button>
+            )}
+          </div>
         </div>
       </motion.div>
     </AnimatePresence>

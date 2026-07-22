@@ -1,5 +1,20 @@
 import { prisma } from './db';
 
+/** Lightweight existence check against lime_surveys (no response-table scan). */
+export async function limeSurveyExists(sid: string): Promise<boolean> {
+  const safeSid = String(sid ?? '').trim();
+  if (!/^\d+$/.test(safeSid)) return false;
+  try {
+    const rows: Array<{ exists: boolean }> = await prisma.$queryRawUnsafe(
+      `SELECT EXISTS(SELECT 1 FROM lime_surveys WHERE sid = ${safeSid}) AS exists`,
+    );
+    return Boolean(rows?.[0]?.exists);
+  } catch (error: any) {
+    console.error('Error checking LimeSurvey existence:', error);
+    return false;
+  }
+}
+
 // Function to get survey data by survey ID
 export async function getLimeSurveyData(sid: string) {
   try {

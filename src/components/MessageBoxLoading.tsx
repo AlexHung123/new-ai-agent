@@ -1,4 +1,5 @@
 import { ProgressData } from '@/lib/hooks/useChat';
+import { stripHtml } from '@/lib/utils';
 import { CheckCircle2, Loader2 } from 'lucide-react';
 
 const MessageBoxLoading = ({ progress }: { progress?: ProgressData | null }) => {
@@ -14,13 +15,18 @@ const MessageBoxLoading = ({ progress }: { progress?: ProgressData | null }) => 
     );
   }
 
+  const title = stripHtml(progress.message || '');
+  const currentQuestion = progress.question
+    ? stripHtml(progress.question)
+    : '';
+
   return (
     <div className="flex flex-col space-y-4 w-full lg:w-9/12">
       <div className="bg-light-secondary dark:bg-dark-secondary rounded-lg p-4 space-y-4">
         {/* 标题和总进度 */}
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-black dark:text-white">
-            {progress.message}
+            {title}
           </span>
           <span className="text-sm text-black/70 dark:text-white/70">
             {progress.current} / {progress.total}
@@ -57,7 +63,7 @@ const MessageBoxLoading = ({ progress }: { progress?: ProgressData | null }) => 
 
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-black dark:text-white truncate">
-                    {task.question}
+                    {stripHtml(task.question)}
                     {task.status === 'processing' && (
                       <span className="inline-block ml-1 animate-pulse">...</span>
                     )}
@@ -73,13 +79,13 @@ const MessageBoxLoading = ({ progress }: { progress?: ProgressData | null }) => 
                 </span>
               </div>
             ))
-          ) : progress.question ? (
+          ) : currentQuestion ? (
             // 如果没有 tasks 数组但有 question，显示当前任务（兼容旧数据）
             <div className="flex items-center space-x-3 px-3 py-2 rounded-lg bg-sky-50 dark:bg-sky-900/20 border border-sky-200 dark:border-sky-800 transition-all">
               <Loader2 className="w-4 h-4 text-sky-500 flex-shrink-0 animate-spin" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-black dark:text-white truncate">
-                  {progress.question}
+                  {currentQuestion}
                   <span className="inline-block ml-1 animate-pulse">...</span>
                 </p>
               </div>

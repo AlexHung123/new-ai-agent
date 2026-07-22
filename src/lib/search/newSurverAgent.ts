@@ -359,8 +359,8 @@ export default class NewSurverAgent implements MetaSearchAgentType {
           status: 'processing',
           total: 1,
           current: 0,
-          question: 'Initializing Survey Orchestrator',
-          message: 'Starting programmatic survey analysis (Kode clustering)…',
+          question: '載入問卷',
+          message: `正在檢查問卷 ID「${surveyId}」…`,
         });
 
         shellAgentId = stableBaseId;
@@ -409,13 +409,32 @@ export default class NewSurverAgent implements MetaSearchAgentType {
         );
 
         if (!loadResult.ok) {
-          emitResponse(loadResult.error);
+          const errText =
+            loadResult.error?.trim() ||
+            `無法載入問卷 ID「${surveyId}」，請稍後再試。`;
+          emitProgress({
+            status: 'completed',
+            total: 1,
+            current: 0,
+            question: '載入失敗',
+            message: errText,
+          });
+          // Clear, user-visible chat reply (not only tool panel)
+          emitResponse(errText);
           return;
         }
 
         const questions = listSurveyQuestions(loadResult.surveyId);
         if (!questions?.length) {
-          emitResponse('No free text questions found in the survey.');
+          const errText = `問卷 ID「${loadResult.surveyId}」沒有可分析的自由文字題。`;
+          emitProgress({
+            status: 'completed',
+            total: 1,
+            current: 0,
+            question: '載入失敗',
+            message: errText,
+          });
+          emitResponse(errText);
           return;
         }
 
@@ -427,8 +446,8 @@ export default class NewSurverAgent implements MetaSearchAgentType {
           status: 'processing',
           total,
           current: 0,
-          question: 'Survey loaded',
-          message: `Loaded ${total} questions — clustering via Kode agent…`,
+          question: '問卷已載入',
+          message: `已載入 ${total} 題自由文字，開始分群分析…`,
         });
 
         // ── 2. For each question: Kode cluster → process to cache ─────────

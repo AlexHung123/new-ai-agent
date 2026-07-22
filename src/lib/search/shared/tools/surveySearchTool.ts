@@ -5,9 +5,11 @@ import {
 import {
   getLimeSurveySummaryBySid,
   getLimeSurveySummaryIdsByUserId,
+  limeSurveyExists,
 } from '@/lib/postgres/limeSurvery';
 import { executeSql } from '@/lib/postgres/itmsdb';
 import { headers } from 'next/headers';
+import { stripHtml } from '@/lib/utils';
 
 export interface SurveyItem {
   id: string;
@@ -127,7 +129,8 @@ function renderMarkdown(
   clusters: SurveyCluster[],
   itemsById: Map<string, string>,
 ) {
-  let md = `## ${question}\n\n`;
+  // LimeSurvey titles often include HTML (e.g. <strong>); keep markdown clean.
+  let md = `## ${stripHtml(question)}\n\n`;
   for (const c of clusters) {
     md += `- **${c.label} (${c.item_ids.length})**\n`;
     for (const id of c.item_ids) {
@@ -181,16 +184,22 @@ export async function loadSurveyQuestionsService(args: {
   const surveyId = extractSurveyId(surveyIdInput, queryInput);
 
   if (!surveyId) {
-    return { ok: false, error: 'Please provide survey ID' };
+    return {
+      ok: false,
+      error: '請提供 LimeSurvey 問卷 ID（純數字）。',
+    };
   }
 
-  let surveyData;
-  try {
-    surveyData = await getLimeSurveySummaryBySid(surveyId);
-  } catch {
-    return { ok: false, error: 'No such LimeSurvey ID exists' };
+  // 1) Existence (fast) — avoid heavy summary query for fake IDs
+  const exists = await limeSurveyExists(surveyId);
+  if (!exists) {
+    return {
+      ok: false,
+      error: `找不到問卷 ID「${surveyId}」。此 LimeSurvey 問卷不存在，請確認 ID 後再試。`,
+    };
   }
 
+  // 2) Permission
   try {
     const userId = await resolveUserId(args.userId);
     const userRows = await executeSql(
@@ -199,23 +208,55 @@ export async function loadSurveyQuestionsService(args: {
     const username = userRows?.[0]?.username;
 
     if (!username) {
-      return { ok: false, error: 'Username not found' };
+      return {
+        ok: false,
+        error: '無法確認登入使用者，請重新登入後再試。',
+      };
     }
 
     const permittedSurveys = await getLimeSurveySummaryIdsByUserId(username);
     const permittedSids = permittedSurveys.map((s: any) => String(s.sid));
 
     if (!permittedSids.includes(surveyId)) {
-      return { ok: false, error: 'No permission to access this survey.' };
+      return {
+        ok: false,
+        error: `您沒有權限存取問卷 ID「${surveyId}」。請向管理員申請權限，或改用您有權限的問卷。`,
+      };
     }
   } catch (err: any) {
+    const msg = err?.message || String(err);
+    if (/User ID not found|Invalid user ID/i.test(msg)) {
+      return {
+        ok: false,
+        error: '無法確認登入使用者，請重新登入後再試。',
+      };
+    }
     return {
       ok: false,
-      error: err?.message || 'Permission check failed.',
+      error: `權限檢查失敗：${msg}`,
+    };
+  }
+
+  // 3) Load free-text summary payload
+  let surveyData;
+  try {
+    surveyData = await getLimeSurveySummaryBySid(surveyId);
+  } catch (err: any) {
+    console.error('[loadSurveyQuestionsService] summary failed', surveyId, err);
+    return {
+      ok: false,
+      error: `無法讀取問卷 ID「${surveyId}」的資料（問卷可能已刪除或資料表異常）。請確認 ID 後再試。`,
     };
   }
 
   const raw = surveyData?.[0]?.result_json;
+  if (raw == null || (Array.isArray(raw) && raw.length === 0)) {
+    return {
+      ok: false,
+      error: `問卷 ID「${surveyId}」目前沒有可分析的自由文字回覆（可能尚無作答，或沒有自由文字題）。`,
+    };
+  }
+
   type FreeTextAnswer = { id: number | string; value: string };
   type FreeTextMap = Record<string, FreeTextAnswer[]>;
 
@@ -239,15 +280,16 @@ export async function loadSurveyQuestionsService(args: {
   if (questionKeys.length === 0) {
     return {
       ok: false,
-      error: 'No free text questions found in the survey.',
+      error: `問卷 ID「${surveyId}」沒有可分析的自由文字題。`,
     };
   }
 
   const questions: SurveyQuestionPayload[] = questionKeys.map(
     (questionId) => ({
       surveyId,
+      // Keep original key for cache lookup; strip HTML for human-facing title.
       questionId,
-      question: questionId,
+      question: stripHtml(questionId) || questionId,
       items: (freeTextOnly[questionId] || []).map((i) => ({
         id: String(i.id),
         text: i.value,
