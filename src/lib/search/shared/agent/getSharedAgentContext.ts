@@ -4,6 +4,7 @@ import { RAG_BM25_SYSTEM_PROMPT } from '../prompts/ragBm25SystemPrompt';
 import { RAG_BM25_SYSTEM_PROMPT_TRAINING_GUIDE } from '../prompts/ragBm25SystemPromptTrainingGuide';
 import { RAG_SURVEY_SYSTEM_PROMPT } from '../prompts/ragSurveySystemPrompt';
 import { RAG_SURVEY_CHAT_SYSTEM_PROMPT } from '../prompts/ragSurveyChatSystemPrompt';
+import { WRITING_AGENT_SYSTEM_PROMPT } from '../prompts/writingAgentSystemPrompt';
 import { createSqliteAgentRuntime } from '../runtime/createAgentRuntime';
 import { createEsBm25SearchTool } from '../tools/esBm25Tool';
 import { createGuideSearchTool } from '../tools/guideSearchTool';
@@ -52,6 +53,15 @@ function initSharedAgentDependencies() {
       templates.register({
         id: 'rag-survey-chat-template',
         systemPrompt: RAG_SURVEY_CHAT_SYSTEM_PROMPT,
+        tools: [],
+        model: modelId,
+        runtime: {},
+      });
+
+      // General writing assistant (no tools)
+      templates.register({
+        id: 'writing-agent-template',
+        systemPrompt: WRITING_AGENT_SYSTEM_PROMPT,
         tools: [],
         model: modelId,
         runtime: {},

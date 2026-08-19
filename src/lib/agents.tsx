@@ -5,6 +5,7 @@ import {
   UsersRound,
   LucideIcon,
   Image as ImageIcon,
+  PenLine,
 } from 'lucide-react';
 
 export interface AgentMode {
@@ -59,26 +60,6 @@ export const focusModes: AgentMode[] = [
     placeholder: 'Search keyword ...',
     followUpPlaceholder: 'Search keyword ...',
   },
-  // {
-  //   key: 'newSfcAgent',
-  //   title: 'New Agent SFC',
-  //   description: 'Your assistant for searching SFC questions and replies',
-  //   icon: UsersRound,
-  //   image: '/itms/ai/agent_sfc.png',
-  //   permissionCode: 'chatSfcAgent:execute',
-  //   placeholder: 'Search keyword ...',
-  //   followUpPlaceholder: 'Search keyword ...',
-  // },
-  // {
-  //   key: 'agentSurvey',
-  //   title: 'Agent Survey',
-  //   description: 'Your assistant for summarizing survey results',
-  //   icon: NotepadText,
-  //   image: '/itms/ai/agent_survey.png',
-  //   permissionCode: 'chatSurveyAgent:execute',
-  //   placeholder: 'Please enter survey ID ...',
-  //   followUpPlaceholder: 'Please enter survey id ...',
-  // },
   {
     key: 'newSurveyAgent',
     title: 'Agent Survey',
@@ -88,5 +69,15 @@ export const focusModes: AgentMode[] = [
     permissionCode: 'chatSurveyAgent:execute',
     placeholder: 'Please enter survey ID ...',
     followUpPlaceholder: 'Please enter survey id ...',
+  },
+  {
+    key: 'agentWriting',
+    title: 'Agent Writing',
+    description: 'Your assistant on writing and reviewing document',
+    icon: PenLine,
+    image: '/itms/ai/agent-writing.png',
+    permissionCode: 'chatGuideAgent:execute',
+    placeholder: 'Describe what you want to write or paste text to improve...',
+    followUpPlaceholder: 'Continue editing or ask for another revision...',
   },
 ];

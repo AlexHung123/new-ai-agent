@@ -14,6 +14,8 @@ const EmptyChat = () => {
     agentSurvey: 'Your assistant for summarizing survey results',
     newSfcAgent: 'Your assistant for searching SFC questions and replies',
     newSurveyAgent: 'Your assistant for summarizing survey results',
+    agentWriting:
+      'Your assistant for drafting, rewriting, and polishing text',
   };
 
   const heading = focusDescriptions[focusMode] || 'Research begins here.';

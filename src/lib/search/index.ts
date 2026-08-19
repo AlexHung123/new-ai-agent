@@ -8,6 +8,7 @@ import AgentImage from '@/lib/search/agentImage';
 import NewSfcAgent from '@/lib/search/newSfcAgent';
 import GuideAgent from '@/lib/search/guideAgent';
 import NewSurverAgent from '@/lib/search/newSurverAgent';
+import WritingAgent from '@/lib/search/writingAgent';
 import prompts from '../prompts';
 
 export const searchHandlers: Record<string, MetaSearchAgentType> = {
@@ -18,4 +19,5 @@ export const searchHandlers: Record<string, MetaSearchAgentType> = {
   agentImage: new AgentImage(),
   newSfcAgent: new NewSfcAgent(),
   newSurveyAgent: new NewSurverAgent(),
+  agentWriting: new WritingAgent(),
 };
