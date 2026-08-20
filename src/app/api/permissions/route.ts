@@ -25,8 +25,8 @@ export async function GET(request: NextRequest) {
         WHERE crpm.cap_permission_code IN (
           'chatSfcAgent:execute',
           'chatGuideAgent:execute',
-          'chatDataAgent:execute',
-          'chatSurveyAgent:execute'
+          'chatSurveyAgent:execute',
+          'chatDocumentAgent:execute'
         ) 
         AND cu.id = $1
       `,

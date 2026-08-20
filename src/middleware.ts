@@ -7,6 +7,7 @@ const PROTECTED_ROUTES = [
   '/api/chat',
   '/api/chats',
   '/api/permissions',
+  '/api/documents',
 ];
 
 export async function middleware(request: NextRequest) {
@@ -64,5 +65,7 @@ export const config = {
     '/api/chat/:path*',
     '/api/chats/:path*',
     '/api/permissions/:path*',
+    '/api/documents/:path*',
+    '/api/documents',
   ],
 };

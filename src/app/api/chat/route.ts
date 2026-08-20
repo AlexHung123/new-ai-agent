@@ -1,14 +1,26 @@
 import crypto from 'crypto';
+import eventEmitter from 'events';
+import type { Document } from '@langchain/core/documents';
 import { AIMessage, BaseMessage, HumanMessage } from '@langchain/core/messages';
-import { EventEmitter } from 'stream';
 import db from '@/lib/db';
 import { chats, messages as messagesSchema } from '@/lib/db/schema';
 import { and, eq, gt } from 'drizzle-orm';
-import { getFileDetails } from '@/lib/utils/files';
 import { searchHandlers } from '@/lib/search';
 import { z } from 'zod';
-import ModelRegistry from '@/lib/models/registry';
-import { ModelWithProvider } from '@/lib/models/types';
+import { bindChatEmitterToWriter } from '@/lib/chat/bindChatEmitter';
+import {
+  loadConfiguredChatModel,
+  NoopEmbeddings,
+} from '@/lib/models/configuredChatModel';
+import {
+  documentRootAbs,
+  resolveDocument,
+} from '@/lib/documents/catalog';
+import { resolveBoundDocument } from '@/lib/documents/resolveBoundDocument';
+import {
+  runWithDocumentTurn,
+  type DocumentTurnContext,
+} from '@/lib/search/shared/runtime/documentTurnContext';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -17,32 +29,6 @@ const messageSchema = z.object({
   messageId: z.string().min(1, 'Message ID is required'),
   chatId: z.string().min(1, 'Chat ID is required'),
   content: z.string().min(1, 'Message content is required'),
-});
-
-const chatModelSchema: z.ZodType<ModelWithProvider> = z.object({
-  providerId: z.string({
-    errorMap: () => ({
-      message: 'Chat model provider id must be provided',
-    }),
-  }),
-  key: z.string({
-    errorMap: () => ({
-      message: 'Chat model key must be provided',
-    }),
-  }),
-});
-
-const embeddingModelSchema: z.ZodType<ModelWithProvider> = z.object({
-  providerId: z.string({
-    errorMap: () => ({
-      message: 'Embedding model provider id must be provided',
-    }),
-  }),
-  key: z.string({
-    errorMap: () => ({
-      message: 'Embedding model key must be provided',
-    }),
-  }),
 });
 
 const bodySchema = z.object({
@@ -65,12 +51,10 @@ const bodySchema = z.object({
     )
     .optional()
     .default([]),
-  files: z.array(z.string()).optional().default([]),
-  chatModel: chatModelSchema,
-  embeddingModel: embeddingModelSchema,
   systemInstructions: z.string().nullable().optional().default(''),
   sfcExactMatch: z.boolean().optional(),
   sfcTrainingRelated: z.boolean().optional(),
+  documentId: z.string().optional(),
 });
 
 type Message = z.infer<typeof messageSchema>;
@@ -105,166 +89,31 @@ const safeValidateBody = (data: unknown) => {
   };
 };
 
-const handleEmitterEvents = async (
-  stream: EventEmitter,
-  writer: WritableStreamDefaultWriter,
-  encoder: TextEncoder,
-  chatId: string,
-  userId: string,
-  signal: AbortSignal,
-) => {
-  let receivedMessage = '';
-  const aiMessageId = crypto.randomBytes(7).toString('hex');
-
-  signal.addEventListener('abort', () => {
-    writer.close();
-  });
-
-  stream.on('data', (data) => {
-    if (signal.aborted) return;
-    const parsedData = JSON.parse(data);
-    if (parsedData.type === 'response') {
-      writer.write(
-        encoder.encode(
-          JSON.stringify({
-            type: 'message',
-            data: parsedData.data,
-            messageId: aiMessageId,
-          }) + '\n',
-        ),
-      );
-
-      receivedMessage += parsedData.data;
-    } else if (parsedData.type === 'sources') {
-      writer.write(
-        encoder.encode(
-          JSON.stringify({
-            type: 'sources',
-            data: parsedData.data,
-            messageId: aiMessageId,
-          }) + '\n',
-        ),
-      );
-
-      const sourceMessageId = crypto.randomBytes(7).toString('hex');
-
-      db.insert(messagesSchema)
-        .values({
-          chatId: chatId,
-          userId: userId,
-          messageId: sourceMessageId,
-          role: 'source',
-          sources: parsedData.data,
-          createdAt: new Date().toString(),
-        })
-        .execute();
-    } else if (parsedData.type === 'progress') {
-      // Forward progress events to the frontend
-      writer.write(
-        encoder.encode(
-          JSON.stringify({
-            type: 'progress',
-            data: parsedData.data,
-          }) + '\n',
-        ),
-      );
-    } else if (parsedData.type === 'tool_execution') {
-      // Cap oversized tool payloads so a single NDJSON line cannot stall the
-      // client parser or drop subsequent message chunks (survey summaries).
-      const toolData = parsedData.data ?? {};
-      let safeToolData = toolData;
-      try {
-        const encoded = JSON.stringify(toolData);
-        if (encoded.length > 80_000) {
-          safeToolData = {
-            id: toolData.id,
-            name: toolData.name,
-            state: toolData.state,
-            durationMs: toolData.durationMs,
-            inputPreview: toolData.inputPreview,
-            resultPreview: {
-              truncated: true,
-              note: 'Tool result omitted from stream (too large)',
-            },
-          };
-        }
-      } catch {
-        safeToolData = {
-          id: toolData.id,
-          name: toolData.name,
-          state: toolData.state,
-          resultPreview: { truncated: true },
-        };
-      }
-      writer.write(
-        encoder.encode(
-          JSON.stringify({
-            type: 'tool_execution',
-            data: safeToolData,
-          }) + '\n',
-        ),
-      );
-    } else if (parsedData.type === 'tool_error' || parsedData.type === 'monitor_error') {
-      writer.write(
-        encoder.encode(
-          JSON.stringify({
-            type: parsedData.type,
-            data: parsedData.data,
-          }) + '\n',
-        ),
-      );
-    }
-  });
-  stream.on('end', () => {
-    writer.write(
-      encoder.encode(
-        JSON.stringify({
-          type: 'messageEnd',
-        }) + '\n',
-      ),
+function unavailableDocumentEmitter() {
+  const emitter = new eventEmitter();
+  queueMicrotask(() => {
+    emitter.emit(
+      'data',
+      JSON.stringify({
+        type: 'response',
+        data: 'This document is currently unavailable.',
+      }),
     );
-    writer.close();
-
-    db.insert(messagesSchema)
-      .values({
-        content: receivedMessage,
-        chatId: chatId,
-        userId: userId,
-        messageId: aiMessageId,
-        role: 'assistant',
-        createdAt: new Date().toString(),
-      })
-      .execute();
+    emitter.emit('end');
   });
-  stream.on('error', (data) => {
-    const parsedData = JSON.parse(data);
-    writer.write(
-      encoder.encode(
-        JSON.stringify({
-          type: 'error',
-          data: parsedData.data,
-        }),
-      ),
-    );
-    writer.close();
-  });
-};
+  return emitter;
+}
 
 const handleHistorySave = async (
   message: Message,
   humanMessageId: string,
   focusMode: string,
-  files: string[],
   userId: string,
+  documentId?: string | null,
 ) => {
   const chat = await db.query.chats.findFirst({
     where: eq(chats.id, message.chatId),
   });
-
-  const filteredFiles = (files || []).filter(
-    (f) => typeof f === 'string' && !f.startsWith('__AGENT_IMAGE_ASPECT__:'),
-  );
-  const fileData = filteredFiles.map(getFileDetails);
 
   if (!chat) {
     await db
@@ -275,15 +124,10 @@ const handleHistorySave = async (
         userId: userId,
         createdAt: new Date().toString(),
         focusMode: focusMode,
-        files: fileData,
+        documentId: documentId ?? null,
+        files: [],
       })
       .execute();
-  } else if (JSON.stringify(chat.files ?? []) != JSON.stringify(fileData)) {
-    db.update(chats)
-      .set({
-        files: filteredFiles.map(getFileDetails),
-      })
-      .where(eq(chats.id, message.chatId));
   }
 
   const messageExists = await db.query.messages.findFirst({
@@ -357,15 +201,8 @@ export const POST = async (req: Request) => {
       );
     }
 
-    const registry = new ModelRegistry();
-
-    const [llm, embedding] = await Promise.all([
-      registry.loadChatModel(body.chatModel.providerId, body.chatModel.key),
-      registry.loadEmbeddingModel(
-        body.embeddingModel.providerId,
-        body.embeddingModel.key,
-      ),
-    ]);
+    const llm = loadConfiguredChatModel();
+    const embedding = new NoopEmbeddings();
 
     const humanMessageId =
       message.messageId ?? crypto.randomBytes(7).toString('hex');
@@ -393,38 +230,102 @@ export const POST = async (req: Request) => {
       );
     }
 
-    const stream = await handler.searchAndAnswer(
-      message.content,
-      history,
-      llm,
-      embedding,
-      body.optimizationMode,
-      body.files,
-      body.systemInstructions as string,
-      req.signal,
-      body.sfcExactMatch,
-      body.sfcTrainingRelated,
-      req,
-    );
+    const existingChat = await db.query.chats.findFirst({
+      where: eq(chats.id, message.chatId),
+    });
+    const bound = resolveBoundDocument({
+      focusMode: body.focusMode,
+      chatExists: Boolean(existingChat),
+      existingDocumentId: existingChat?.documentId,
+      bodyDocumentId: body.documentId,
+    });
+    if (bound.status === 'error') {
+      return Response.json({ message: bound.message }, { status: 400 });
+    }
+
+    let documentTurn: DocumentTurnContext | undefined;
+    if (bound.status === 'ok') {
+      const slot = resolveDocument(bound.documentId);
+      if (!slot) {
+        if (!existingChat) {
+          return Response.json(
+            { message: 'Unknown or unavailable document' },
+            { status: 400 },
+          );
+        }
+      } else {
+        documentTurn = {
+          id: slot.id,
+          title: slot.title,
+          rootAbs: documentRootAbs(slot),
+        };
+      }
+    }
+
+    const runSearch = () =>
+      handler.searchAndAnswer(
+        message.content,
+        history,
+        llm,
+        embedding,
+        body.optimizationMode,
+        [],
+        body.systemInstructions as string,
+        req.signal,
+        body.sfcExactMatch,
+        body.sfcTrainingRelated,
+        req,
+      );
+
+    const stream =
+      bound.status === 'ok' && !documentTurn
+        ? unavailableDocumentEmitter()
+        : documentTurn
+          ? await runWithDocumentTurn(documentTurn, runSearch)
+          : await runSearch();
 
     const responseStream = new TransformStream();
     const writer = responseStream.writable.getWriter();
     const encoder = new TextEncoder();
 
-    handleEmitterEvents(
+    bindChatEmitterToWriter({
       stream,
       writer,
       encoder,
-      message.chatId,
+      signal: req.signal,
+      chatId: message.chatId,
       userId,
-      req.signal,
-    );
+      persistAssistant: ({ content, messageId }) =>
+        db
+          .insert(messagesSchema)
+          .values({
+            content,
+            chatId: message.chatId,
+            userId,
+            messageId,
+            role: 'assistant',
+            createdAt: new Date().toString(),
+          })
+          .execute(),
+      persistSources: ({ sources, messageId }) =>
+        db
+          .insert(messagesSchema)
+          .values({
+            chatId: message.chatId,
+            userId,
+            messageId,
+            role: 'source',
+            sources: sources as Document[],
+            createdAt: new Date().toString(),
+          })
+          .execute(),
+    });
     handleHistorySave(
       message,
       humanMessageId,
       body.focusMode,
-      body.files,
       userId,
+      bound.status === 'ok' ? bound.documentId : null,
     );
 
     return new Response(responseStream.readable, {

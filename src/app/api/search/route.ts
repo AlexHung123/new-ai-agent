@@ -1,18 +1,24 @@
 import { AIMessage, BaseMessage, HumanMessage } from '@langchain/core/messages';
 import { MetaSearchAgentType } from '@/lib/search/metaSearchAgent';
 import { searchHandlers } from '@/lib/search';
-import ModelRegistry from '@/lib/models/registry';
-import { ModelWithProvider } from '@/lib/models/types';
+import {
+  loadConfiguredChatModel,
+  NoopEmbeddings,
+} from '@/lib/models/configuredChatModel';
+import {
+  documentRootAbs,
+  resolveDocument,
+} from '@/lib/documents/catalog';
+import { runWithDocumentTurn } from '@/lib/search/shared/runtime/documentTurnContext';
 
 interface ChatRequestBody {
   optimizationMode: 'speed' | 'balanced';
   focusMode: string;
-  chatModel: ModelWithProvider;
-  embeddingModel: ModelWithProvider;
   query: string;
   history: Array<[string, string]>;
   stream?: boolean;
   systemInstructions?: string;
+  documentId?: string;
 }
 
 export const POST = async (req: Request) => {
@@ -38,15 +44,8 @@ export const POST = async (req: Request) => {
         : new AIMessage({ content: msg[1] });
     });
 
-    const registry = new ModelRegistry();
-
-    const [llm, embeddings] = await Promise.all([
-      registry.loadChatModel(body.chatModel.providerId, body.chatModel.key),
-      registry.loadEmbeddingModel(
-        body.embeddingModel.providerId,
-        body.embeddingModel.key,
-      ),
-    ]);
+    const llm = loadConfiguredChatModel();
+    const embeddings = new NoopEmbeddings();
 
     const searchHandler: MetaSearchAgentType = searchHandlers[body.focusMode];
 
@@ -54,15 +53,41 @@ export const POST = async (req: Request) => {
       return Response.json({ message: 'Invalid focus mode' }, { status: 400 });
     }
 
-    const emitter = await searchHandler.searchAndAnswer(
-      body.query,
-      history,
-      llm,
-      embeddings,
-      body.optimizationMode,
-      [],
-      body.systemInstructions || '',
-    );
+    const runSearch = () =>
+      searchHandler.searchAndAnswer(
+        body.query,
+        history,
+        llm,
+        embeddings,
+        body.optimizationMode,
+        [],
+        body.systemInstructions || '',
+      );
+
+    let emitter;
+    if (body.focusMode === 'agentDocument') {
+      const slot = resolveDocument(body.documentId);
+      if (!slot) {
+        return Response.json(
+          {
+            message: body.documentId
+              ? 'Unknown or unavailable document'
+              : 'Select a document',
+          },
+          { status: 400 },
+        );
+      }
+      emitter = await runWithDocumentTurn(
+        {
+          id: slot.id,
+          title: slot.title,
+          rootAbs: documentRootAbs(slot),
+        },
+        runSearch,
+      );
+    } else {
+      emitter = await runSearch();
+    }
 
     if (!body.stream) {
       return new Promise(
