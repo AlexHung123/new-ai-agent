@@ -1,7 +1,7 @@
 # Pi-Agent Context Compaction Design
 
 Date: 2026-08-20  
-Status: **Draft** — awaiting implementation  
+Status: **Implemented** (2026-08-20) — mid-run `transformContext` guard, `convertToLlm` mapping, append-only `agent_transcript_entries`, and cold hydrate via `PiAgentSessionManager`.  
 Scope: Port the pi-rag (`D:\Projects\pi-rag\apps\api`) kode-style compaction stack into this project's pi-agent-core runtime: mid-run `transformContext` guard, `convertToLlm` mapping, append-only transcript checkpoints, and cold hydrate.
 
 Source of truth for algorithm and persist semantics: `pi-rag/apps/api/src/agent/agent-compaction.ts`, `agent-convert-to-llm.ts`, `agent-transcript.*`, `context-budget.ts` (compaction-related knobs only), and `rag/evidence.ts` `clipTextToBudget`.

@@ -12,6 +12,8 @@
 
 **Source tree:** `D:\Projects\pi-rag\apps\api\src\agent\` and `...\src\rag\evidence.ts` (`clipTextToBudget` only).
 
+**Status:** Implemented 2026-08-20. Tasks 1–8 complete; `npx vitest run` 131 passed.
+
 ---
 
 ## File map
@@ -55,7 +57,7 @@ Tests live next to modules as `*.test.ts`. Port cases from `D:\Projects\pi-rag\a
 - Create: `src/lib/search/shared/runtime/clipTextToBudget.ts`
 - Test: `src/lib/search/shared/runtime/clipTextToBudget.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { describe, expect, it } from 'vitest';
