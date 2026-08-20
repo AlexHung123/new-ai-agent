@@ -15,7 +15,7 @@
  * - cap oversized toolResult bodies (RAG)
  * - snap cut so toolResult batches stay with their assistant
  * - summary is role=compactionSummary (+ _compaction); convertToLlm maps it to a
- *   labeled user background message (see agent-convert-to-llm.ts)
+ *   labeled user background message (see agentConvertToLlm.ts)
  *
  * Postgres history is unchanged.
  */
