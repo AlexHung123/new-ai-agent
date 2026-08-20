@@ -1,14 +1,24 @@
-import { createManagedAgentContext } from './createManagedAgentContext';
-import { getMaxActiveAgents } from '../config/ragflowConfig';
+import {
+  getMaxActiveAgents,
+  getPiSessionConnectionString,
+} from '../config/ragflowConfig';
 import { RAG_BM25_SYSTEM_PROMPT } from '../prompts/ragBm25SystemPrompt';
 import { RAG_BM25_SYSTEM_PROMPT_TRAINING_GUIDE } from '../prompts/ragBm25SystemPromptTrainingGuide';
 import { RAG_SURVEY_SYSTEM_PROMPT } from '../prompts/ragSurveySystemPrompt';
 import { RAG_SURVEY_CHAT_SYSTEM_PROMPT } from '../prompts/ragSurveyChatSystemPrompt';
 import { WRITING_AGENT_SYSTEM_PROMPT } from '../prompts/writingAgentSystemPrompt';
-import { createSqliteAgentRuntime } from '../runtime/createAgentRuntime';
+import { createPiRuntime } from '../runtime/createPiRuntime';
+import { createPgAgentTranscriptStoreFromUrl } from '../runtime/agentTranscriptStore';
+import { createPgPiSessionStoreFromUrl } from '../runtime/piSessionStore';
 import { createEsBm25SearchTool } from '../tools/esBm25Tool';
 import { createGuideSearchTool } from '../tools/guideSearchTool';
 import { createSurveySearchTools } from '../tools/surveySearchTool';
+import {
+  createPiAgentSessionManager,
+  type NamedTool,
+  type PiAgentSessionManager,
+  type PiTemplate,
+} from './piAgentSessionManager';
 
 const DEFAULT_TEMPLATE_ID = 'rag-base-template';
 const AGENT_ID_PREFIX = 'rag-chat-agent';
@@ -18,75 +28,71 @@ function initSharedAgentDependencies() {
   const guideSearchTool = createGuideSearchTool();
   const surveySearchTools = createSurveySearchTools();
 
-  const { runtimeDeps } = createSqliteAgentRuntime({
-    registerTools: (tools) => {
-      tools.register(esBm25SearchTool.name, () => esBm25SearchTool);
-      tools.register(guideSearchTool.name, () => guideSearchTool);
-      surveySearchTools.forEach((tool) => tools.register(tool.name, () => tool));
+  const tools: Record<string, NamedTool> = {
+    [esBm25SearchTool.name]: esBm25SearchTool,
+    [guideSearchTool.name]: guideSearchTool,
+  };
+  for (const tool of surveySearchTools) {
+    tools[tool.name] = tool;
+  }
+
+  const templates: Record<string, PiTemplate> = {
+    [DEFAULT_TEMPLATE_ID]: {
+      id: DEFAULT_TEMPLATE_ID,
+      systemPrompt: RAG_BM25_SYSTEM_PROMPT,
+      tools: [],
     },
-    registerTemplates: (templates, modelId) => {
-      templates.register({
-        id: DEFAULT_TEMPLATE_ID,
-        systemPrompt: RAG_BM25_SYSTEM_PROMPT,
-        tools: [],
-        model: modelId,
-        runtime: {},
-      });
-
-      templates.register({
-        id: 'rag-training-guide-template',
-        systemPrompt: RAG_BM25_SYSTEM_PROMPT_TRAINING_GUIDE,
-        tools: [],
-        model: modelId,
-        runtime: {},
-      });
-
-      templates.register({
-        id: 'rag-survey-template',
-        systemPrompt: RAG_SURVEY_SYSTEM_PROMPT,
-        tools: surveySearchTools.map(t => t.name),
-        model: modelId,
-        runtime: {},
-      });
-
-      // Conversational mode when no survey ID is present (no tools)
-      templates.register({
-        id: 'rag-survey-chat-template',
-        systemPrompt: RAG_SURVEY_CHAT_SYSTEM_PROMPT,
-        tools: [],
-        model: modelId,
-        runtime: {},
-      });
-
-      // General writing assistant (no tools)
-      templates.register({
-        id: 'writing-agent-template',
-        systemPrompt: WRITING_AGENT_SYSTEM_PROMPT,
-        tools: [],
-        model: modelId,
-        runtime: {},
-      });
+    'rag-training-guide-template': {
+      id: 'rag-training-guide-template',
+      systemPrompt: RAG_BM25_SYSTEM_PROMPT_TRAINING_GUIDE,
+      tools: [],
     },
-  });
+    'rag-survey-template': {
+      id: 'rag-survey-template',
+      systemPrompt: RAG_SURVEY_SYSTEM_PROMPT,
+      tools: surveySearchTools.map((t) => t.name),
+    },
+    'rag-survey-chat-template': {
+      id: 'rag-survey-chat-template',
+      systemPrompt: RAG_SURVEY_CHAT_SYSTEM_PROMPT,
+      tools: [],
+    },
+    'writing-agent-template': {
+      id: 'writing-agent-template',
+      systemPrompt: WRITING_AGENT_SYSTEM_PROMPT,
+      tools: [],
+    },
+  };
 
-  const maxActiveAgents = getMaxActiveAgents();
+  const runtime = createPiRuntime({ templates, tools });
+  const connectionString = getPiSessionConnectionString();
+  const store = createPgPiSessionStoreFromUrl(connectionString);
+  const transcript = createPgAgentTranscriptStoreFromUrl(connectionString);
 
-  return createManagedAgentContext({
-    dependencies: runtimeDeps,
-    maxActiveAgents,
+  const manager = createPiAgentSessionManager({
     defaultAgentId: `${AGENT_ID_PREFIX}-default`,
-    templateId: DEFAULT_TEMPLATE_ID,
+    maxActiveAgents: getMaxActiveAgents(),
+    store,
+    transcript,
+    templates,
+    tools,
+    defaultTemplateId: DEFAULT_TEMPLATE_ID,
+    createAgent: runtime.createAgent,
   });
+
+  return { manager };
 }
+
+export type SharedAgentContext = {
+  manager: PiAgentSessionManager;
+};
 
 declare global {
   // eslint-disable-next-line no-var
-  var __sharedAgentContext:
-    | ReturnType<typeof initSharedAgentDependencies>
-    | undefined;
+  var __sharedAgentContext: SharedAgentContext | undefined;
 }
 
-export function getSharedAgentContext() {
+export function getSharedAgentContext(): SharedAgentContext {
   if (!globalThis.__sharedAgentContext) {
     globalThis.__sharedAgentContext = initSharedAgentDependencies();
   }
