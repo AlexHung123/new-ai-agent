@@ -7,6 +7,9 @@ import { RAG_BM25_SYSTEM_PROMPT_TRAINING_GUIDE } from '../prompts/ragBm25SystemP
 import { RAG_SURVEY_SYSTEM_PROMPT } from '../prompts/ragSurveySystemPrompt';
 import { RAG_SURVEY_CHAT_SYSTEM_PROMPT } from '../prompts/ragSurveyChatSystemPrompt';
 import { WRITING_AGENT_SYSTEM_PROMPT } from '../prompts/writingAgentSystemPrompt';
+import { DOCUMENT_AGENT_SYSTEM_PROMPT } from '../prompts/documentAgentSystemPrompt';
+import { getDocumentTurnContext } from '../runtime/documentTurnContext';
+import { createAgentFsTools } from '../tools/fs/fsTools';
 import { createPiRuntime } from '../runtime/createPiRuntime';
 import { createPgAgentTranscriptStoreFromUrl } from '../runtime/agentTranscriptStore';
 import { createPgPiSessionStoreFromUrl } from '../runtime/piSessionStore';
@@ -27,12 +30,19 @@ function initSharedAgentDependencies() {
   const esBm25SearchTool = createEsBm25SearchTool();
   const guideSearchTool = createGuideSearchTool();
   const surveySearchTools = createSurveySearchTools();
+  const fsTools = createAgentFsTools({
+    isAdmin: true,
+    getProjectRootAbs: () => getDocumentTurnContext()?.rootAbs,
+  });
 
   const tools: Record<string, NamedTool> = {
     [esBm25SearchTool.name]: esBm25SearchTool,
     [guideSearchTool.name]: guideSearchTool,
   };
   for (const tool of surveySearchTools) {
+    tools[tool.name] = tool;
+  }
+  for (const tool of fsTools) {
     tools[tool.name] = tool;
   }
 
@@ -61,6 +71,11 @@ function initSharedAgentDependencies() {
       id: 'writing-agent-template',
       systemPrompt: WRITING_AGENT_SYSTEM_PROMPT,
       tools: [],
+    },
+    'document-agent-template': {
+      id: 'document-agent-template',
+      systemPrompt: DOCUMENT_AGENT_SYSTEM_PROMPT,
+      tools: ['fs_ls', 'fs_read', 'fs_grep', 'fs_find'],
     },
   };
 

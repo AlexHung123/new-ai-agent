@@ -1,10 +1,9 @@
 import {
   Book,
-  Database,
+  FileText,
   NotepadText,
   UsersRound,
   LucideIcon,
-  Image as ImageIcon,
   PenLine,
 } from 'lucide-react';
 
@@ -20,26 +19,6 @@ export interface AgentMode {
 }
 
 export const focusModes: AgentMode[] = [
-  {
-    key: 'agentData',
-    title: 'Agent Data',
-    description: 'Your assistant for retrieving training data',
-    icon: Database,
-    image: '/itms/ai/agent_data.png',
-    permissionCode: 'chatDataAgent:execute',
-    placeholder: 'Ask about training data...',
-    followUpPlaceholder: 'Ask a follow-up about training data...',
-  },
-  {
-    key: 'agentImage',
-    title: 'Agent Image',
-    description: 'Your assistant for generating images',
-    icon: ImageIcon,
-    image: '/itms/ai/agent_flyer.png',
-    permissionCode: 'chatImageAgent:execute',
-    placeholder: 'Describe the image to generate...',
-    followUpPlaceholder: 'Refine the image prompt...',
-  },
   {
     key: 'agentGuide',
     title: 'Agent Guide',
@@ -80,4 +59,27 @@ export const focusModes: AgentMode[] = [
     placeholder: 'Describe what you want to write or paste text to improve...',
     followUpPlaceholder: 'Continue editing or ask for another revision...',
   },
+  {
+    key: 'agentDocument',
+    title: 'Agent Document',
+    description: 'Ask about a selected policy document',
+    icon: FileText,
+    image: '/itms/ai/agent-writing.png',
+    permissionCode: 'chatDocumentAgent:execute',
+    placeholder: 'Ask about the selected document…',
+    followUpPlaceholder: 'Ask a follow-up about this document…',
+  },
 ];
+
+const DEFAULT_FOCUS_MODE = 'agentSFC';
+const FOCUS_MODE_ALIASES: Record<string, string> = {
+  agentSurvey: 'newSurveyAgent',
+};
+
+export function resolveFocusMode(stored?: string | null): string {
+  if (!stored) return DEFAULT_FOCUS_MODE;
+  if (stored === 'newSfcAgent') return stored;
+  if (FOCUS_MODE_ALIASES[stored]) return FOCUS_MODE_ALIASES[stored];
+  if (focusModes.some((mode) => mode.key === stored)) return stored;
+  return DEFAULT_FOCUS_MODE;
+}
