@@ -46,6 +46,18 @@ export type AgentRuntimeExtras = PooledAgent & {
     messages: CompactableMessage[],
     signal?: AbortSignal,
   ) => Promise<CompactableMessage[]>;
+  beforeToolCall?: (
+    context: { toolCall?: { name?: string }; args?: unknown },
+    signal?: AbortSignal,
+  ) => Promise<{ block?: boolean; reason?: string } | undefined>;
+  afterToolCall?: (
+    context: {
+      toolCall?: { name?: string };
+      args?: unknown;
+      isError?: boolean;
+    },
+    signal?: AbortSignal,
+  ) => Promise<{ terminate?: boolean } | undefined>;
 };
 
 export type CreatePooledAgentOptions = {

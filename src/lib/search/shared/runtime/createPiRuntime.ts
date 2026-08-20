@@ -20,6 +20,7 @@ import type {
   PiTemplate,
   PooledAgent,
 } from '../agent/piAgentSessionManager';
+import { wrapPromptWithRunLimits } from '../agent/wrapPromptWithRunLimits';
 
 export type PiRuntime = {
   bundle: PiModelBundle;
@@ -88,6 +89,7 @@ export function createPiRuntime(options: {
       }
     };
 
+    wrapPromptWithRunLimits(agent);
     return agent;
   };
 
