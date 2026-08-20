@@ -3,13 +3,12 @@ FROM node:24.5.0-slim AS builder
 ARG BASE_PATH=""
 ENV BASE_PATH=${BASE_PATH}
 
-RUN apt-get update && apt-get install -y python3 python3-pip sqlite3 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y python3 python3-pip && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /home/aiagent
 
-COPY package.json yarn.lock ./
-COPY vendor ./vendor
-RUN yarn install --frozen-lockfile --network-timeout 600000
+COPY package.json package-lock.json ./
+RUN npm ci
 
 COPY tsconfig.json next.config.mjs next-env.d.ts postcss.config.js drizzle.config.ts tailwind.config.ts ./
 COPY src ./src
@@ -19,9 +18,10 @@ COPY prisma ./prisma
 
 RUN mkdir -p /home/aiagent/data
 RUN mkdir -p /home/aiagent/data/prompts
+COPY data/documents ./data/documents
 
 RUN npx prisma generate
-RUN yarn build
+RUN npm run build
 
 FROM node:24.5.0-slim
 
@@ -39,8 +39,6 @@ COPY --from=builder /home/aiagent/data/prompts ./data/prompts
 COPY --from=builder /home/aiagent/src/generated/prisma ./src/generated/prisma
 COPY drizzle ./drizzle
 COPY prisma ./prisma
-
-RUN mkdir /home/aiagent/uploads
 
 COPY entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh

@@ -2,23 +2,28 @@ import EmptyChatMessageInput from './EmptyChatMessageInput';
 import SettingsButtonMobile from '@/components/Settings/SettingsButtonMobile';
 import { useChat } from '@/lib/hooks/useChat';
 import AgentCard from './AgentCard';
+import DocumentPicker from './DocumentPicker';
 import { motion } from 'framer-motion';
 
 const EmptyChat = () => {
-  const { focusMode } = useChat();
+  const { focusMode, documentId, documentItems } = useChat();
 
   const focusDescriptions: Record<string, string> = {
-    agentData: 'Your assistant for retrieving training data',
     agentGuide: 'You assistant on training policy',
     agentSFC: 'Your assistant for searching SFC questions and replies',
-    agentSurvey: 'Your assistant for summarizing survey results',
     newSfcAgent: 'Your assistant for searching SFC questions and replies',
     newSurveyAgent: 'Your assistant for summarizing survey results',
     agentWriting:
       'Your assistant for drafting, rewriting, and polishing text',
+    agentDocument: 'Ask about a selected policy document',
   };
 
-  const heading = focusDescriptions[focusMode] || 'Research begins here.';
+  const selectedDocument = documentItems.find((item) => item.id === documentId);
+  const needsDocumentPick = focusMode === 'agentDocument' && !documentId;
+  const heading = selectedDocument
+    ? selectedDocument.title
+    : focusDescriptions[focusMode] || 'Research begins here.';
+  const subheading = selectedDocument?.description;
 
   return (
     <div className="relative">
@@ -39,7 +44,16 @@ const EmptyChat = () => {
           <h2 className="text-black/70 dark:text-white/70 text-3xl font-medium -mt-8">
             {heading}
           </h2>
-          <EmptyChatMessageInput />
+          {subheading ? (
+            <p className="text-sm text-black/50 dark:text-white/50 -mt-4 text-center">
+              {subheading}
+            </p>
+          ) : null}
+          {needsDocumentPick ? (
+            <DocumentPicker />
+          ) : (
+            <EmptyChatMessageInput />
+          )}
         </div>
       </div>
     </div>

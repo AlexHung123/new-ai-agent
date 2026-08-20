@@ -21,8 +21,20 @@ import crypto from 'crypto';
 import { useParams, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { getSuggestions } from '../actions';
-import { MinimalProvider } from '../models/types';
-import { extractUserIdFromToken, getAuthHeaders } from '../utils/auth';
+import { resolveFocusMode } from '../agents';
+import { assistantContentAfterAbort } from '../chat/abortedReply';
+import {
+  applyProcessDone,
+  applyProgressMessage,
+  createInitialProcess,
+  type AgentProcessState,
+} from '../chat/agentProcess';
+import { applySseProcessEvent } from '../chat/applySseProcessEvent';
+import {
+  extractUserIdFromToken,
+  getAuthHeaders,
+  initializeAuthToken,
+} from '../utils/auth';
 
 export type Section = {
   userMessage: UserMessage;
@@ -49,29 +61,11 @@ export type ProgressData = {
   tasks?: ProgressTask[];
 };
 
-export interface FileItem {
-  fileName: string;
-  fileExtension: string;
-  fileId: string;
-}
-
-export interface ChatModelProvider {
-  key: string;
-  providerId: string;
-}
-
-export interface EmbeddingModelProvider {
-  key: string;
-  providerId: string;
-}
-
 type ChatContext = {
   messages: Message[];
   chatTurns: ChatTurn[];
   sections: Section[];
   chatHistory: [string, string][];
-  files: FileItem[];
-  fileIds: string[];
   focusMode: string;
   chatId: string | undefined;
   userId: string | null;
@@ -82,29 +76,23 @@ type ChatContext = {
   messageAppeared: boolean;
   isReady: boolean;
   hasError: boolean;
-  chatModelProvider: ChatModelProvider;
-  embeddingModelProvider: EmbeddingModelProvider;
   progress: ProgressData | null;
-  toolExecution: any | null;
-  toolExecutions: any[];
+  agentProcess: AgentProcessState | null;
   sfcExactMatch: boolean;
   setSfcExactMatch: (exact: boolean) => void;
   sfcTrainingRelated: boolean;
   setSfcTrainingRelated: (enabled: boolean) => void;
   setOptimizationMode: (mode: string) => void;
   setFocusMode: (mode: string) => void;
-  setFiles: (files: FileItem[]) => void;
-  setFileIds: (fileIds: string[]) => void;
-  setToolExecution: (toolExecution: any | null) => void;
-  setToolExecutions: (toolExecutions: any[]) => void;
+  documentId: string | null;
+  setDocumentId: (id: string | null) => void;
+  documentItems: Array<{ id: string; title: string; description: string }>;
   sendMessage: (
     message: string,
     messageId?: string,
     rewrite?: boolean,
   ) => Promise<void>;
   rewrite: (messageId: string) => void;
-  setChatModelProvider: (provider: ChatModelProvider) => void;
-  setEmbeddingModelProvider: (provider: EmbeddingModelProvider) => void;
   stop: () => void;
   clearProgress: () => void;
 };
@@ -113,8 +101,6 @@ export const chatContext = createContext<ChatContext>({
   chatHistory: [],
   chatId: '',
   userId: null,
-  fileIds: [],
-  files: [],
   focusMode: '',
   hasError: false,
   isMessagesLoaded: false,
@@ -126,11 +112,8 @@ export const chatContext = createContext<ChatContext>({
   sections: [],
   notFound: false,
   optimizationMode: '',
-  chatModelProvider: { key: '', providerId: '' },
-  embeddingModelProvider: { key: '', providerId: '' },
   progress: null,
-  toolExecution: null,
-  toolExecutions: [],
+  agentProcess: null,
   clearProgress: () => {},
   sfcExactMatch: true,
   setSfcExactMatch: () => {},
@@ -138,26 +121,17 @@ export const chatContext = createContext<ChatContext>({
   setSfcTrainingRelated: () => {},
   rewrite: () => {},
   sendMessage: async () => {},
-  setFileIds: () => {},
-  setFiles: () => {},
   setFocusMode: () => {},
   setOptimizationMode: () => {},
-  setToolExecution: () => {},
-  setToolExecutions: () => {},
-  setChatModelProvider: () => {},
-  setEmbeddingModelProvider: () => {},
+  documentId: null,
+  setDocumentId: () => {},
+  documentItems: [],
   stop: () => {},
 });
 
 /** -----------------------------
  * Small utilities
  * ----------------------------- */
-
-const getPreferredModelByFocusMode = (focusMode: string) => {
-  return focusMode === 'agentSurvey'
-    ? 'qwen3-next-80b-a3b-instruct-mlx'
-    : 'qwen3.6-35b-a3b-mlx';
-};
 
 const safeLocalStorageGet = (key: string) => {
   if (typeof window === 'undefined') return null;
@@ -204,123 +178,6 @@ const parseJsonLines = (buffer: string) => {
  * API helpers
  * ----------------------------- */
 
-const checkConfig = async (args: {
-  setChatModelProvider: (provider: ChatModelProvider) => void;
-  setEmbeddingModelProvider: (provider: EmbeddingModelProvider) => void;
-  setIsConfigReady: (ready: boolean) => void;
-  setHasError: (hasError: boolean) => void;
-  setAvailableProviders: (providers: MinimalProvider[]) => void;
-}) => {
-  const {
-    setChatModelProvider,
-    setEmbeddingModelProvider,
-    setIsConfigReady,
-    setHasError,
-    setAvailableProviders,
-  } = args;
-
-  try {
-    let chatModelKey = safeLocalStorageGet('chatModelKey');
-    let chatModelProviderId = safeLocalStorageGet('chatModelProviderId');
-    let embeddingModelKey = safeLocalStorageGet('embeddingModelKey');
-    let embeddingModelProviderId = safeLocalStorageGet(
-      'embeddingModelProviderId',
-    );
-
-    const res = await fetch(`/itms/ai/api/providers`, {
-      headers: { 'Content-Type': 'application/json' },
-    });
-
-    if (!res.ok) {
-      throw new Error(
-        `Provider fetching failed with status code ${res.status}`,
-      );
-    }
-
-    const data = await res.json();
-    const providers: MinimalProvider[] = data.providers;
-    setAvailableProviders(providers);
-
-    if (providers.length === 0) {
-      throw new Error(
-        'No chat model providers found, please configure them in the settings page.',
-      );
-    }
-
-    const focusMode = safeLocalStorageGet('focusMode') || 'webSearch';
-    const preferredModel = getPreferredModelByFocusMode(focusMode);
-
-    // Prefer a provider that has the preferred model for current focusMode
-    let chatProvider = providers.find((p) =>
-      p.chatModels.some((m) => m.key === preferredModel),
-    );
-
-    if (chatProvider) {
-      chatModelKey = preferredModel;
-      chatModelProviderId = chatProvider.id;
-    } else {
-      // fallback to saved providerId, else first provider with chatModels
-      chatProvider =
-        providers.find((p) => p.id === chatModelProviderId) ??
-        providers.find((p) => p.chatModels.length > 0);
-
-      if (!chatProvider) {
-        throw new Error(
-          'No chat models found, please configure them in the settings page.',
-        );
-      }
-
-      chatModelProviderId = chatProvider.id;
-
-      const chatModel =
-        chatProvider.chatModels.find((m) => m.key === chatModelKey) ??
-        chatProvider.chatModels[0];
-
-      chatModelKey = chatModel.key;
-    }
-
-    const embeddingProvider =
-      providers.find((p) => p.id === embeddingModelProviderId) ??
-      providers.find((p) => p.embeddingModels.length > 0);
-
-    if (!embeddingProvider) {
-      throw new Error(
-        'No embedding models found, please configure them in the settings page.',
-      );
-    }
-
-    embeddingModelProviderId = embeddingProvider.id;
-
-    const embeddingModel =
-      embeddingProvider.embeddingModels.find(
-        (m) => m.key === embeddingModelKey,
-      ) ?? embeddingProvider.embeddingModels[0];
-
-    embeddingModelKey = embeddingModel.key;
-
-    safeLocalStorageSet('chatModelKey', chatModelKey);
-    safeLocalStorageSet('chatModelProviderId', chatModelProviderId);
-    safeLocalStorageSet('embeddingModelKey', embeddingModelKey);
-    safeLocalStorageSet('embeddingModelProviderId', embeddingModelProviderId);
-
-    setChatModelProvider({
-      key: chatModelKey,
-      providerId: chatModelProviderId,
-    });
-    setEmbeddingModelProvider({
-      key: embeddingModelKey,
-      providerId: embeddingModelProviderId,
-    });
-
-    setIsConfigReady(true);
-  } catch (err: any) {
-    console.error('An error occurred while checking the configuration:', err);
-    toast.error(err?.message ?? 'Config error');
-    setIsConfigReady(false);
-    setHasError(true);
-  }
-};
-
 const loadMessages = async (args: {
   chatId: string;
   setMessages: (messages: Message[]) => void;
@@ -328,8 +185,7 @@ const loadMessages = async (args: {
   setChatHistory: (history: [string, string][]) => void;
   setFocusMode: (mode: string) => void;
   setNotFound: (notFound: boolean) => void;
-  setFiles: (files: FileItem[]) => void;
-  setFileIds: (fileIds: string[]) => void;
+  setDocumentId: (id: string | null) => void;
 }) => {
   const {
     chatId,
@@ -338,8 +194,7 @@ const loadMessages = async (args: {
     setChatHistory,
     setFocusMode,
     setNotFound,
-    setFiles,
-    setFileIds,
+    setDocumentId,
   } = args;
 
   const res = await fetch(`/itms/ai/api/chats/${chatId}`, {
@@ -367,17 +222,13 @@ const loadMessages = async (args: {
   ][];
   if (chatTurns.length > 0) document.title = chatTurns[0].content;
 
-  const files: FileItem[] = (data.chat.files ?? []).map((file: any) => ({
-    fileName: file.name,
-    fileExtension: file.name.split('.').pop(),
-    fileId: file.fileId,
-  }));
-
-  setFiles(files);
-  setFileIds(files.map((f) => f.fileId));
-
   setChatHistory(history);
-  setFocusMode(data.chat.focusMode);
+  setFocusMode(resolveFocusMode(data.chat.focusMode));
+  setDocumentId(
+    typeof data.chat.documentId === 'string' && data.chat.documentId
+      ? data.chat.documentId
+      : null,
+  );
   setIsMessagesLoaded(true);
 };
 
@@ -476,56 +327,40 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(false);
   const [messageAppeared, setMessageAppeared] = useState(false);
   const [progress, setProgress] = useState<ProgressData | null>(null);
-  const [toolExecution, setToolExecution] = useState<any | null>(null);
-  const [toolExecutions, setToolExecutions] = useState<any[]>([]);
+  const [agentProcess, setAgentProcess] = useState<AgentProcessState | null>(
+    null,
+  );
 
   const [chatHistory, setChatHistory] = useState<[string, string][]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
 
-  const [files, setFiles] = useState<FileItem[]>([]);
-  const [fileIds, setFileIds] = useState<string[]>([]);
-
   const [focusMode, setFocusMode] = useState(() => {
-    return safeLocalStorageGet('focusMode') || 'webSearch';
+    return resolveFocusMode(safeLocalStorageGet('focusMode'));
   });
 
   const [optimizationMode, setOptimizationMode] = useState('speed');
   const [sfcExactMatch, setSfcExactMatch] = useState(true);
   const [sfcTrainingRelated, setSfcTrainingRelated] = useState(true);
+  const [documentId, setDocumentId] = useState<string | null>(null);
+  const [documentItems, setDocumentItems] = useState<
+    Array<{ id: string; title: string; description: string }>
+  >([]);
 
   const [isMessagesLoaded, setIsMessagesLoaded] = useState(false);
   const [notFound, setNotFound] = useState(false);
 
-  const [chatModelProvider, setChatModelProvider] = useState<ChatModelProvider>(
-    {
-      key: '',
-      providerId: '',
-    },
-  );
-
-  const [embeddingModelProvider, setEmbeddingModelProvider] =
-    useState<EmbeddingModelProvider>({
-      key: '',
-      providerId: '',
-    });
-
-  const [availableProviders, setAvailableProviders] = useState<
-    MinimalProvider[]
-  >([]);
-  const [isConfigReady, setIsConfigReady] = useState(false);
-  const [hasError, setHasError] = useState(false);
+  const [isConfigReady] = useState(true);
+  const hasError = false;
   const [isReady, setIsReady] = useState(false);
 
   // Refs to avoid stale closures inside stable sendMessage
   const messagesRef = useRef<Message[]>([]);
   const chatHistoryRef = useRef(chatHistory);
-  const fileIdsRef = useRef(fileIds);
   const focusModeRef = useRef(focusMode);
   const optimizationModeRef = useRef(optimizationMode);
   const sfcExactMatchRef = useRef(sfcExactMatch);
   const sfcTrainingRelatedRef = useRef(sfcTrainingRelated);
-  const chatModelProviderRef = useRef(chatModelProvider);
-  const embeddingModelProviderRef = useRef(embeddingModelProvider);
+  const documentIdRef = useRef(documentId);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -534,10 +369,6 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     chatHistoryRef.current = chatHistory;
   }, [chatHistory]);
-
-  useEffect(() => {
-    fileIdsRef.current = fileIds;
-  }, [fileIds]);
 
   useEffect(() => {
     focusModeRef.current = focusMode;
@@ -556,12 +387,25 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   }, [sfcTrainingRelated]);
 
   useEffect(() => {
-    chatModelProviderRef.current = chatModelProvider;
-  }, [chatModelProvider]);
+    documentIdRef.current = documentId;
+  }, [documentId]);
 
   useEffect(() => {
-    embeddingModelProviderRef.current = embeddingModelProvider;
-  }, [embeddingModelProvider]);
+    if (focusMode !== 'agentDocument') return;
+    let cancelled = false;
+    fetch('/itms/ai/api/documents', { headers: getAuthHeaders() })
+      .then((res) => (res.ok ? res.json() : { items: [] }))
+      .then((data) => {
+        if (cancelled) return;
+        setDocumentItems(Array.isArray(data.items) ? data.items : []);
+      })
+      .catch(() => {
+        if (!cancelled) setDocumentItems([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [focusMode]);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const sendMessageRef = useRef<ChatContext['sendMessage'] | null>(null);
@@ -571,33 +415,19 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
+    setAgentProcess((prev) => applyProcessDone(prev));
   }, []);
 
   const clearProgress = useCallback(() => {
     setProgress(null);
   }, []);
 
-  const handleSetFocusMode = useCallback(
-    (mode: string) => {
-      setFocusMode(mode);
-      safeLocalStorageSet('focusMode', mode);
-
-      const targetModel = getPreferredModelByFocusMode(mode);
-      const foundProvider = availableProviders.find((p) =>
-        p.chatModels.some((m) => m.key === targetModel),
-      );
-
-      if (foundProvider) {
-        setChatModelProvider({
-          key: targetModel,
-          providerId: foundProvider.id,
-        });
-        safeLocalStorageSet('chatModelKey', targetModel);
-        safeLocalStorageSet('chatModelProviderId', foundProvider.id);
-      }
-    },
-    [availableProviders],
-  );
+  const handleSetFocusMode = useCallback((mode: string) => {
+    const resolved = resolveFocusMode(mode);
+    setFocusMode(resolved);
+    safeLocalStorageSet('focusMode', resolved);
+    setDocumentId(null);
+  }, []);
 
   const chatTurns = useMemo((): ChatTurn[] => {
     return messages.filter(
@@ -641,16 +471,9 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     );
   }, []);
 
-  // Initial boot: config + userId
+  // Initial boot: auth token only. Chat model comes from data/config.json on the server.
   useEffect(() => {
-    checkConfig({
-      setChatModelProvider,
-      setEmbeddingModelProvider,
-      setIsConfigReady,
-      setHasError,
-      setAvailableProviders,
-    });
-
+    initializeAuthToken(searchParams);
     const extractedUserId = extractUserIdFromToken();
     setUserId(extractedUserId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -662,11 +485,10 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       setChatId(params.chatId);
       setMessages([]);
       setChatHistory([]);
-      setFiles([]);
-      setFileIds([]);
       setIsMessagesLoaded(false);
       setNotFound(false);
       setNewChatCreated(false);
+      setDocumentId(null);
     }
   }, [params.chatId, chatId]);
 
@@ -685,12 +507,12 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         setIsMessagesLoaded,
         setChatHistory,
         setFocusMode: (m) => {
-          setFocusMode(m);
-          safeLocalStorageSet('focusMode', m);
+          const resolved = resolveFocusMode(m);
+          setFocusMode(resolved);
+          safeLocalStorageSet('focusMode', resolved);
         },
         setNotFound,
-        setFiles,
-        setFileIds,
+        setDocumentId,
       });
       return;
     }
@@ -748,13 +570,16 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     rewriteMode = false,
   ) => {
     if (loading || !message || !userId) return;
+    if (
+      focusModeRef.current === 'agentDocument' &&
+      !documentIdRef.current
+    ) {
+      return;
+    }
 
     setLoading(true);
     setMessageAppeared(false);
     clearProgress();
-    // Reset per-turn tool UI state so each request can re-open the panel on fresh events.
-    setToolExecution(null);
-    setToolExecutions([]);
 
     if (abortControllerRef.current) abortControllerRef.current.abort();
     const controller = new AbortController();
@@ -776,15 +601,17 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       },
     ]);
 
-    // Initialize progress immediately for agentSFC to avoid UI delay
+    let process = createInitialProcess(userMsgId);
     if (focusModeRef.current === 'agentSFC') {
       const isExact = sfcExactMatchRef.current;
+      const sfcMessage = isExact ? '正在檢索資料源…' : '正在分析問題…';
+      process = applyProgressMessage(process, sfcMessage) ?? process;
       setProgress({
         status: 'processing',
         total: isExact ? 1 : 2,
         current: 1,
         question: isExact ? '檢索資料源' : '正在分析問題',
-        message: isExact ? '正在檢索資料源…' : '正在分析問題…',
+        message: sfcMessage,
         tasks: [
           {
             id: 1,
@@ -794,9 +621,12 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         ],
       });
     }
+    setAgentProcess(process);
 
     let receivedMessage = '';
     let assistantAdded = false;
+    let assistantMsgId = '';
+    let completed = false;
 
     const handleProgress = (incoming: ProgressData) => {
       setProgress((prevProgress) => {
@@ -824,8 +654,11 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       if (data.type === 'error') {
         toast.error(data.data);
         setLoading(false);
+        setAgentProcess((prev) => applyProcessDone(prev));
         return;
       }
+
+      setAgentProcess((prev) => applySseProcessEvent(prev, data));
 
       if (data.type === 'progress') {
         handleProgress(data.data as ProgressData);
@@ -833,25 +666,6 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       if (data.type === 'tool_execution') {
-        setToolExecution(data.data);
-        setToolExecutions((prev) => {
-          const newExecutions = [...prev];
-          // Prefer stable id match so RUNNING → COMPLETED replaces one row
-          const existingIndex = newExecutions.findIndex((e) =>
-            data.data?.id
-              ? e.id === data.data.id
-              : e.id === data.data.id && e.name === data.data.name,
-          );
-          if (existingIndex !== -1) {
-            newExecutions[existingIndex] = {
-              ...newExecutions[existingIndex],
-              ...data.data,
-            };
-          } else {
-            newExecutions.push(data.data);
-          }
-          return newExecutions;
-        });
         return;
       }
 
@@ -861,23 +675,6 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         toast.error(
           `Tool execution failed: ${data.data.error || 'Unknown error'}`,
         );
-        const errorData = {
-          ...data.data,
-          resultPreview: data.data.error,
-        };
-        setToolExecution(errorData);
-        setToolExecutions((prev) => {
-          const newExecutions = [...prev];
-          const existingIndex = newExecutions.findIndex(
-            (e) => e.id === data.data.id && e.name === data.data.name
-          );
-          if (existingIndex !== -1) {
-            newExecutions[existingIndex] = errorData;
-          } else {
-            newExecutions.push(errorData);
-          }
-          return newExecutions;
-        });
         return;
       }
 
@@ -885,10 +682,6 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         toast.error(
           `Agent execution failed: ${data.data.error || 'Unknown error'}`,
         );
-        setToolExecution({
-          ...data.data,
-          resultPreview: data.data.error,
-        });
         setLoading(false);
         clearProgress();
         if (abortControllerRef.current) {
@@ -898,6 +691,10 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       if (data.type === 'sources') {
+        const sourceCount = Array.isArray(data.data) ? data.data.length : 0;
+        setAgentProcess((prev) =>
+          prev ? { ...prev, sourceCount } : prev,
+        );
         setMessages((prev) => [
           ...prev,
           {
@@ -913,6 +710,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       if (data.type === 'message') {
+        assistantMsgId = data.messageId;
         if (!assistantAdded) {
           ensureAssistantMessage(data.messageId);
           assistantAdded = true;
@@ -924,6 +722,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       if (data.type === 'messageEnd') {
+        completed = true;
         setChatHistory((prev) => [
           ...prev,
           ['human', message],
@@ -968,16 +767,15 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       (m) => m.messageId === userMsgId,
     );
 
+    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+    const onAbort = () => {
+      void reader?.cancel().catch(() => undefined);
+    };
+    controller.signal.addEventListener('abort', onAbort);
+
     try {
       const fm = focusModeRef.current;
       const stableAgentId = `sfc-chat-agent-${chatId}`;
-      const outgoingFiles =
-        fm === 'agentImage'
-          ? [
-              ...fileIdsRef.current,
-              `__AGENT_IMAGE_ASPECT__:${safeLocalStorageGet('agentImageAspect') || '1:1'}`,
-            ]
-          : fileIdsRef.current;
 
       const res = await fetch('/itms/ai/api/chat', {
         method: 'POST',
@@ -990,19 +788,17 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
           content: message,
           message: { messageId: userMsgId, chatId: chatId!, content: message },
           chatId: chatId!,
-          files: outgoingFiles,
           focusMode: fm,
           optimizationMode: optimizationModeRef.current,
           sfcExactMatch: sfcExactMatchRef.current,
           sfcTrainingRelated: sfcTrainingRelatedRef.current,
+          documentId: documentIdRef.current,
           history: rewriteMode
             ? chatHistoryRef.current.slice(
                 0,
                 messageIndex === -1 ? undefined : messageIndex,
               )
             : chatHistoryRef.current,
-          chatModel: chatModelProviderRef.current,
-          embeddingModel: embeddingModelProviderRef.current,
           systemInstructions: safeLocalStorageGet('systemInstructions'),
         }),
         signal: controller.signal,
@@ -1010,11 +806,15 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (!res.body) throw new Error('No response body');
 
-      const reader = res.body.getReader();
+      reader = res.body.getReader();
       const decoder = new TextDecoder('utf-8');
       let buffer = '';
 
       while (true) {
+        if (controller.signal.aborted) {
+          await reader.cancel().catch(() => undefined);
+          break;
+        }
         const { value, done } = await reader.read();
         if (done) break;
 
@@ -1028,18 +828,51 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         }
       }
 
-      if (buffer.trim()) {
+      if (buffer.trim() && !controller.signal.aborted) {
         await messageHandler(JSON.parse(buffer));
       }
     } catch (err: any) {
       if (err?.name === 'AbortError' || controller.signal.aborted) {
-        // ignore aborted request
+        // User clicked Stop — finalize below like pi-rag.
       } else {
         console.error('SendMessage error:', err);
         throw err;
       }
     } finally {
+      controller.signal.removeEventListener('abort', onAbort);
+      if (controller.signal.aborted && !completed) {
+        const content = assistantContentAfterAbort(receivedMessage);
+        const msgId = assistantMsgId || crypto.randomBytes(7).toString('hex');
+        if (!assistantAdded) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              content,
+              messageId: msgId,
+              chatId: chatId!,
+              role: 'assistant',
+              createdAt: new Date(),
+            },
+          ]);
+        } else if (!receivedMessage.trim()) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.role === 'assistant' && m.messageId === msgId
+                ? { ...m, content }
+                : m,
+            ),
+          );
+        }
+        setChatHistory((prev) => [
+          ...prev,
+          ['human', message],
+          ['assistant', content],
+        ]);
+      }
       setLoading(false);
+      setAgentProcess((prev) =>
+        prev?.status === 'running' ? applyProcessDone(prev) : prev,
+      );
     }
   };
 
@@ -1057,8 +890,6 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       chatTurns,
       sections,
       chatHistory,
-      files,
-      fileIds,
       focusMode,
       chatId,
       userId,
@@ -1070,24 +901,18 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       notFound,
       optimizationMode,
       progress,
-      toolExecution,
-      toolExecutions,
+      agentProcess,
       sfcExactMatch,
       setSfcExactMatch,
       sfcTrainingRelated,
       setSfcTrainingRelated,
-      setFileIds,
-      setFiles,
       setFocusMode: handleSetFocusMode,
       setOptimizationMode,
-      setToolExecution,
-      setToolExecutions,
+      documentId,
+      setDocumentId,
+      documentItems,
       rewrite,
       sendMessage,
-      setChatModelProvider,
-      chatModelProvider,
-      embeddingModelProvider,
-      setEmbeddingModelProvider,
       stop,
       clearProgress,
     }),
@@ -1096,8 +921,6 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       chatTurns,
       sections,
       chatHistory,
-      files,
-      fileIds,
       focusMode,
       chatId,
       userId,
@@ -1109,16 +932,14 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       notFound,
       optimizationMode,
       progress,
-      toolExecution,
+      agentProcess,
       sfcExactMatch,
       sfcTrainingRelated,
+      documentId,
+      documentItems,
       handleSetFocusMode,
       rewrite,
       sendMessage,
-      setChatModelProvider,
-      chatModelProvider,
-      embeddingModelProvider,
-      setEmbeddingModelProvider,
       stop,
       clearProgress,
     ],

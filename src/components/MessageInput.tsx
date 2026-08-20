@@ -5,10 +5,6 @@ import TextareaAutosize from 'react-textarea-autosize';
 import { useChat } from '@/lib/hooks/useChat';
 import { focusModes } from '@/lib/agents';
 import SfcExactMatchToggle from './SfcExactMatchToggle';
-// import SfcTrainingRelatedToggle from './SfcTrainingRelatedToggle';
-
-const ASPECT_KEY = 'agentImageAspect';
-const DEFAULT_ASPECT = '1:1';
 
 const MessageInput = memo(function MessageInput() {
   const {
@@ -17,14 +13,10 @@ const MessageInput = memo(function MessageInput() {
     stop,
     focusMode,
     sfcExactMatch,
-    setToolExecution,
+    documentId,
   } = useChat();
 
   const [message, setMessage] = useState('');
-  const [aspect, setAspect] = useState<string>(() => {
-    if (typeof window === 'undefined') return DEFAULT_ASPECT;
-    return localStorage.getItem(ASPECT_KEY) || DEFAULT_ASPECT;
-  });
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -36,24 +28,17 @@ const MessageInput = memo(function MessageInput() {
     return base;
   }, [focusMode, sfcExactMatch]);
 
-  const persistAspectIfNeeded = useCallback(() => {
-    if (typeof window === 'undefined') return;
-    if (focusMode !== 'agentImage') return;
-    localStorage.setItem(ASPECT_KEY, aspect);
-  }, [focusMode, aspect]);
-
   const submit = useCallback(() => {
     if (loading) return;
+    if (focusMode === 'agentDocument' && !documentId) return;
 
     const content = message.trim();
     if (!content) return;
 
-    persistAspectIfNeeded();
     sendMessage(content);
-    setToolExecution?.(null); // This assumes useChat context is updated to expose setToolExecution
     setMessage('');
     inputRef.current?.focus();
-  }, [loading, message, persistAspectIfNeeded, sendMessage]);
+  }, [loading, message, sendMessage, focusMode, documentId]);
 
   // Global shortcut: press "/" to focus textarea when not typing in an input
   useEffect(() => {
@@ -104,7 +89,10 @@ const MessageInput = memo(function MessageInput() {
     [loading, stop, submit],
   );
 
-  const disabled = !loading && message.trim().length === 0;
+  const documentBlocked = focusMode === 'agentDocument' && !documentId;
+  const disabled =
+    (!loading && message.trim().length === 0) ||
+    (!loading && documentBlocked);
 
   return (
     <form
@@ -124,24 +112,6 @@ const MessageInput = memo(function MessageInput() {
 
       <div className="flex flex-row items-center justify-end mt-4 gap-3">
         <SfcExactMatchToggle />
-        {/* <SfcTrainingRelatedToggle /> */}
-
-        {focusMode === 'agentImage' && (
-          <select
-            value={aspect}
-            onChange={(e) => setAspect(e.target.value)}
-            className="mx-2 rounded-lg border border-light-200 dark:border-dark-200 bg-light-primary dark:bg-dark-primary text-sm px-2 py-1 text-black dark:text-white"
-          >
-            <option value="1:1">1:1</option>
-            <option value="16:9">16:9</option>
-            <option value="9:16">9:16</option>
-            <option value="4:3">4:3</option>
-            <option value="3:2">3:2</option>
-            <option value="594:295">594:295</option>
-            <option value="295:295">295:295</option>
-            <option value="952:320">952:320</option>
-          </select>
-        )}
 
         <button
           disabled={disabled}

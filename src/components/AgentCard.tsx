@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import { UsersRound } from 'lucide-react';
 
 const AgentCard = () => {
-  const { focusMode } = useChat();
+  const { focusMode, documentId, documentItems } = useChat();
 
   // Find the current focus mode details
   const currentFocusMode = focusModes.find((mode) => mode.key === focusMode) || {
@@ -16,6 +16,10 @@ const AgentCard = () => {
     icon: UsersRound,
     image: '/itms/ai/agent_sfc.png',
   };
+  const selectedDocument = documentItems.find((item) => item.id === documentId);
+  const description = selectedDocument
+    ? `${selectedDocument.title} — ${selectedDocument.description}`
+    : currentFocusMode.description;
 
   return (
     <motion.div
@@ -43,7 +47,7 @@ const AgentCard = () => {
             {currentFocusMode.title}
           </h3>
           <p className="text-sm text-black/60 dark:text-white/60 leading-snug mt-1">
-            {currentFocusMode.description}
+            {description}
           </p>
         </div>
       </div>
