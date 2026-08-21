@@ -1,26 +1,16 @@
 'use client';
 
 import { cn } from '@/lib/utils';
+import { getAuthHeaders, initializeAuthToken } from '@/lib/utils/auth';
 import {
   BookOpenText,
-  Home,
-  Search,
-  SquarePen,
-  Settings,
-  Plus,
-  ArrowLeft,
   LayoutGrid,
+  Shield,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useSelectedLayoutSegments } from 'next/navigation';
-import React, { useState, type ReactNode } from 'react';
+import { useSearchParams, useSelectedLayoutSegments } from 'next/navigation';
+import React, { useEffect, useState, type ReactNode } from 'react';
 import Layout from './Layout';
-import {
-  Description,
-  Dialog,
-  DialogPanel,
-  DialogTitle,
-} from '@headlessui/react';
 
 const VerticalIconContainer = ({ children }: { children: ReactNode }) => {
   return <div className="flex flex-col items-center w-full">{children}</div>;
@@ -28,15 +18,32 @@ const VerticalIconContainer = ({ children }: { children: ReactNode }) => {
 
 const Sidebar = ({ children }: { children: React.ReactNode }) => {
   const segments = useSelectedLayoutSegments();
-  const [isOpen, setIsOpen] = useState<boolean>(true);
+  const searchParams = useSearchParams();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    initializeAuthToken(searchParams);
+
+    const loadAdmin = async () => {
+      try {
+        const response = await fetch('/itms/ai/api/permissions', {
+          headers: getAuthHeaders(),
+        });
+        if (!response.ok) {
+          setIsAdmin(false);
+          return;
+        }
+        const data = await response.json();
+        setIsAdmin(data.isAdmin === true);
+      } catch {
+        setIsAdmin(false);
+      }
+    };
+
+    void loadAdmin();
+  }, [searchParams]);
 
   const navLinks = [
-    // {
-    //   icon: Home,
-    //   href: '/',
-    //   active: segments.length === 0 || segments.includes('c'),
-    //   label: 'Home',
-    // },
     {
       icon: LayoutGrid,
       href: '/agents',
@@ -49,18 +56,22 @@ const Sidebar = ({ children }: { children: React.ReactNode }) => {
       active: segments.includes('library'),
       label: 'History',
     },
+    ...(isAdmin
+      ? [
+          {
+            icon: Shield,
+            href: '/admin',
+            active: segments.includes('admin'),
+            label: 'Admin',
+          },
+        ]
+      : []),
   ];
 
   return (
     <div>
       <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-[72px] lg:flex-col border-r border-light-200 dark:border-dark-200">
         <div className="flex grow flex-col items-center gap-y-5 overflow-y-auto py-8 shadow-sm shadow-light-200/10 dark:shadow-black/25" style={{ backgroundColor: '#0071CD' }}>
-          {/* <a
-            className="p-2.5 rounded-full bg-light-200 text-black/70 dark:bg-dark-200 dark:text-white/70 hover:opacity-70 hover:scale-105 tansition duration-200"
-            href="/"
-          >
-            <Plus size={19} className="cursor-pointer" />
-          </a> */}
           <div className="flex-1 flex items-center w-full">
             <VerticalIconContainer>
               {navLinks.map((link, i) => (
