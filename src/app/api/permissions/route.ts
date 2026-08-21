@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prismaSecondary } from '@/lib/postgres/db';
+import { isAdminUser } from '@/lib/auth/isAdminUser';
 
 export async function GET(request: NextRequest) {
   try {
-    // Get userId from middleware (verified from token)
     const userId = request.headers.get('x-user-id');
 
     if (!userId) {
@@ -13,7 +13,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Query permissions for the user
     const permissions = await prismaSecondary.$queryRawUnsafe<
       { cap_permission_code: string }[]
     >(
@@ -26,17 +25,20 @@ export async function GET(request: NextRequest) {
           'chatSfcAgent:execute',
           'chatGuideAgent:execute',
           'chatSurveyAgent:execute',
-          'chatDocumentAgent:execute'
+          'chatDocumentAgent:execute',
+          'chatVoiceAgent:execute'
         ) 
         AND cu.id = $1
       `,
       parseInt(userId),
     );
 
-    // Extract permission codes
     const permissionCodes = permissions.map((p) => p.cap_permission_code);
 
-    return NextResponse.json({ permissions: permissionCodes });
+    return NextResponse.json({
+      permissions: permissionCodes,
+      isAdmin: isAdminUser(userId),
+    });
   } catch (error) {
     console.error('Error fetching permissions:', error);
     return NextResponse.json(
