@@ -8,23 +8,25 @@ const PROTECTED_ROUTES = [
   '/api/chats',
   '/api/permissions',
   '/api/documents',
+  '/api/voice',
+  '/api/admin',
 ];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  
+
   // Check if this route needs authentication
-  const isProtectedRoute = PROTECTED_ROUTES.some(route => 
-    pathname.startsWith(route)
+  const isProtectedRoute = PROTECTED_ROUTES.some((route) =>
+    pathname.startsWith(route),
   );
-  
+
   if (!isProtectedRoute) {
     return NextResponse.next();
   }
 
   // Extract token from Authorization header or query parameter
   let token = request.headers.get('Authorization')?.replace('Bearer ', '');
-  
+
   // Fallback: check query parameter for initial page load
   if (!token) {
     token = request.nextUrl.searchParams.get('token') || undefined;
@@ -33,18 +35,18 @@ export async function middleware(request: NextRequest) {
   if (!token) {
     return NextResponse.json(
       { error: 'Authentication token required' },
-      { status: 401 }
+      { status: 401 },
     );
   }
 
   try {
     // Verify token and extract userId (using Edge Runtime-compatible version)
     const verified = await verifyTokenEdge(token);
-    
+
     // Add verified userId to request headers for API routes to use
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set('x-user-id', verified.userId);
-    
+
     return NextResponse.next({
       request: {
         headers: requestHeaders,
@@ -53,7 +55,7 @@ export async function middleware(request: NextRequest) {
   } catch (error) {
     return NextResponse.json(
       { error: 'Invalid or expired authentication token' },
-      { status: 401 }
+      { status: 401 },
     );
   }
 }
@@ -67,5 +69,7 @@ export const config = {
     '/api/permissions/:path*',
     '/api/documents/:path*',
     '/api/documents',
+    '/api/voice/:path*',
+    '/api/admin/:path*',
   ],
 };
