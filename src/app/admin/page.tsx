@@ -1,11 +1,11 @@
 'use client';
 
-import { cn, formatTimeDifference } from '@/lib/utils';
+import { formatTimeDifference } from '@/lib/utils';
 import {
   getAuthHeaders,
   initializeAuthToken,
 } from '@/lib/utils/auth';
-import { ClockIcon, Shield, User } from 'lucide-react';
+import { Shield } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { focusModes } from '@/lib/agents';
@@ -117,56 +117,65 @@ const Page = () => {
         </div>
         <hr className="border-t border-[#2B2C2C] my-4 w-full" />
       </div>
-      {error && (
-        <p className="text-red-500 text-sm">{error}</p>
-      )}
-      {!error && chats.length === 0 && (
-        <div className="flex flex-row items-center justify-center min-h-screen">
-          <p className="text-black/70 dark:text-white/70 text-sm">
-            No chats found.
-          </p>
-        </div>
-      )}
-      {chats.length > 0 && (
-        <div className="flex flex-col pb-20 lg:pb-2">
-          {chats.map((chat, i) => {
-            const agent = focusModes.find((m) => m.key === chat.focusMode);
-            return (
-              <div
-                className={cn(
-                  'flex flex-col space-y-4 py-6',
-                  i !== chats.length - 1
-                    ? 'border-b border-white-200 dark:border-dark-200'
-                    : '',
-                )}
-                key={chat.id}
-              >
-                <p className="text-black dark:text-white lg:text-xl font-medium truncate">
-                  {chat.title}
-                </p>
-                <div className="flex flex-row items-center justify-between w-full">
-                  <div className="flex flex-row items-center space-x-4">
-                    {agent && (
-                      <div className="flex flex-row items-center space-x-1 lg:space-x-1.5 text-black/70 dark:text-white/70">
-                        <agent.icon size={15} />
-                        <p className="text-xs">{agent.title}</p>
-                      </div>
-                    )}
-                    <div className="flex flex-row items-center space-x-1 lg:space-x-1.5 text-black/70 dark:text-white/70">
-                      <User size={15} />
-                      <p className="text-xs">{chat.userId}</p>
-                    </div>
-                    <div className="flex flex-row items-center space-x-1 lg:space-x-1.5 text-black/70 dark:text-white/70">
-                      <ClockIcon size={15} />
-                      <p className="text-xs">
+      {error && <p className="text-red-500 text-sm">{error}</p>}
+      {!error && (
+        <div className="overflow-x-auto pb-20 lg:pb-2">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-light-200 bg-light-secondary text-black/70 dark:border-dark-200 dark:bg-dark-secondary dark:text-white/70">
+                <th className="px-3 py-2.5 text-left font-semibold">Title</th>
+                <th className="whitespace-nowrap px-3 py-2.5 text-left font-semibold">
+                  User
+                </th>
+                <th className="whitespace-nowrap px-3 py-2.5 text-left font-semibold">
+                  Agent
+                </th>
+                <th className="whitespace-nowrap px-3 py-2.5 text-left font-semibold">
+                  Time
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {chats.length === 0 ? (
+                <tr>
+                  <td
+                    className="px-3 py-8 text-center text-black/70 dark:text-white/70"
+                    colSpan={4}
+                  >
+                    No chats found.
+                  </td>
+                </tr>
+              ) : (
+                chats.map((chat) => {
+                  const agent = focusModes.find(
+                    (m) => m.key === chat.focusMode,
+                  );
+                  return (
+                    <tr
+                      key={chat.id}
+                      className="border-b border-light-200 dark:border-dark-200"
+                    >
+                      <td className="max-w-xl truncate px-3 py-2.5 font-medium text-black dark:text-white">
+                        {chat.title}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-black/70 dark:text-white/70">
+                        {chat.userId}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-black/70 dark:text-white/70">
+                        <span className="inline-flex items-center gap-1.5">
+                          {agent ? <agent.icon size={15} /> : null}
+                          {agent?.title ?? chat.focusMode}
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-black/70 dark:text-white/70">
                         {formatTimeDifference(new Date(), chat.createdAt)} Ago
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

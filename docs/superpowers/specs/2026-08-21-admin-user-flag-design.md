@@ -15,7 +15,7 @@ Operators name admin users in this app’s config. Those users see an Admin tab 
 3. `GET /api/permissions` returns `{ permissions, isAdmin }` for the current user.
 4. `GET /api/config` never includes `adminUserIds`. `POST /api/config` cannot change that key.
 5. Sidebar shows **Admin** after Agents and History only when `isAdmin === true` (desktop and mobile).
-6. `/admin` lists all chats newest-first. Rows are not links. No delete. Direct visit by a non-admin redirects to `/agents`.
+6. `/admin` lists all chats newest-first in a table (title, userId, agent, time). Rows are not links. No delete. Direct visit by a non-admin redirects to `/agents`.
 
 ### 1.2 Non-goals
 
@@ -142,9 +142,9 @@ Existing clients that only read `permissions` keep working.
   1. `GET /itms/ai/api/permissions`. If not ok or `isAdmin !== true`, `router.replace('/agents')`.
   2. Else `GET /itms/ai/api/admin/chats`. 403 → replace `/agents`. Other errors → inline error text.
   Browser fetches keep the `/itms/ai` prefix, matching Agents and History. Server route files stay under `src/app/api/...` (Next strips `basePath`).
-- Visual copy of History (`src/app/library/page.tsx`): heading **Admin**, list of title, agent icon/name from `focusModes`, relative time, plus `userId` in the meta row.
-- Title is plain text, not a `Link` to `/c/{id}`.
-- No `DeleteChat`.
+- Heading **Admin**, then a table of all chats: **Title**, **User**, **Agent**, **Time**. Agent is icon + name from `focusModes` (fallback: `focusMode` key). Time is relative, same as History.
+- Title is plain text, not a `Link` to `/c/{id}`. Rows are not clickable.
+- No `DeleteChat`. Empty list shows one table row: “No chats found.”
 
 ---
 
