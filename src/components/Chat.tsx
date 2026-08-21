@@ -5,6 +5,7 @@ import MessageInput from './MessageInput';
 import MessageBox from './MessageBox';
 import MessageBoxLoading from './MessageBoxLoading';
 import { useChat } from '@/lib/hooks/useChat';
+import WritingFileBrowser from './WritingFileBrowser';
 
 const Chat = () => {
   const {
@@ -15,6 +16,7 @@ const Chat = () => {
     progress,
     rewrite,
     agentProcess,
+    focusMode,
   } = useChat();
 
   const columnRef = useRef<HTMLDivElement | null>(null);
@@ -67,6 +69,11 @@ const Chat = () => {
 
   return (
     <div className="wiki-chat">
+      {focusMode === 'agentWriting' ? (
+        <div className="writing-file-browser-chat">
+          <WritingFileBrowser />
+        </div>
+      ) : null}
       <div ref={columnRef} className="message-list">
         {sections.map((section, i) => {
           const isLast = i === sections.length - 1;

@@ -1,4 +1,5 @@
 import { streamSimple } from '@earendil-works/pi-ai';
+import { DEFAULT_CHAT_MODEL_ID } from '../../../models/configuredChatModel';
 
 export type PiModelConfig = {
   modelId: string;
@@ -37,7 +38,7 @@ export type PiModelBundle = {
   getApiKey: () => string | undefined;
 };
 
-const DEFAULT_MODEL_ID = 'gpt-3.5-turbo';
+const DEFAULT_MODEL_ID = DEFAULT_CHAT_MODEL_ID;
 
 export function buildPiModelFromConfig(config: PiModelConfig): PiModel {
   const id = (config.modelId || '').trim() || DEFAULT_MODEL_ID;

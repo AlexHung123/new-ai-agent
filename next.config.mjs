@@ -15,6 +15,7 @@ const nextConfig = {
     '@earendil-works/pi-agent-core',
     '@earendil-works/pi-ai',
     'better-sqlite3',
+    '@firecrawl/anydoc',
   ],
 };
 

@@ -9,6 +9,7 @@ import { RAG_SURVEY_CHAT_SYSTEM_PROMPT } from '../prompts/ragSurveyChatSystemPro
 import { WRITING_AGENT_SYSTEM_PROMPT } from '../prompts/writingAgentSystemPrompt';
 import { DOCUMENT_AGENT_SYSTEM_PROMPT } from '../prompts/documentAgentSystemPrompt';
 import { getDocumentTurnContext } from '../runtime/documentTurnContext';
+import { getWritingTurnContext } from '../runtime/writingTurnContext';
 import { createAgentFsTools } from '../tools/fs/fsTools';
 import { createPiRuntime } from '../runtime/createPiRuntime';
 import { createPgAgentTranscriptStoreFromUrl } from '../runtime/agentTranscriptStore';
@@ -32,7 +33,8 @@ function initSharedAgentDependencies() {
   const surveySearchTools = createSurveySearchTools();
   const fsTools = createAgentFsTools({
     isAdmin: true,
-    getProjectRootAbs: () => getDocumentTurnContext()?.rootAbs,
+    getProjectRootAbs: () =>
+      getWritingTurnContext()?.rootAbs ?? getDocumentTurnContext()?.rootAbs,
   });
 
   const tools: Record<string, NamedTool> = {
@@ -70,7 +72,7 @@ function initSharedAgentDependencies() {
     'writing-agent-template': {
       id: 'writing-agent-template',
       systemPrompt: WRITING_AGENT_SYSTEM_PROMPT,
-      tools: [],
+      tools: ['fs_ls', 'fs_read', 'fs_grep', 'fs_find'],
     },
     'document-agent-template': {
       id: 'document-agent-template',

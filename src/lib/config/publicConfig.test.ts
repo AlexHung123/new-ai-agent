@@ -6,6 +6,7 @@ describe('publicConfigValues', () => {
     const input = {
       version: 1,
       adminUserIds: ['1', '42'],
+      bypassPermissionCheck: true,
       preferences: { theme: 'dark' },
       personalization: { systemInstructions: 'be brief' },
     };
@@ -18,7 +19,9 @@ describe('publicConfigValues', () => {
       personalization: { systemInstructions: 'be brief' },
     });
     expect(published).not.toHaveProperty('adminUserIds');
+    expect(published).not.toHaveProperty('bypassPermissionCheck');
     expect(input.adminUserIds).toEqual(['1', '42']);
+    expect(input.bypassPermissionCheck).toBe(true);
     expect(published.preferences).not.toBe(input.preferences);
   });
 });
@@ -29,5 +32,10 @@ describe('isForbiddenConfigKey', () => {
     expect(isForbiddenConfigKey('adminUserIds.0')).toBe(true);
     expect(isForbiddenConfigKey('theme')).toBe(false);
     expect(isForbiddenConfigKey('preferences.theme')).toBe(false);
+  });
+
+  it('blocks bypassPermissionCheck and nested paths', () => {
+    expect(isForbiddenConfigKey('bypassPermissionCheck')).toBe(true);
+    expect(isForbiddenConfigKey('bypassPermissionCheck.enabled')).toBe(true);
   });
 });

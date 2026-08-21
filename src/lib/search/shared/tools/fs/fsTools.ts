@@ -92,7 +92,7 @@ function matchGlob(name: string, pattern: string): boolean {
 
 function noRootResult(tool: string) {
   const message =
-    'No document folder bound for this turn. Open a Document Agent chat and select a file.';
+    'No folder bound for this turn.';
   return {
     content: [{ type: 'text' as const, text: message }],
     details: { ok: false, path: tool, message, skipped: true },

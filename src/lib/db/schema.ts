@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { integer, jsonb, pgTable, serial, text } from 'drizzle-orm/pg-core';
+import { index, integer, jsonb, pgTable, serial, text } from 'drizzle-orm/pg-core';
 import { Document } from '@langchain/core/documents';
 
 export const messages = pgTable('messages', {
@@ -17,10 +17,16 @@ export const messages = pgTable('messages', {
     .default(sql`'[]'::jsonb`),
 });
 
-interface File {
+export type ChatFile = {
   name: string;
   fileId: string;
-}
+  status?: 'ready' | 'failed';
+  relDir?: string;
+  parts?: number;
+  charCount?: number;
+  format?: string;
+  error?: string;
+};
 
 export const chats = pgTable('chats', {
   id: text('id').primaryKey(),
@@ -30,9 +36,30 @@ export const chats = pgTable('chats', {
   focusMode: text('focusMode').notNull(),
   documentId: text('documentId'),
   files: jsonb('files')
-    .$type<File[]>()
+    .$type<ChatFile[]>()
     .default(sql`'[]'::jsonb`),
 });
+
+export const userFiles = pgTable(
+  'user_files',
+  {
+    id: text('id').primaryKey(),
+    userId: text('userId').notNull(),
+    name: text('name').notNull(),
+    mimeType: text('mimeType'),
+    sizeBytes: integer('sizeBytes').notNull().default(0),
+    status: text('status').notNull(),
+    format: text('format'),
+    relDir: text('relDir'),
+    parts: integer('parts').notNull().default(0),
+    charCount: integer('charCount').notNull().default(0),
+    error: text('error'),
+    createdAt: text('createdAt').notNull(),
+  },
+  (table) => ({
+    userIdIdx: index('user_files_userId_idx').on(table.userId),
+  }),
+);
 
 export const sfcQuestionM = pgTable('sfc_question_m', {
   id: integer('id').primaryKey(),

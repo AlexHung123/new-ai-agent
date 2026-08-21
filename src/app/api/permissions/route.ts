@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prismaSecondary } from '@/lib/postgres/db';
+import {
+  allAgentPermissionCodes,
+  readBypassPermissionCheck,
+} from '@/lib/auth/bypassPermissionCheck';
 import { isAdminUser } from '@/lib/auth/isAdminUser';
 
 export async function GET(request: NextRequest) {
@@ -13,27 +16,33 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const permissions = await prismaSecondary.$queryRawUnsafe<
-      { cap_permission_code: string }[]
-    >(
-      `
+    let permissionCodes: string[];
+
+    if (readBypassPermissionCheck()) {
+      permissionCodes = allAgentPermissionCodes();
+    } else {
+      const { prismaSecondary } = await import('@/lib/postgres/db');
+      const codes = allAgentPermissionCodes();
+      const placeholders = codes
+        .map((_, index) => `$${index + 2}`)
+        .join(', ');
+      const permissions = await prismaSecondary.$queryRawUnsafe<
+        { cap_permission_code: string }[]
+      >(
+        `
         SELECT cap_permission_code
         FROM cap_user cu 
         INNER JOIN cap_user_role_m curm ON cu.id = curm.cap_user_id 
         INNER JOIN cap_role_permission_m crpm ON crpm.cap_role_id = curm.cap_role_id 
-        WHERE crpm.cap_permission_code IN (
-          'chatSfcAgent:execute',
-          'chatGuideAgent:execute',
-          'chatSurveyAgent:execute',
-          'chatDocumentAgent:execute',
-          'chatVoiceAgent:execute'
-        ) 
+        WHERE crpm.cap_permission_code IN (${placeholders}) 
         AND cu.id = $1
       `,
-      parseInt(userId),
-    );
+        parseInt(userId),
+        ...codes,
+      );
 
-    const permissionCodes = permissions.map((p) => p.cap_permission_code);
+      permissionCodes = permissions.map((p) => p.cap_permission_code);
+    }
 
     return NextResponse.json({
       permissions: permissionCodes,

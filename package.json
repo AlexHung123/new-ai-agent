@@ -17,6 +17,7 @@
   "dependencies": {
     "@earendil-works/pi-agent-core": "^0.74.2",
     "@earendil-works/pi-ai": "^0.74.2",
+    "@firecrawl/anydoc": "^0.2.3",
     "@headlessui/react": "^2.2.0",
     "@headlessui/tailwindcss": "^0.2.2",
     "@langchain/core": "^1.0.1",

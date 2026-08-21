@@ -18,13 +18,13 @@ describe('buildPiModelFromConfig', () => {
     expect(model.compat?.maxTokensField).toBe('max_tokens');
   });
 
-  it('falls back to gpt-3.5-turbo when modelId is empty', () => {
+  it('falls back to the local Ornith model when modelId is empty', () => {
     const model = buildPiModelFromConfig({
       modelId: '',
       apiKey: '',
       baseUrl: 'http://gw:8000',
     });
-    expect(model.id).toBe('gpt-3.5-turbo');
+    expect(model.id).toBe('Ornith-1.5-35B-A3B-MLX-4bit');
   });
 });
 

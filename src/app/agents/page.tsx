@@ -3,18 +3,25 @@
 import { useChat } from '@/lib/hooks/useChat';
 import Image from 'next/image';
 import { focusModes } from '@/lib/agents';
+import {
+  filterFocusModesByPermissions,
+  shouldAttemptTestLogin,
+  type AgentAccessError,
+} from '@/lib/auth/agentAccess';
 import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { initializeAuthToken, getAuthHeaders } from '@/lib/utils/auth';
 
+const TEST_LOGIN_HREF = '/itms/ai/test-login';
+
 const AgentsPage = () => {
   const { setFocusMode } = useChat();
   const searchParams = useSearchParams();
-  const [userPermissions, setUserPermissions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [filteredModes, setFilteredModes] = useState(focusModes);
+  const [accessError, setAccessError] = useState<AgentAccessError | null>(null);
   const [tokenReady, setTokenReady] = useState(false);
 
   // Initialize token from URL on component mount
@@ -30,10 +37,28 @@ const AgentsPage = () => {
     }
 
     const fetchPermissions = async () => {
+      let redirecting = false;
       try {
         const response = await fetch(`/itms/ai/api/permissions`, {
           headers: getAuthHeaders(),
         });
+
+        if (
+          shouldAttemptTestLogin({
+            permissionStatus: response.status,
+            tokenInUrl: Boolean(searchParams.get('token')),
+          })
+        ) {
+          redirecting = true;
+          window.location.replace(TEST_LOGIN_HREF);
+          return;
+        }
+
+        if (response.status === 401) {
+          setAccessError('unauthenticated');
+          setFilteredModes([]);
+          return;
+        }
 
         if (!response.ok) {
           console.error(
@@ -41,37 +66,32 @@ const AgentsPage = () => {
             response.status,
             response.statusText,
           );
-          setUserPermissions([]);
+          setAccessError('error');
           setFilteredModes([]);
           return;
         }
 
         const data = await response.json();
-        setUserPermissions(data.permissions || []);
-
-        // Filter agents based on permissions
-        const filtered = focusModes.filter((mode) => {
-          if (!mode.permissionCode) {
-            return true; // Show agents without permission requirements
-          }
-          return data.permissions?.includes(mode.permissionCode);
-        });
-
-        console.log('Filtered modes:', filtered);
+        const filtered = filterFocusModesByPermissions(
+          focusModes,
+          data.permissions,
+        );
 
         setFilteredModes(filtered);
+        setAccessError(filtered.length === 0 ? 'empty' : null);
       } catch (error) {
         console.error('Error fetching permissions:', error);
-        // On error, set permissions to empty array and show no agents
-        setUserPermissions([]);
+        setAccessError('error');
         setFilteredModes([]);
       } finally {
-        setLoading(false);
+        if (!redirecting) {
+          setLoading(false);
+        }
       }
     };
 
     fetchPermissions();
-  }, [tokenReady]);
+  }, [tokenReady, searchParams]);
 
   const handleSelect = (key: string) => {
     const mode = focusModes.find((item) => item.key === key);
@@ -112,15 +132,34 @@ const AgentsPage = () => {
   }
 
   if (filteredModes.length === 0) {
+    const title =
+      accessError === 'unauthenticated'
+        ? 'Sign in required'
+        : accessError === 'error'
+          ? 'Could not load agents'
+          : 'No agents available for your account.';
+    const detail =
+      accessError === 'unauthenticated'
+        ? 'Open this app from iTMS with a valid token, or continue as a test user.'
+        : accessError === 'error'
+          ? 'The permission service did not respond. Try again in a moment.'
+          : 'Please contact your administrator for access.';
+
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <p className="text-xl text-black/60 dark:text-white/60">
-            No agents available for your account.
-          </p>
+          <p className="text-xl text-black/60 dark:text-white/60">{title}</p>
           <p className="mt-2 text-sm text-black/40 dark:text-white/40">
-            Please contact your administrator for access.
+            {detail}
           </p>
+          {accessError === 'unauthenticated' ? (
+            <a
+              href={TEST_LOGIN_HREF}
+              className="mt-6 inline-flex rounded-full bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              Continue as test user
+            </a>
+          ) : null}
         </div>
       </div>
     );

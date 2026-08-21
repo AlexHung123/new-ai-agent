@@ -24,6 +24,8 @@ import {
   runWithDocumentTurn,
   type DocumentTurnContext,
 } from '@/lib/search/shared/runtime/documentTurnContext';
+import { runWithWritingTurn } from '@/lib/search/shared/runtime/writingTurnContext';
+import { ensureUserWritingWorkspace } from '@/lib/writing/userFiles';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -231,12 +233,24 @@ export const POST = async (req: Request) => {
         req,
       );
 
-    const stream =
-      bound.status === 'ok' && !documentTurn
-        ? unavailableDocumentEmitter()
-        : documentTurn
-          ? await runWithDocumentTurn(documentTurn, runSearch)
-          : await runSearch();
+    let stream;
+    if (bound.status === 'ok' && !documentTurn) {
+      stream = unavailableDocumentEmitter();
+    } else if (documentTurn) {
+      stream = await runWithDocumentTurn(documentTurn, runSearch);
+    } else if (body.focusMode === 'agentWriting') {
+      const writing = await ensureUserWritingWorkspace(userId);
+      stream = await runWithWritingTurn(
+        {
+          userId,
+          rootAbs: writing.rootAbs,
+          files: writing.files,
+        },
+        runSearch,
+      );
+    } else {
+      stream = await runSearch();
+    }
 
     const responseStream = new TransformStream();
     const writer = responseStream.writable.getWriter();

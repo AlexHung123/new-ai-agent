@@ -7,7 +7,10 @@ import eventEmitter from 'events';
 import { MetaSearchAgentType } from './metaSearchAgent';
 import { streamAgentProgressToEmitter } from '../utils/agentStream';
 import { getSharedAgentContext } from './shared/agent/getSharedAgentContext';
+import { buildWritingUserPrompt } from './shared/prompts/writingTurnPrefix';
 import { safeJson } from './shared/utils/safeJson';
+
+const FS_TOOLS = ['fs_ls', 'fs_read', 'fs_grep', 'fs_find'];
 
 export default class WritingAgent implements MetaSearchAgentType {
   async searchAndAnswer(
@@ -58,10 +61,9 @@ export default class WritingAgent implements MetaSearchAgentType {
         const stableAgentId =
           harnessAgentManager.normalizeAgentId(requestAgentId);
 
-        // No tools — general writing assistant via dedicated template.
         const agent = await harnessAgentManager.getOrCreateAgent(
           stableAgentId,
-          [],
+          FS_TOOLS,
           'writing-agent-template',
         );
 
@@ -83,7 +85,7 @@ export default class WritingAgent implements MetaSearchAgentType {
               /* ignore */
             }
           } else {
-            await agent.prompt(message);
+            await agent.prompt(buildWritingUserPrompt(message));
           }
           await subscriptionPromise;
         } finally {

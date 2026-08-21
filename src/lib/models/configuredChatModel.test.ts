@@ -16,13 +16,23 @@ describe('resolveConfiguredChatModel', () => {
     });
   });
 
-  it('falls back to gpt-3.5-turbo when modelId is blank', () => {
+  it('falls back to the local Ornith model when modelId is blank', () => {
     expect(
       resolveConfiguredChatModel({
         modelId: '  ',
         apiKey: '',
         baseURL: 'http://gw:8000',
       }).modelId,
-    ).toBe('gpt-3.5-turbo');
+    ).toBe('Ornith-1.5-35B-A3B-MLX-4bit');
+  });
+
+  it('falls back to the local test api key when apiKey is blank', () => {
+    expect(
+      resolveConfiguredChatModel({
+        modelId: 'qwen',
+        apiKey: '  ',
+        baseURL: 'http://gw:8000',
+      }).apiKey,
+    ).toBe('test');
   });
 });

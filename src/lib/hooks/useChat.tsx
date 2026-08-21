@@ -33,9 +33,11 @@ import { applySseProcessEvent } from '../chat/applySseProcessEvent';
 import { messageFromChatHttpError } from '../chat/readChatHttpError';
 import {
   extractUserIdFromToken,
+  getAuthBearerHeaders,
   getAuthHeaders,
   initializeAuthToken,
 } from '../utils/auth';
+import type { WritingAttachmentView } from '../writing/types';
 
 export type Section = {
   userMessage: UserMessage;
@@ -88,6 +90,13 @@ type ChatContext = {
   documentId: string | null;
   setDocumentId: (id: string | null) => void;
   documentItems: Array<{ id: string; title: string; description: string }>;
+  writingFiles: WritingAttachmentView[];
+  refreshWritingFiles: () => Promise<void>;
+  uploadWritingFile: (file: File) => Promise<void>;
+  removeWritingFile: (fileId: string) => Promise<void>;
+  mentionRequest: string | null;
+  requestMention: (name: string) => void;
+  clearMentionRequest: () => void;
   sendMessage: (
     message: string,
     messageId?: string,
@@ -127,6 +136,13 @@ export const chatContext = createContext<ChatContext>({
   documentId: null,
   setDocumentId: () => {},
   documentItems: [],
+  writingFiles: [],
+  refreshWritingFiles: async () => {},
+  uploadWritingFile: async () => {},
+  removeWritingFile: async () => {},
+  mentionRequest: null,
+  requestMention: () => {},
+  clearMentionRequest: () => {},
   stop: () => {},
 });
 
@@ -346,6 +362,10 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   const [documentItems, setDocumentItems] = useState<
     Array<{ id: string; title: string; description: string }>
   >([]);
+  const [writingFiles, setWritingFiles] = useState<WritingAttachmentView[]>(
+    [],
+  );
+  const [mentionRequest, setMentionRequest] = useState<string | null>(null);
 
   const [isMessagesLoaded, setIsMessagesLoaded] = useState(false);
   const [notFound, setNotFound] = useState(false);
@@ -407,6 +427,89 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       cancelled = true;
     };
   }, [focusMode]);
+
+  const refreshWritingFiles = useCallback(async () => {
+    if (focusModeRef.current !== 'agentWriting') {
+      setWritingFiles([]);
+      return;
+    }
+    try {
+      const res = await fetch('/itms/ai/api/writing/files', {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) {
+        setWritingFiles([]);
+        return;
+      }
+      const data = await res.json();
+      setWritingFiles(Array.isArray(data.items) ? data.items : []);
+    } catch {
+      setWritingFiles([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (focusMode !== 'agentWriting' || !userId) {
+      if (focusMode !== 'agentWriting') setWritingFiles([]);
+      return;
+    }
+    void refreshWritingFiles();
+  }, [focusMode, userId, refreshWritingFiles]);
+
+  const uploadWritingFile = useCallback(async (file: File) => {
+    const tempId = `tmp-${crypto.randomBytes(4).toString('hex')}`;
+    setWritingFiles((prev) => [
+      ...prev,
+      { fileId: tempId, name: file.name, status: 'uploading' },
+    ]);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch('/itms/ai/api/writing/files', {
+        method: 'POST',
+        headers: getAuthBearerHeaders(),
+        body: form,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.message || 'Could not upload file');
+        setWritingFiles((prev) => prev.filter((f) => f.fileId !== tempId));
+        return;
+      }
+      setWritingFiles((prev) => [
+        ...prev.filter((f) => f.fileId !== tempId),
+        data.item,
+      ]);
+    } catch {
+      toast.error('Could not upload file');
+      setWritingFiles((prev) => prev.filter((f) => f.fileId !== tempId));
+    }
+  }, []);
+
+  const removeWritingFile = useCallback(async (fileId: string) => {
+    setWritingFiles((list) => list.filter((f) => f.fileId !== fileId));
+    try {
+      const res = await fetch(
+        `/itms/ai/api/writing/files?fileId=${encodeURIComponent(fileId)}`,
+        { method: 'DELETE', headers: getAuthHeaders() },
+      );
+      if (!res.ok) {
+        toast.error('Could not delete file');
+        void refreshWritingFiles();
+      }
+    } catch {
+      toast.error('Could not delete file');
+      void refreshWritingFiles();
+    }
+  }, [refreshWritingFiles]);
+
+  const requestMention = useCallback((name: string) => {
+    setMentionRequest(name);
+  }, []);
+
+  const clearMentionRequest = useCallback(() => {
+    setMentionRequest(null);
+  }, []);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const sendMessageRef = useRef<ChatContext['sendMessage'] | null>(null);
@@ -940,6 +1043,13 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       documentId,
       setDocumentId,
       documentItems,
+      writingFiles,
+      refreshWritingFiles,
+      uploadWritingFile,
+      removeWritingFile,
+      mentionRequest,
+      requestMention,
+      clearMentionRequest,
       rewrite,
       sendMessage,
       stop,
@@ -966,6 +1076,13 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       sfcTrainingRelated,
       documentId,
       documentItems,
+      writingFiles,
+      refreshWritingFiles,
+      uploadWritingFile,
+      removeWritingFile,
+      mentionRequest,
+      requestMention,
+      clearMentionRequest,
       handleSetFocusMode,
       rewrite,
       sendMessage,

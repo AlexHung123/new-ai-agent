@@ -68,6 +68,12 @@ export const getAuthHeaders = (): HeadersInit => {
   };
 };
 
+export const getAuthBearerHeaders = (): HeadersInit => {
+  const token = getAuthToken();
+  if (!token) return {};
+  return { Authorization: `Bearer ${token}` };
+};
+
 /**
  * Extract userId from JWT token (client-side, unsafe decode)
  * WARNING: Only for display/UI purposes, NOT for security

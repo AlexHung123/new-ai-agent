@@ -2,6 +2,10 @@ import { ChatOpenAI } from '@langchain/openai';
 import { Embeddings } from '@langchain/core/embeddings';
 import configManager from '../config';
 
+export const DEFAULT_CHAT_MODEL_ID = 'Ornith-1.5-35B-A3B-MLX-4bit';
+export const DEFAULT_CHAT_BASE_URL = 'http://192.168.128.122:8000/v1';
+export const DEFAULT_CHAT_API_KEY = 'test';
+
 export type ConfiguredChatModel = {
   modelId: string;
   apiKey: string;
@@ -14,8 +18,8 @@ export function resolveConfiguredChatModel(input: {
   baseURL?: string;
 }): ConfiguredChatModel {
   return {
-    modelId: (input.modelId || '').trim() || 'gpt-3.5-turbo',
-    apiKey: (input.apiKey || '').trim(),
+    modelId: (input.modelId || '').trim() || DEFAULT_CHAT_MODEL_ID,
+    apiKey: (input.apiKey || '').trim() || DEFAULT_CHAT_API_KEY,
     baseUrl: (input.baseURL || '').trim().replace(/\/$/, ''),
   };
 }
@@ -25,11 +29,11 @@ export function loadConfiguredChatModel(): ChatOpenAI {
     modelId: configManager.getConfig('base.modelId', ''),
     apiKey: configManager.getConfig('base.apiKey', ''),
     baseURL:
-      configManager.getConfig('base.baseURL', '') || 'http://192.168.1.51:8000',
+      configManager.getConfig('base.baseURL', '') || DEFAULT_CHAT_BASE_URL,
   });
 
   return new ChatOpenAI({
-    apiKey: cfg.apiKey || 'not-needed',
+    apiKey: cfg.apiKey,
     temperature: 0.7,
     model: cfg.modelId,
     configuration: {

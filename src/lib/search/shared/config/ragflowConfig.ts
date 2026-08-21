@@ -1,5 +1,8 @@
 import configManager from '../../../config';
-import { resolveConfiguredChatModel } from '../../../models/configuredChatModel';
+import {
+  DEFAULT_CHAT_BASE_URL,
+  resolveConfiguredChatModel,
+} from '../../../models/configuredChatModel';
 
 export interface RagflowRetrievalConfig {
   apiUrl: string;
@@ -47,7 +50,7 @@ export function getAgentModelConfig(): AgentModelConfig {
     modelId: configManager.getConfig('base.modelId', ''),
     apiKey: configManager.getConfig('base.apiKey', ''),
     baseURL:
-      configManager.getConfig('base.baseURL', '') || 'http://192.168.1.51:8000',
+      configManager.getConfig('base.baseURL', '') || DEFAULT_CHAT_BASE_URL,
   });
 }
 

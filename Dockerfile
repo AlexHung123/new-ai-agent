@@ -34,6 +34,7 @@ WORKDIR /home/aiagent
 COPY --from=builder /home/aiagent/public ./public
 COPY --from=builder /home/aiagent/.next/static ./public/_next/static
 COPY --from=builder /home/aiagent/.next/standalone ./
+COPY --from=builder /home/aiagent/node_modules/@firecrawl ./node_modules/@firecrawl
 COPY --from=builder /home/aiagent/data ./data
 COPY --from=builder /home/aiagent/data/prompts ./data/prompts
 COPY --from=builder /home/aiagent/src/generated/prisma ./src/generated/prisma

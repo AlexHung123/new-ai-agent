@@ -3,6 +3,11 @@ import TextareaAutosize from 'react-textarea-autosize';
 import { useChat } from '@/lib/hooks/useChat';
 import { focusModes } from '@/lib/agents';
 import SfcExactMatchToggle from './SfcExactMatchToggle';
+import {
+  useWritingMention,
+  WritingAtMenu,
+  WritingToolbarButtons,
+} from './WritingComposerTools';
 
 const SendArrow = () => (
   <span className="send-btn-icon" aria-hidden>
@@ -26,11 +31,17 @@ const MessageInput = memo(function MessageInput() {
     focusMode,
     sfcExactMatch,
     documentId,
+    writingFiles,
   } = useChat();
 
   const [message, setMessage] = useState('');
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const writing = useWritingMention({
+    value: message,
+    setValue: setMessage,
+    inputRef,
+  });
 
   const placeholder = useMemo(() => {
     const currentAgent = focusModes.find((m) => m.key === focusMode);
@@ -81,13 +92,14 @@ const MessageInput = memo(function MessageInput() {
   );
 
   const onKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (writing.onKeyDown(e)) return;
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         submit();
       }
     },
-    [submit],
+    [submit, writing],
   );
 
   const onActionClick = useCallback(
@@ -100,15 +112,29 @@ const MessageInput = memo(function MessageInput() {
   );
 
   const documentBlocked = focusMode === 'agentDocument' && !documentId;
-  const canSend = message.trim().length > 0 && !documentBlocked;
+  const uploading = writingFiles.some((file) => file.status === 'uploading');
+  const canSend =
+    message.trim().length > 0 && !documentBlocked && !uploading;
   const disabled = loading ? false : !canSend;
 
   return (
-    <form onSubmit={onSubmit} onKeyDown={onKeyDown} className="composer">
+    <form onSubmit={onSubmit} className="composer">
+      {writing.enabled && writing.menuOpen ? (
+        <WritingAtMenu
+          matches={writing.matches}
+          activeIndex={writing.activeIndex}
+          onSelect={writing.onSelect}
+        />
+      ) : null}
       <TextareaAutosize
         ref={inputRef}
         value={message}
-        onChange={(e) => setMessage(e.target.value)}
+        onChange={(e) => {
+          setMessage(e.target.value);
+          writing.setCursor(e.target.selectionStart);
+        }}
+        onSelect={(e) => writing.setCursor(e.currentTarget.selectionStart)}
+        onKeyDown={onKeyDown}
         className="composer-input"
         placeholder={placeholder}
         maxRows={8}
@@ -117,6 +143,14 @@ const MessageInput = memo(function MessageInput() {
       <div className="composer-toolbar">
         <div className="composer-toolbar-left">
           <SfcExactMatchToggle />
+          {writing.enabled ? (
+            <WritingToolbarButtons
+              onAtClick={writing.onAtClick}
+              onUploadClick={writing.onUploadClick}
+              fileInputRef={writing.fileInputRef}
+              onFilesPicked={writing.onFilesPicked}
+            />
+          ) : null}
         </div>
         <div className="composer-toolbar-right">
           <button

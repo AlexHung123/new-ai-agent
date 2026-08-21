@@ -93,7 +93,7 @@ describe('createAgentFsTools', () => {
     });
     const ls = tools.find((t) => t.name === 'fs_ls')!;
     const out = await ls.execute('1', { path: '.' });
-    expect(out.content[0]!.text).toMatch(/No document folder bound/);
+    expect(out.content[0]!.text).toMatch(/No folder bound/);
     expect(out.details.skipped).toBe(true);
   });
 

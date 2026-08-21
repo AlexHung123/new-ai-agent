@@ -3,6 +3,11 @@ import TextareaAutosize from 'react-textarea-autosize';
 import { useChat } from '@/lib/hooks/useChat';
 import { focusModes } from '@/lib/agents';
 import SfcExactMatchToggle from './SfcExactMatchToggle';
+import {
+  useWritingMention,
+  WritingAtMenu,
+  WritingToolbarButtons,
+} from './WritingComposerTools';
 
 const SendArrow = () => (
   <span className="send-btn-icon" aria-hidden>
@@ -19,9 +24,15 @@ const SendArrow = () => (
 );
 
 const EmptyChatMessageInput = () => {
-  const { sendMessage, focusMode, sfcExactMatch, documentId } = useChat();
+  const { sendMessage, focusMode, sfcExactMatch, documentId, writingFiles } =
+    useChat();
   const [message, setMessage] = useState('');
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const writing = useWritingMention({
+    value: message,
+    setValue: setMessage,
+    inputRef,
+  });
 
   const currentAgent = focusModes.find((mode) => mode.key === focusMode);
   let placeholder = currentAgent?.placeholder || 'Ask about this domain wiki…';
@@ -54,7 +65,9 @@ const EmptyChatMessageInput = () => {
     };
   }, []);
 
-  const canSend = message.trim().length > 0 && !documentBlocked;
+  const uploading = writingFiles.some((file) => file.status === 'uploading');
+  const canSend =
+    message.trim().length > 0 && !documentBlocked && !uploading;
 
   const submit = () => {
     if (!canSend) return;
@@ -68,18 +81,30 @@ const EmptyChatMessageInput = () => {
         e.preventDefault();
         submit();
       }}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-          e.preventDefault();
-          submit();
-        }
-      }}
       className="composer"
     >
+      {writing.enabled && writing.menuOpen ? (
+        <WritingAtMenu
+          matches={writing.matches}
+          activeIndex={writing.activeIndex}
+          onSelect={writing.onSelect}
+        />
+      ) : null}
       <TextareaAutosize
         ref={inputRef}
         value={message}
-        onChange={(e) => setMessage(e.target.value)}
+        onChange={(e) => {
+          setMessage(e.target.value);
+          writing.setCursor(e.target.selectionStart);
+        }}
+        onSelect={(e) => writing.setCursor(e.currentTarget.selectionStart)}
+        onKeyDown={(e) => {
+          if (writing.onKeyDown(e)) return;
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            submit();
+          }
+        }}
         minRows={1}
         maxRows={8}
         className="composer-input"
@@ -88,6 +113,14 @@ const EmptyChatMessageInput = () => {
       <div className="composer-toolbar">
         <div className="composer-toolbar-left">
           <SfcExactMatchToggle />
+          {writing.enabled ? (
+            <WritingToolbarButtons
+              onAtClick={writing.onAtClick}
+              onUploadClick={writing.onUploadClick}
+              fileInputRef={writing.fileInputRef}
+              onFilesPicked={writing.onFilesPicked}
+            />
+          ) : null}
         </div>
         <div className="composer-toolbar-right">
           <button
