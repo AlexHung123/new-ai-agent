@@ -1,7 +1,9 @@
 import configManager from '@/lib/config';
-import ModelRegistry from '@/lib/models/registry';
+import {
+  isForbiddenConfigKey,
+  publicConfigValues,
+} from '@/lib/config/publicConfig';
 import { NextRequest, NextResponse } from 'next/server';
-import { ConfigModelProvider } from '@/lib/config/types';
 
 type SaveConfigBody = {
   key: string;
@@ -10,24 +12,10 @@ type SaveConfigBody = {
 
 export const GET = async (req: NextRequest) => {
   try {
-    const values = configManager.getCurrentConfig();
-    const fields = configManager.getUIConfigSections();
-
-    const modelRegistry = new ModelRegistry();
-    const modelProviders = await modelRegistry.getActiveProviders();
-
-    values.modelProviders = values.modelProviders.map(
-      (mp: ConfigModelProvider) => {
-        const activeProvider = modelProviders.find((p) => p.id === mp.id);
-
-        return {
-          ...mp,
-          chatModels: activeProvider?.chatModels ?? mp.chatModels,
-          embeddingModels:
-            activeProvider?.embeddingModels ?? mp.embeddingModels,
-        };
-      },
+    const values = publicConfigValues(
+      configManager.getCurrentConfig() as Record<string, unknown>,
     );
+    const fields = configManager.getUIConfigSections();
 
     return NextResponse.json({
       values,
@@ -45,6 +33,10 @@ export const GET = async (req: NextRequest) => {
 export const POST = async (req: NextRequest) => {
   try {
     const body: SaveConfigBody = await req.json();
+
+    if (isForbiddenConfigKey(body.key)) {
+      return Response.json({ message: 'Forbidden' }, { status: 403 });
+    }
 
     if (!body.key || !body.value) {
       return Response.json(
