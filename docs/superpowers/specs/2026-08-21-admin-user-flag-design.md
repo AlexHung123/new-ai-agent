@@ -122,7 +122,8 @@ Existing clients that only read `permissions` keep working.
 
 - Add `/api/admin` to middleware `PROTECTED_ROUTES` and `matcher`.
 - `userId` from `x-user-id`; `requireAdmin`; then `db.query.chats.findMany()` and reverse (same newest-first trick as `GET /api/chats`).
-- JSON `{ chats: { id, title, userId, focusMode, createdAt }[] }`. Do not include `files` or `documentId`.
+- Query: `q` (trim; match title, userId, focusMode key, or agent display title, case-insensitive), `page` (1-based, default 1), `pageSize` (default 10, min 1, max 100).
+- JSON `{ chats, total, page, pageSize, pageCount }`. `chats` items are `{ id, title, userId, focusMode, createdAt }`. Do not include `files` or `documentId`. Empty filter still paginates the full list.
 - 401/403 from `requireAdmin`. 500 on DB error with the same generic message as other chat routes.
 
 ### 3.6 Sidebar
@@ -142,7 +143,7 @@ Existing clients that only read `permissions` keep working.
   1. `GET /itms/ai/api/permissions`. If not ok or `isAdmin !== true`, `router.replace('/agents')`.
   2. Else `GET /itms/ai/api/admin/chats`. 403 → replace `/agents`. Other errors → inline error text.
   Browser fetches keep the `/itms/ai` prefix, matching Agents and History. Server route files stay under `src/app/api/...` (Next strips `basePath`).
-- Heading **Admin**, then a table of all chats: **Title**, **User**, **Agent**, **Time**. Agent is icon + name from `focusModes` (fallback: `focusMode` key). Time is relative, same as History.
+- Heading **Admin**, search box (title / user / agent), per-page select (10 / 20 / 50), table columns **Title**, **User**, **Agent**, **Time**, and Previous / Next with `Page N of M`. URL: `/admin?q=&page=&pageSize=`. Search resets to page 1.
 - Title is plain text, not a `Link` to `/c/{id}`. Rows are not clickable.
 - No `DeleteChat`. Empty list shows one table row: “No chats found.”
 

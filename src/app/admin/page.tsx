@@ -5,9 +5,10 @@ import {
   getAuthHeaders,
   initializeAuthToken,
 } from '@/lib/utils/auth';
+import { parseAdminChatQuery } from '@/lib/auth/adminChatQuery';
 import { Shield } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { focusModes } from '@/lib/agents';
 
 export interface AdminChat {
@@ -18,18 +19,60 @@ export interface AdminChat {
   userId: string;
 }
 
+const PAGE_SIZE_OPTIONS = [10, 20, 50];
+
+function adminQueryHref(next: { q: string; page: number; pageSize: number }) {
+  const params = new URLSearchParams();
+  if (next.q) params.set('q', next.q);
+  if (next.page > 1) params.set('page', String(next.page));
+  if (next.pageSize !== 10) params.set('pageSize', String(next.pageSize));
+  const search = params.toString();
+  return search ? `/admin?${search}` : '/admin';
+}
+
 const Page = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const query = useMemo(
+    () =>
+      parseAdminChatQuery({
+        q: searchParams.get('q'),
+        page: searchParams.get('page'),
+        pageSize: searchParams.get('pageSize'),
+      }),
+    [searchParams],
+  );
   const [chats, setChats] = useState<AdminChat[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(query.page);
+  const [pageCount, setPageCount] = useState(1);
+  const [pageSize, setPageSize] = useState(query.pageSize);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tokenReady, setTokenReady] = useState(false);
+  const [draftQ, setDraftQ] = useState(query.q);
 
   useEffect(() => {
     initializeAuthToken(searchParams);
     setTokenReady(true);
   }, [searchParams]);
+
+  useEffect(() => {
+    setDraftQ(query.q);
+  }, [query.q]);
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      const nextQ = draftQ.trim();
+      if (nextQ === query.q) {
+        return;
+      }
+      router.replace(
+        adminQueryHref({ q: nextQ, page: 1, pageSize: query.pageSize }),
+      );
+    }, 300);
+    return () => window.clearTimeout(handle);
+  }, [draftQ, query.q, query.pageSize, router]);
 
   useEffect(() => {
     if (!tokenReady) {
@@ -56,10 +99,18 @@ const Page = () => {
           return;
         }
 
-        const chatsRes = await fetch('/itms/ai/api/admin/chats', {
-          method: 'GET',
-          headers: getAuthHeaders(),
-        });
+        const params = new URLSearchParams();
+        if (query.q) params.set('q', query.q);
+        params.set('page', String(query.page));
+        params.set('pageSize', String(query.pageSize));
+
+        const chatsRes = await fetch(
+          `/itms/ai/api/admin/chats?${params.toString()}`,
+          {
+            method: 'GET',
+            headers: getAuthHeaders(),
+          },
+        );
 
         if (chatsRes.status === 403) {
           router.replace('/agents');
@@ -74,6 +125,14 @@ const Page = () => {
 
         const data = await chatsRes.json();
         setChats(Array.isArray(data.chats) ? data.chats : []);
+        setTotal(typeof data.total === 'number' ? data.total : 0);
+        setPage(typeof data.page === 'number' ? data.page : query.page);
+        setPageSize(
+          typeof data.pageSize === 'number' ? data.pageSize : query.pageSize,
+        );
+        setPageCount(
+          typeof data.pageCount === 'number' ? data.pageCount : 1,
+        );
       } catch {
         setError('Failed to load chats.');
         setChats([]);
@@ -83,9 +142,12 @@ const Page = () => {
     };
 
     void load();
-  }, [tokenReady, router]);
+  }, [tokenReady, router, query.q, query.page, query.pageSize]);
 
-  if (loading) {
+  const rangeStart = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const rangeEnd = Math.min(total, page * pageSize);
+
+  if (loading && chats.length === 0 && !error) {
     return (
       <div className="flex flex-row items-center justify-center min-h-screen">
         <svg
@@ -119,63 +181,141 @@ const Page = () => {
       </div>
       {error && <p className="text-red-500 text-sm">{error}</p>}
       {!error && (
-        <div className="overflow-x-auto pb-20 lg:pb-2">
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-light-200 bg-light-secondary text-black/70 dark:border-dark-200 dark:bg-dark-secondary dark:text-white/70">
-                <th className="px-3 py-2.5 text-left font-semibold">Title</th>
-                <th className="whitespace-nowrap px-3 py-2.5 text-left font-semibold">
-                  User
-                </th>
-                <th className="whitespace-nowrap px-3 py-2.5 text-left font-semibold">
-                  Agent
-                </th>
-                <th className="whitespace-nowrap px-3 py-2.5 text-left font-semibold">
-                  Time
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {chats.length === 0 ? (
-                <tr>
-                  <td
-                    className="px-3 py-8 text-center text-black/70 dark:text-white/70"
-                    colSpan={4}
-                  >
-                    No chats found.
-                  </td>
+        <div className="flex flex-col gap-4 pb-20 lg:pb-2">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <input
+              type="search"
+              value={draftQ}
+              onChange={(event) => setDraftQ(event.target.value)}
+              placeholder="Search title, user, or agent"
+              className="w-full rounded-lg border border-light-200 bg-light-secondary px-3 py-2 text-sm dark:border-dark-200 dark:bg-dark-secondary dark:text-white sm:max-w-sm"
+              aria-label="Search chats"
+            />
+            <label className="flex items-center gap-2 text-sm text-black/70 dark:text-white/70">
+              Per page
+              <select
+                value={pageSize}
+                onChange={(event) => {
+                  router.replace(
+                    adminQueryHref({
+                      q: query.q,
+                      page: 1,
+                      pageSize: Number(event.target.value),
+                    }),
+                  );
+                }}
+                className="rounded-lg border border-light-200 bg-light-secondary px-2 py-1.5 text-sm dark:border-dark-200 dark:bg-dark-secondary dark:text-white"
+              >
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-light-200 bg-light-secondary text-black/70 dark:border-dark-200 dark:bg-dark-secondary dark:text-white/70">
+                  <th className="px-3 py-2.5 text-left font-semibold">Title</th>
+                  <th className="whitespace-nowrap px-3 py-2.5 text-left font-semibold">
+                    User
+                  </th>
+                  <th className="whitespace-nowrap px-3 py-2.5 text-left font-semibold">
+                    Agent
+                  </th>
+                  <th className="whitespace-nowrap px-3 py-2.5 text-left font-semibold">
+                    Time
+                  </th>
                 </tr>
-              ) : (
-                chats.map((chat) => {
-                  const agent = focusModes.find(
-                    (m) => m.key === chat.focusMode,
-                  );
-                  return (
-                    <tr
-                      key={chat.id}
-                      className="border-b border-light-200 dark:border-dark-200"
+              </thead>
+              <tbody>
+                {chats.length === 0 ? (
+                  <tr>
+                    <td
+                      className="px-3 py-8 text-center text-black/70 dark:text-white/70"
+                      colSpan={4}
                     >
-                      <td className="max-w-xl truncate px-3 py-2.5 font-medium text-black dark:text-white">
-                        {chat.title}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2.5 text-black/70 dark:text-white/70">
-                        {chat.userId}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2.5 text-black/70 dark:text-white/70">
-                        <span className="inline-flex items-center gap-1.5">
-                          {agent ? <agent.icon size={15} /> : null}
-                          {agent?.title ?? chat.focusMode}
-                        </span>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2.5 text-black/70 dark:text-white/70">
-                        {formatTimeDifference(new Date(), chat.createdAt)} Ago
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                      No chats found.
+                    </td>
+                  </tr>
+                ) : (
+                  chats.map((chat) => {
+                    const agent = focusModes.find(
+                      (m) => m.key === chat.focusMode,
+                    );
+                    return (
+                      <tr
+                        key={chat.id}
+                        className="border-b border-light-200 dark:border-dark-200"
+                      >
+                        <td className="max-w-xl truncate px-3 py-2.5 font-medium text-black dark:text-white">
+                          {chat.title}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2.5 text-black/70 dark:text-white/70">
+                          {chat.userId}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2.5 text-black/70 dark:text-white/70">
+                          <span className="inline-flex items-center gap-1.5">
+                            {agent ? <agent.icon size={15} /> : null}
+                            {agent?.title ?? chat.focusMode}
+                          </span>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2.5 text-black/70 dark:text-white/70">
+                          {formatTimeDifference(new Date(), chat.createdAt)} Ago
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-black/70 dark:text-white/70">
+              {total === 0
+                ? '0 chats'
+                : `${rangeStart}–${rangeEnd} of ${total}`}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={page <= 1}
+                onClick={() =>
+                  router.replace(
+                    adminQueryHref({
+                      q: query.q,
+                      page: page - 1,
+                      pageSize,
+                    }),
+                  )
+                }
+                className="rounded-lg border border-light-200 px-3 py-1.5 text-sm disabled:opacity-40 dark:border-dark-200"
+              >
+                Previous
+              </button>
+              <span className="text-sm text-black/70 dark:text-white/70">
+                Page {page} of {pageCount}
+              </span>
+              <button
+                type="button"
+                disabled={page >= pageCount}
+                onClick={() =>
+                  router.replace(
+                    adminQueryHref({
+                      q: query.q,
+                      page: page + 1,
+                      pageSize,
+                    }),
+                  )
+                }
+                className="rounded-lg border border-light-200 px-3 py-1.5 text-sm disabled:opacity-40 dark:border-dark-200"
+              >
+                Next
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

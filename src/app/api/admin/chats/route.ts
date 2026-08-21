@@ -1,6 +1,12 @@
 import db from '@/lib/db';
 import { toAdminChatListItem } from '@/lib/auth/adminChatList';
+import { paginateAdminChats, parseAdminChatQuery } from '@/lib/auth/adminChatQuery';
 import { requireAdmin } from '@/lib/auth/isAdminUser';
+import { focusModes } from '@/lib/agents';
+
+const agentTitleByFocusMode = Object.fromEntries(
+  focusModes.map((mode) => [mode.key, mode.title]),
+);
 
 export const GET = async (req: Request) => {
   try {
@@ -10,10 +16,18 @@ export const GET = async (req: Request) => {
       return denied;
     }
 
-    const rows = await db.query.chats.findMany();
-    const chats = rows.map(toAdminChatListItem).reverse();
+    const url = new URL(req.url);
+    const query = parseAdminChatQuery({
+      q: url.searchParams.get('q'),
+      page: url.searchParams.get('page'),
+      pageSize: url.searchParams.get('pageSize'),
+    });
 
-    return Response.json({ chats }, { status: 200 });
+    const rows = await db.query.chats.findMany();
+    const items = rows.map(toAdminChatListItem).reverse();
+    const result = paginateAdminChats(items, query, agentTitleByFocusMode);
+
+    return Response.json(result, { status: 200 });
   } catch (err) {
     console.error('Error in getting admin chats: ', err);
     return Response.json(
