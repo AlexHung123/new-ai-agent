@@ -31,19 +31,13 @@ export default class WritingAgent implements MetaSearchAgentType {
       emitter.emit('end');
     };
 
-    if (signal) {
-      signal.addEventListener('abort', () => {
-        emitEndOnce();
-      });
-    }
-
     (async () => {
       try {
         if (signal?.aborted) return;
 
         emitter.emit(
           'data',
-          JSON.stringify({
+          `${JSON.stringify({
             type: 'progress',
             data: {
               status: 'processing',
@@ -52,10 +46,9 @@ export default class WritingAgent implements MetaSearchAgentType {
               question: 'Initializing Writing Agent',
               message: 'Initializing Writing Kode Agent...',
             },
-          }),
+          })}\n`,
         );
-        const { manager: harnessAgentManager, progressBookmarkByAgent } =
-          getSharedAgentContext();
+        const { manager: harnessAgentManager } = getSharedAgentContext();
 
         const requestAgentId =
           req?.headers.get('x-agent-id') ??
@@ -75,56 +68,26 @@ export default class WritingAgent implements MetaSearchAgentType {
         harnessAgentManager.markBusy(stableAgentId);
         harnessAgentManager.touchAgent(stableAgentId);
 
-        const onToolExecuted = (event: any) => {
-          emitter.emit(
-            'data',
-            JSON.stringify({
-              type: 'tool_execution',
-              data: {
-                id: event.call.id,
-                name: event.call.name,
-                state: event.call.state,
-                durationMs: event.call.durationMs,
-                inputPreview:
-                  JSON.parse(event.call.inputPreview).query ||
-                  JSON.parse(event.call.args).query,
-                resultPreview: event.call.result,
-              },
-            }),
-          );
-        };
-        const disposeToolExecuted = agent.on('tool_executed', onToolExecuted);
-
-        const onAgentError = (event: any) => {
-          emitter.emit(
-            'data',
-            JSON.stringify({
-              type: 'tool_error',
-              data: {
-                error: event.message || 'An unknown agent error occurred',
-                phase: event.phase,
-                detail: event.detail,
-              },
-            }),
-          );
-        };
-        const disposeAgentError = agent.on('error', onAgentError);
-
         try {
           const subscriptionPromise = streamAgentProgressToEmitter({
             agent,
             emitter,
             signal,
-            progressBookmarkByAgent,
             safeJson,
           });
 
-          await agent.send(message);
+          if (signal?.aborted) {
+            try {
+              agent.abort();
+            } catch {
+              /* ignore */
+            }
+          } else {
+            await agent.prompt(message);
+          }
           await subscriptionPromise;
         } finally {
-          harnessAgentManager.markIdle(stableAgentId);
-          disposeToolExecuted();
-          disposeAgentError();
+          await harnessAgentManager.markIdle(stableAgentId);
         }
       } catch (error: unknown) {
         console.error('-- ERROR IN WRITING AGENT --', error);

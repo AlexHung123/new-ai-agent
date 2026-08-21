@@ -5,14 +5,14 @@ services:
       - '8080:3000'
     volumes:
       # - data:/home/aiagent/data
-      # - uploads:/home/aiagent/uploads
       - /d/Projects/temp/data:/home/aiagent/data
-      - /d/Projects/temp/uploads:/home/aiagent/uploads
     restart: unless-stopped
     environment:
       - BASE_PATH=/itms/ai
+      - ENABLE_TEST_LOGIN=true
+      - TTS_BASE_URL=http://192.168.1.56:8020
+      - TTS_MODEL=mlx-community/VoxCPM2-4bit
+      - TTS_MAX_TOKENS=2000
 # volumes:
 #   data:
 #     name: 'aiagent-data'
-#   uploads:
-#     name: 'aiagent-uploads'

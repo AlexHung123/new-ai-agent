@@ -1,9 +1,9 @@
 import { sql } from 'drizzle-orm';
-import { text, integer, sqliteTable } from 'drizzle-orm/sqlite-core';
+import { integer, jsonb, pgTable, serial, text } from 'drizzle-orm/pg-core';
 import { Document } from '@langchain/core/documents';
 
-export const messages = sqliteTable('messages', {
-  id: integer('id').primaryKey(),
+export const messages = pgTable('messages', {
+  id: serial('id').primaryKey(),
   role: text('type', { enum: ['assistant', 'user', 'source'] }).notNull(),
   chatId: text('chatId').notNull(),
   userId: text('userId').notNull(),
@@ -11,14 +11,10 @@ export const messages = sqliteTable('messages', {
     .notNull()
     .default(sql`CURRENT_TIMESTAMP`),
   messageId: text('messageId').notNull(),
-
   content: text('content'),
-
-  sources: text('sources', {
-    mode: 'json',
-  })
+  sources: jsonb('sources')
     .$type<Document[]>()
-    .default(sql`'[]'`),
+    .default(sql`'[]'::jsonb`),
 });
 
 interface File {
@@ -26,18 +22,19 @@ interface File {
   fileId: string;
 }
 
-export const chats = sqliteTable('chats', {
+export const chats = pgTable('chats', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
   userId: text('userId').notNull(),
   createdAt: text('createdAt').notNull(),
   focusMode: text('focusMode').notNull(),
-  files: text('files', { mode: 'json' })
+  documentId: text('documentId'),
+  files: jsonb('files')
     .$type<File[]>()
-    .default(sql`'[]'`),
+    .default(sql`'[]'::jsonb`),
 });
 
-export const sfcQuestionM = sqliteTable('sfc_question_m', {
+export const sfcQuestionM = pgTable('sfc_question_m', {
   id: integer('id').primaryKey(),
   year: text('year').notNull(),
   answerNo: text('answerNo').notNull(),

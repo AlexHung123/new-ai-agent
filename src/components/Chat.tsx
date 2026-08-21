@@ -1,34 +1,37 @@
 'use client';
 
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import MessageInput from './MessageInput';
 import MessageBox from './MessageBox';
 import MessageBoxLoading from './MessageBoxLoading';
-import { useChat, ProgressData } from '@/lib/hooks/useChat';
+import { useChat } from '@/lib/hooks/useChat';
 
 const Chat = () => {
-  const { sections, chatTurns, loading, messageAppeared, progress, rewrite } =
-    useChat();
+  const {
+    sections,
+    chatTurns,
+    loading,
+    messageAppeared,
+    progress,
+    rewrite,
+    agentProcess,
+  } = useChat();
 
-  const [dividerWidth, setDividerWidth] = useState(0);
-  const dividerRef = useRef<HTMLDivElement | null>(null);
+  const columnRef = useRef<HTMLDivElement | null>(null);
   const messageEnd = useRef<HTMLDivElement | null>(null);
+  const [dock, setDock] = useState({ width: 0, left: 0 });
 
   useEffect(() => {
-    const updateDividerWidth = () => {
-      if (dividerRef.current) {
-        setDividerWidth(dividerRef.current.offsetWidth);
-      }
+    const updateDock = () => {
+      if (!columnRef.current) return;
+      const rect = columnRef.current.getBoundingClientRect();
+      setDock({ width: rect.width, left: rect.left });
     };
 
-    updateDividerWidth();
-
-    window.addEventListener('resize', updateDividerWidth);
-
-    return () => {
-      window.removeEventListener('resize', updateDividerWidth);
-    };
-  }, []);
+    updateDock();
+    window.addEventListener('resize', updateDock);
+    return () => window.removeEventListener('resize', updateDock);
+  }, [sections.length]);
 
   useEffect(() => {
     const scroll = (behavior: ScrollBehavior = 'auto') => {
@@ -55,7 +58,6 @@ const Chat = () => {
 
   useEffect(() => {
     if (loading) {
-      // Ensure we scroll to bottom when loading starts to show the loading indicator
       setTimeout(
         () => messageEnd.current?.scrollIntoView({ behavior: 'smooth' }),
         100,
@@ -64,32 +66,31 @@ const Chat = () => {
   }, [loading]);
 
   return (
-    <div className="flex flex-col space-y-6 pt-8 pb-44 lg:pb-32 sm:mx-4 md:mx-8">
-      {sections.map((section, i) => {
-        const isLast = i === sections.length - 1;
+    <div className="wiki-chat">
+      <div ref={columnRef} className="message-list">
+        {sections.map((section, i) => {
+          const isLast = i === sections.length - 1;
 
-        return (
-          <Fragment key={section.userMessage.messageId}>
+          return (
             <MessageBox
+              key={section.userMessage.messageId}
               section={section}
               sectionIndex={i}
-              dividerRef={isLast ? dividerRef : undefined}
               isLast={isLast}
               loading={loading}
               rewrite={rewrite}
             />
-            {!isLast && (
-              <div className="h-px w-full bg-light-secondary dark:bg-dark-secondary" />
-            )}
-          </Fragment>
-        );
-      })}
-      {loading && !messageAppeared && <MessageBoxLoading progress={progress} />}
-      <div ref={messageEnd} className="h-0" />
-      {dividerWidth > 0 && (
+          );
+        })}
+        {loading && !messageAppeared && !agentProcess && (
+          <MessageBoxLoading progress={progress} />
+        )}
+        <div ref={messageEnd} className="h-0" />
+      </div>
+      {dock.width > 0 && (
         <div
-          className="bottom-24 lg:bottom-10 fixed z-40"
-          style={{ width: dividerWidth }}
+          className="wiki-chat-composer-dock"
+          style={{ width: dock.width, left: dock.left }}
         >
           <MessageInput />
         </div>

@@ -5,7 +5,7 @@ import { CheckCircle2, Loader2 } from 'lucide-react';
 const MessageBoxLoading = ({ progress }: { progress?: ProgressData | null }) => {
   if (!progress) {
     return (
-      <div className="flex flex-col space-y-4 w-full lg:w-9/12">
+      <div className="flex flex-col space-y-4 w-full">
         <div className="flex flex-col space-y-2 bg-light-primary dark:bg-dark-primary rounded-lg py-3">
           <div className="h-2 rounded-full w-full bg-light-secondary dark:bg-dark-secondary animate-pulse" />
           <div className="h-2 rounded-full w-9/12 bg-light-secondary dark:bg-dark-secondary animate-pulse" style={{ animationDelay: '0.1s' }} />
@@ -21,7 +21,7 @@ const MessageBoxLoading = ({ progress }: { progress?: ProgressData | null }) => 
     : '';
 
   return (
-    <div className="flex flex-col space-y-4 w-full lg:w-9/12">
+    <div className="flex flex-col space-y-4 w-full">
       <div className="bg-light-secondary dark:bg-dark-secondary rounded-lg p-4 space-y-4">
         {/* 标题和总进度 */}
         <div className="flex items-center justify-between">

@@ -1,6 +1,6 @@
 import {
-  Book,
   FileText,
+  Mic,
   NotepadText,
   UsersRound,
   LucideIcon,
@@ -16,19 +16,11 @@ export interface AgentMode {
   permissionCode?: string;
   placeholder?: string;
   followUpPlaceholder?: string;
+  kind?: 'chat' | 'tool';
+  href?: string;
 }
 
 export const focusModes: AgentMode[] = [
-  {
-    key: 'agentGuide',
-    title: 'Agent Guide',
-    description: 'You assistant on training policy',
-    icon: Book,
-    image: '/itms/ai/agent_guide.png',
-    permissionCode: 'chatGuideAgent:execute',
-    placeholder: 'Ask about training policy...',
-    followUpPlaceholder: 'Ask a follow-up about training policy...',
-  },
   {
     key: 'agentSFC',
     title: 'Agent SFC',
@@ -64,10 +56,21 @@ export const focusModes: AgentMode[] = [
     title: 'Agent Document',
     description: 'Ask about a selected policy document',
     icon: FileText,
-    image: '/itms/ai/agent-writing.png',
+    image: '/itms/ai/agent-document.png',
     permissionCode: 'chatDocumentAgent:execute',
     placeholder: 'Ask about the selected document…',
     followUpPlaceholder: 'Ask a follow-up about this document…',
+  },
+  {
+    key: 'agentVoice',
+    title: 'Agent Voice',
+    description:
+      'Upload a reference voice and generate speech you can download',
+    icon: Mic,
+    image: '/itms/ai/agent-voice.png',
+    permissionCode: 'chatVoiceAgent:execute',
+    kind: 'tool',
+    href: '/voice',
   },
 ];
 
@@ -76,10 +79,14 @@ const FOCUS_MODE_ALIASES: Record<string, string> = {
   agentSurvey: 'newSurveyAgent',
 };
 
+export function isChatFocusMode(key: string): boolean {
+  return focusModes.some((mode) => mode.key === key && mode.kind !== 'tool');
+}
+
 export function resolveFocusMode(stored?: string | null): string {
   if (!stored) return DEFAULT_FOCUS_MODE;
   if (stored === 'newSfcAgent') return stored;
   if (FOCUS_MODE_ALIASES[stored]) return FOCUS_MODE_ALIASES[stored];
-  if (focusModes.some((mode) => mode.key === stored)) return stored;
+  if (isChatFocusMode(stored)) return stored;
   return DEFAULT_FOCUS_MODE;
 }

@@ -9,7 +9,6 @@ const EmptyChat = () => {
   const { focusMode, documentId, documentItems } = useChat();
 
   const focusDescriptions: Record<string, string> = {
-    agentGuide: 'You assistant on training policy',
     agentSFC: 'Your assistant for searching SFC questions and replies',
     newSfcAgent: 'Your assistant for searching SFC questions and replies',
     newSurveyAgent: 'Your assistant for summarizing survey results',
@@ -39,21 +38,11 @@ const EmptyChat = () => {
       <div className="absolute w-full flex flex-row items-center justify-end mr-5 mt-5">
         <SettingsButtonMobile />
       </div>
-      <div className="flex flex-col items-center justify-center min-h-screen max-w-screen-sm mx-auto p-2 space-y-4">
-        <div className="flex flex-col items-center justify-center w-full space-y-8">
-          <h2 className="text-black/70 dark:text-white/70 text-3xl font-medium -mt-8">
-            {heading}
-          </h2>
-          {subheading ? (
-            <p className="text-sm text-black/50 dark:text-white/50 -mt-4 text-center">
-              {subheading}
-            </p>
-          ) : null}
-          {needsDocumentPick ? (
-            <DocumentPicker />
-          ) : (
-            <EmptyChatMessageInput />
-          )}
+      <div className="flex flex-col items-center justify-center min-h-screen mx-auto p-2">
+        <div className="welcome-wiki">
+          <h2>{heading}</h2>
+          {subheading ? <p>{subheading}</p> : null}
+          {needsDocumentPick ? <DocumentPicker /> : <EmptyChatMessageInput />}
         </div>
       </div>
     </div>

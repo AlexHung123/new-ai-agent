@@ -32,7 +32,7 @@ describe('document catalog', () => {
 
   it('includes csr when wiki/ exists', () => {
     mkdirSync(join(root, 'csr', 'wiki'), { recursive: true });
-    expect(resolveDocument('csr')?.title).toBe('Full CSR');
+    expect(resolveDocument('csr')?.title).toBe('CSR');
   });
 
   it('returns null for unknown or missing slots', () => {

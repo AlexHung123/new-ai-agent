@@ -6,8 +6,11 @@ import db from '@/lib/db';
 import { chats, messages as messagesSchema } from '@/lib/db/schema';
 import { and, eq, gt } from 'drizzle-orm';
 import { searchHandlers } from '@/lib/search';
-import { z } from 'zod';
 import { bindChatEmitterToWriter } from '@/lib/chat/bindChatEmitter';
+import {
+  parseChatBody,
+  type ChatBody,
+} from '@/lib/chat/chatBodySchema';
 import {
   loadConfiguredChatModel,
   NoopEmbeddings,
@@ -25,40 +28,8 @@ import {
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const messageSchema = z.object({
-  messageId: z.string().min(1, 'Message ID is required'),
-  chatId: z.string().min(1, 'Chat ID is required'),
-  content: z.string().min(1, 'Message content is required'),
-});
-
-const bodySchema = z.object({
-  message: messageSchema,
-  // userId is now provided by middleware from verified token, not from client
-  userId: z.string().optional(),
-  optimizationMode: z.enum(['speed', 'balanced', 'quality'], {
-    errorMap: () => ({
-      message: 'Optimization mode must be one of: speed, balanced, quality',
-    }),
-  }),
-  focusMode: z.string().min(1, 'Focus mode is required'),
-  history: z
-    .array(
-      z.tuple([z.string(), z.string()], {
-        errorMap: () => ({
-          message: 'History items must be tuples of two strings',
-        }),
-      }),
-    )
-    .optional()
-    .default([]),
-  systemInstructions: z.string().nullable().optional().default(''),
-  sfcExactMatch: z.boolean().optional(),
-  sfcTrainingRelated: z.boolean().optional(),
-  documentId: z.string().optional(),
-});
-
-type Message = z.infer<typeof messageSchema>;
-type Body = z.infer<typeof bodySchema>;
+type Body = ChatBody;
+type Message = Body['message'];
 
 export type RatingItem = { count: number; value: string };
 export type FreeTextItem = { answer: string };
@@ -70,24 +41,7 @@ export type Survey = Record<string, Group>;
 export type RatingsOnly = Record<string, RatingItem[]>;
 export type FreeTextOnly = Record<string, FreeTextItem[]>;
 
-const safeValidateBody = (data: unknown) => {
-  const result = bodySchema.safeParse(data);
-
-  if (!result.success) {
-    return {
-      success: false,
-      error: result.error.errors.map((e) => ({
-        path: e.path.join('.'),
-        message: e.message,
-      })),
-    };
-  }
-
-  return {
-    success: true,
-    data: result.data,
-  };
-};
+const safeValidateBody = parseChatBody;
 
 function unavailableDocumentEmitter() {
   const emitter = new eventEmitter();

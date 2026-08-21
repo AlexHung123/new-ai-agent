@@ -15,6 +15,7 @@ import {
   slimSurveyToolResultForClient,
 } from './shared/tools/surveySearchTool';
 import { clusterQuestionViaKodeAgent } from './shared/survey/clusterViaKodeAgent';
+import { completePiAgent } from './shared/agent/completePiAgent';
 
 const SURVEY_AGENT_ID_PREFIX = 'survey:';
 
@@ -285,10 +286,6 @@ export default class NewSurverAgent implements MetaSearchAgentType {
       });
     };
 
-    if (signal) {
-      signal.addEventListener('abort', () => emitEndOnce());
-    }
-
     (async () => {
       let shellAgentId: string | undefined;
       let harnessAgentManager:
@@ -337,7 +334,11 @@ export default class NewSurverAgent implements MetaSearchAgentType {
 
           try {
             const chatPrompt = buildSurveyChatPrompt(message, history);
-            const result = await chatAgent.complete(chatPrompt);
+            const result = await completePiAgent(
+              chatAgent,
+              chatPrompt,
+              signal,
+            );
             const text =
               (result?.text && result.text.trim()) ||
               '你好！我可以幫你總結文字、回答問題，或在你提供 LimeSurvey 問卷 ID 後分析自由文字題。';
@@ -350,7 +351,7 @@ export default class NewSurverAgent implements MetaSearchAgentType {
               message: 'Chat finished',
             });
           } finally {
-            harnessAgentManager.markIdle(shellAgentId);
+            await harnessAgentManager.markIdle(shellAgentId);
           }
           return;
         }
@@ -524,7 +525,10 @@ export default class NewSurverAgent implements MetaSearchAgentType {
             harnessAgentManager.markBusy(clusterAgentId);
 
             const clusters = await clusterQuestionViaKodeAgent({
-              agent: clusterAgent,
+              agent: {
+                complete: (input) =>
+                  completePiAgent(clusterAgent, input, signal),
+              },
               question: payload.question,
               items: payload.items,
               signal,
@@ -605,7 +609,7 @@ export default class NewSurverAgent implements MetaSearchAgentType {
           } finally {
             if (clusterAgentId && harnessAgentManager) {
               try {
-                harnessAgentManager.markIdle(clusterAgentId);
+                await harnessAgentManager.markIdle(clusterAgentId);
               } catch {
                 /* ignore */
               }
@@ -674,7 +678,7 @@ export default class NewSurverAgent implements MetaSearchAgentType {
       } finally {
         if (shellAgentId && harnessAgentManager) {
           try {
-            harnessAgentManager.markIdle(shellAgentId);
+            await harnessAgentManager.markIdle(shellAgentId);
           } catch {
             /* ignore */
           }

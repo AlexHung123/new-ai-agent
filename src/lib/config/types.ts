@@ -1,5 +1,3 @@
-import { Model } from '../models/types';
-
 type BaseUIConfigField = {
   name: string;
   key: string;
@@ -50,60 +48,28 @@ type UIConfigField =
   | TextareaUIConfigField
   | SwitchUIConfigField;
 
-type ConfigModelProvider = {
-  id: string;
-  name: string;
-  type: string;
-  chatModels: Model[];
-  embeddingModels: Model[];
-  config: { [key: string]: any };
-  hash: string;
-};
-
 type Config = {
   version: number;
-  setupComplete: boolean;
   preferences: {
     [key: string]: any;
   };
   personalization: {
     [key: string]: any;
   };
-  modelProviders: ConfigModelProvider[];
-  search: {
-    [key: string]: any;
-  };
-};
-
-type EnvMap = {
-  [key: string]: {
-    fieldKey: string;
-    providerKey: string;
-  };
-};
-
-type ModelProviderUISection = {
-  name: string;
-  key: string;
-  fields: UIConfigField[];
+  [key: string]: any;
 };
 
 type UIConfigSections = {
   preferences: UIConfigField[];
   personalization: UIConfigField[];
-  modelProviders: ModelProviderUISection[];
-  search: UIConfigField[];
 };
 
 export type {
   UIConfigField,
   Config,
-  EnvMap,
   UIConfigSections,
   SelectUIConfigField,
   StringUIConfigField,
-  ModelProviderUISection,
-  ConfigModelProvider,
   TextareaUIConfigField,
   SwitchUIConfigField,
 };

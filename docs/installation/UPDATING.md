@@ -1,5 +1,8 @@
 # Update aiagent to the latest version
 
+生產若仍在 SQLite、要切到獨立 PostgreSQL，請照  
+[`SQLITE-TO-POSTGRES-PRODUCTION.md`](./SQLITE-TO-POSTGRES-PRODUCTION.md)。
+
 To update aiagent to the latest version, follow these steps:
 
 ## For Docker users (Using pre-built images)

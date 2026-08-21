@@ -1,8 +1,10 @@
-import { defineTool } from '@shareai-lab/kode-sdk/dist/tools/define';
+import { Type } from 'typebox';
+import type { AgentTool } from '@earendil-works/pi-agent-core';
 import { queryRagflow } from '../ragflow/ragflowClient';
 import db from '../../../db';
 import { sfcQuestionM } from '../../../db/schema';
 import { eq, and } from 'drizzle-orm';
+import { jsonToolResult } from '../runtime/piToolResult';
 
 function extractYear(content: string) {
   const yearMatch = content.match(/(?:年份|Year)[：:]\s*(\d{4})/);
@@ -27,25 +29,11 @@ interface EsBm25ToolResult {
   year_filter: string[];
 }
 
-export function createEsBm25SearchTool() {
-  return defineTool({
-    name: 'es_bm25_search',
-    description: 'Search chunks in Elasticsearch using BM25.',
-    params: {
-      query: { type: 'string', description: 'Natural language query text' },
-      top_k: {
-        type: 'number',
-        description: 'Maximum number of returned chunks',
-        required: false,
-        default: 8,
-      },
-    },
-    attributes: { readonly: true, noEffect: true },
-    async exec(
-      args: EsBm25Args,
-    ): Promise<
-      EsBm25ToolResult | { ok: false; error: string; recommendations: string[] }
-    > {
+export async function runEsBm25Search(
+  args: EsBm25Args,
+): Promise<
+  EsBm25ToolResult | { ok: false; error: string; recommendations: string[] }
+> {
       try {
         const rawResult = await queryRagflow(args.query, undefined);
 
@@ -144,6 +132,20 @@ export function createEsBm25SearchTool() {
           ],
         };
       }
-    },
-  });
+}
+
+export function createEsBm25SearchTool(): AgentTool {
+  return {
+    name: 'es_bm25_search',
+    label: 'ES BM25 search',
+    description: 'Search chunks in Elasticsearch using BM25.',
+    parameters: Type.Object({
+      query: Type.String({ description: 'Natural language query text' }),
+      top_k: Type.Optional(
+        Type.Number({ description: 'Maximum number of returned chunks' }),
+      ),
+    }),
+    execute: async (_id, args) =>
+      jsonToolResult(await runEsBm25Search(args as EsBm25Args)),
+  };
 }

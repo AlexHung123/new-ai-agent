@@ -30,6 +30,7 @@ import {
   type AgentProcessState,
 } from '../chat/agentProcess';
 import { applySseProcessEvent } from '../chat/applySseProcessEvent';
+import { messageFromChatHttpError } from '../chat/readChatHttpError';
 import {
   extractUserIdFromToken,
   getAuthHeaders,
@@ -792,7 +793,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
           optimizationMode: optimizationModeRef.current,
           sfcExactMatch: sfcExactMatchRef.current,
           sfcTrainingRelated: sfcTrainingRelatedRef.current,
-          documentId: documentIdRef.current,
+          documentId: documentIdRef.current ?? undefined,
           history: rewriteMode
             ? chatHistoryRef.current.slice(
                 0,
@@ -803,6 +804,30 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         }),
         signal: controller.signal,
       });
+
+      if (!res.ok) {
+        const text = await res.text();
+        const msg = messageFromChatHttpError(text, res.status);
+        toast.error(msg);
+        const msgId = crypto.randomBytes(7).toString('hex');
+        setMessages((prev) => [
+          ...prev,
+          {
+            content: msg,
+            messageId: msgId,
+            chatId: chatId!,
+            role: 'assistant',
+            createdAt: new Date(),
+          },
+        ]);
+        setChatHistory((prev) => [
+          ...prev,
+          ['human', message],
+          ['assistant', msg],
+        ]);
+        completed = true;
+        return;
+      }
 
       if (!res.body) throw new Error('No response body');
 
@@ -829,7 +854,11 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       if (buffer.trim() && !controller.signal.aborted) {
-        await messageHandler(JSON.parse(buffer));
+        try {
+          await messageHandler(JSON.parse(buffer));
+        } catch (err) {
+          console.warn('[useChat] skip leftover SSE JSON', err);
+        }
       }
     } catch (err: any) {
       if (err?.name === 'AbortError' || controller.signal.aborted) {

@@ -17,7 +17,7 @@ export const DOCUMENT_SLOTS: DocumentSlot[] = [
   },
   {
     id: 'csr',
-    title: 'Full CSR',
+    title: 'CSR',
     description: 'Civil Service Regulations (公務員事務規例)',
     dirName: 'csr',
   },

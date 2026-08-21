@@ -12,7 +12,7 @@ import AgentCard from './AgentCard';
 import EmptyChat from './EmptyChat';
 import Loader from './ui/Loader';
 import SettingsButtonMobile from './Settings/SettingsButtonMobile';
-import ToolExecutionPanel from './ToolExecutionPanel';
+import MessageTimeline from './MessageTimeline';
 import { useChat } from '@/lib/hooks/useChat';
 
 export interface BaseMessage {
@@ -122,9 +122,11 @@ const ChatWindow = () => {
             >
               <AgentCard />
             </motion.div>
-            <ToolExecutionPanel />
             <Navbar />
             <Chat />
+            <div className="message-outline-host hidden xl:block">
+              <MessageTimeline />
+            </div>
           </>
         ) : (
           <EmptyChat />

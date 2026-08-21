@@ -1,6 +1,8 @@
-import { defineTool } from '@shareai-lab/kode-sdk/dist/tools/define';
+import { Type } from 'typebox';
+import type { AgentTool } from '@earendil-works/pi-agent-core';
 import { queryRagflow } from '../ragflow/ragflowClient';
 import configManager from '../../../config';
+import { jsonToolResult } from '../runtime/piToolResult';
 
 interface ChunkResult {
   content: string;
@@ -19,26 +21,11 @@ interface GuideSearchResult {
   search_query: string;
 }
 
-export function createGuideSearchTool() {
-  return defineTool({
-    name: 'guide_search',
-    description: 'Search chunks in guide document.',
-    params: {
-      query: { type: 'string', description: 'Natural language query text' },
-      top_k: {
-        type: 'number',
-        description: 'Maximum number of returned chunks',
-        required: false,
-        default: 8,
-      },
-    },
-    attributes: { readonly: true, noEffect: true },
-    async exec(
-      args: GuideSearchArgs,
-    ): Promise<
-      | GuideSearchResult
-      | { ok: false; error: string; recommendations: string[] }
-    > {
+export async function runGuideSearch(
+  args: GuideSearchArgs,
+): Promise<
+  GuideSearchResult | { ok: false; error: string; recommendations: string[] }
+> {
       try {
         const datasetIds =
           configManager.getConfig('ragflow.guideDatasetIds') || [
@@ -101,6 +88,20 @@ export function createGuideSearchTool() {
           ],
         };
       }
-    },
-  });
+}
+
+export function createGuideSearchTool(): AgentTool {
+  return {
+    name: 'guide_search',
+    label: 'Guide search',
+    description: 'Search chunks in guide document.',
+    parameters: Type.Object({
+      query: Type.String({ description: 'Natural language query text' }),
+      top_k: Type.Optional(
+        Type.Number({ description: 'Maximum number of returned chunks' }),
+      ),
+    }),
+    execute: async (_id, args) =>
+      jsonToolResult(await runGuideSearch(args as GuideSearchArgs)),
+  };
 }

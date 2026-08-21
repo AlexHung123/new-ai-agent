@@ -3,44 +3,16 @@ import type { Embeddings } from '@langchain/core/embeddings';
 import { BaseMessage } from '@langchain/core/messages';
 import eventEmitter from 'events';
 import { Converter } from 'opencc-js';
-import MetaSearchAgent, { MetaSearchAgentType } from './metaSearchAgent';
+import { MetaSearchAgentType } from './metaSearchAgent';
 import configManager from '../config';
 import db from '../db';
 import { sfcQuestionM } from '../db/schema';
 import { eq, and } from 'drizzle-orm';
 
 class SfcAgent implements MetaSearchAgentType {
-  private metaSearchAgent: MetaSearchAgentType;
   // 靜態 Converter 實例，避免每次調用都創建新實例
   private static cnToTwConverter = Converter({ from: 'cn', to: 'tw' });
   private static conversionCache = new Map<string, string>();
-
-  constructor() {
-    // Create a MetaSearchAgent instance for final analysis
-    this.metaSearchAgent = new MetaSearchAgent({
-      activeEngines: [],
-      queryGeneratorPrompt: '',
-      queryGeneratorFewShots: [],
-      responsePrompt: `你是一個專業的香港立法會質詢分析助手。
-        根據提供的檢索結果（chunks），請分析用戶的問題並提供詳細回答。
-
-        ## 回答要求：
-        1. 使用繁體中文回答
-        2. 根據檢索到的chunks內容進行分析
-        3. 如果檢索結果包含相關信息，請整理並清晰呈現
-        4. 保持客觀、準確，避免推測
-        5. 必要時可以使用表格或列表整理信息
-
-        請根據以下檢索結果回答用戶問題：
-
-        {context}
-
-        用戶問題：{query}`,
-      rerank: false,
-      rerankThreshold: 0,
-      searchWeb: false,
-    });
-  }
 
   /**
    * Extract keyword from user question using LLM

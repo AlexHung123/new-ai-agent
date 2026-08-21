@@ -11,7 +11,6 @@ import {
 import { Fragment, useState } from 'react';
 import { toast } from 'sonner';
 import { Chat } from '@/app/library/page';
-// import { getUserIdFromStorage } from '@/lib/utils/userId';
 import { getAuthHeaders } from '@/lib/utils/auth';
 
 const DeleteChat = ({

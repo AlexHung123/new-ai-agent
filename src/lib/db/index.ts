@@ -1,12 +1,24 @@
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import Database from 'better-sqlite3';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { Pool } from 'pg';
 import * as schema from './schema';
-import path from 'path';
+import { getAppDatabaseUrl } from './connection';
 
-const DATA_DIR = process.env.DATA_DIR || process.cwd();
-const sqlite = new Database(path.join(DATA_DIR, './data/db.sqlite'));
-const db = drizzle(sqlite, {
-  schema: schema,
-});
+declare global {
+  // eslint-disable-next-line no-var
+  var __appPgPool: Pool | undefined;
+}
 
+const pool =
+  global.__appPgPool ??
+  new Pool({
+    connectionString: getAppDatabaseUrl(),
+  });
+
+if (process.env.NODE_ENV !== 'production') {
+  global.__appPgPool = pool;
+}
+
+const db = drizzle(pool, { schema });
+
+export { pool };
 export default db;

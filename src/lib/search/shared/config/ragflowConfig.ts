@@ -1,4 +1,5 @@
 import configManager from '../../../config';
+import { resolveConfiguredChatModel } from '../../../models/configuredChatModel';
 
 export interface RagflowRetrievalConfig {
   apiUrl: string;
@@ -42,13 +43,18 @@ export function getRagflowRetrievalConfig(
 }
 
 export function getAgentModelConfig(): AgentModelConfig {
-  return {
-    modelId: configManager.getConfig('base.modelId', '') || 'gpt-3.5-turbo',
-    apiKey: configManager.getConfig('base.apiKey', '') || '',
-    baseUrl:
+  return resolveConfiguredChatModel({
+    modelId: configManager.getConfig('base.modelId', ''),
+    apiKey: configManager.getConfig('base.apiKey', ''),
+    baseURL:
       configManager.getConfig('base.baseURL', '') || 'http://192.168.1.51:8000',
-  };
+  });
 }
+
+export {
+  getAppDatabaseUrl,
+  getAppDatabaseUrl as getPiSessionConnectionString,
+} from '../../../db/connection';
 
 export function getMaxActiveAgents(
   fallback = DEFAULT_MAX_ACTIVE_AGENTS,

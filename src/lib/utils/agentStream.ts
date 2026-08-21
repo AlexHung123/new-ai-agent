@@ -1,17 +1,17 @@
-import type { Agent } from '@shareai-lab/kode-sdk/dist/core/agent';
-import eventEmitter from 'events';
+import type { EventEmitter } from 'events';
+import { buildToolEndSummary } from '../chat/toolSummary';
+import type { PooledAgent } from '../search/shared/agent/piAgentSessionManager';
 
 interface StreamAgentProgressOptions {
-  agent: any;
-  emitter: eventEmitter;
+  agent: PooledAgent;
+  emitter: EventEmitter;
   signal?: AbortSignal;
-  progressBookmarkByAgent: WeakMap<Agent, string>;
-  safeJson: (value: unknown) => string;
+  safeJson?: (value: unknown) => string;
   /** Override the finished progress message (default: SFC wording for backward compat). */
   finishedMessage?: string;
-  /** Called when a text_chunk is streamed so callers can track hasTextResponse. */
+  /** Called when a text_delta is streamed so callers can track hasTextResponse. */
   onTextChunk?: (delta: string) => void;
-  /** When true, skip emitting tool:start as tool_execution (caller handles tool events). */
+  /** When true, skip emitting tool_execution_start as tool_execution. */
   skipToolStartEvents?: boolean;
 }
 
@@ -19,146 +19,196 @@ export interface StreamAgentProgressResult {
   hasTextResponse: boolean;
 }
 
-export async function streamAgentProgressToEmitter(
+const DISCLAIMER =
+  '<span class="text-red-500 font-bold">AI生成的回覆可能不準確，使用前請仔細核實。</span>\n\n';
+
+function emitJson(emitter: EventEmitter, payload: unknown) {
+  let text: string;
+  try {
+    text = JSON.stringify(payload);
+  } catch {
+    text = JSON.stringify({
+      type: 'response',
+      data: '[unserializable event]',
+    });
+  }
+  emitter.emit('data', `${text}\n`);
+}
+
+function toolErrorText(result: unknown): string {
+  if (!result || typeof result !== 'object') return 'Tool failed';
+  const rec = result as {
+    content?: Array<{ text?: string }>;
+    error?: unknown;
+    details?: { error?: unknown };
+  };
+  if (typeof rec.error === 'string' && rec.error.trim()) return rec.error;
+  if (typeof rec.details?.error === 'string' && rec.details.error.trim()) {
+    return rec.details.error;
+  }
+  const text = rec.content
+    ?.map((part) => part?.text ?? '')
+    .join('')
+    .trim();
+  return text || 'Tool failed';
+}
+
+function collectSourcesFromResult(
+  result: unknown,
+  collectedSources: Array<{ pageContent: string; metadata: { title: string; url: string } }>,
+) {
+  const chunks = (result as { details?: { chunks?: unknown[] } })?.details
+    ?.chunks;
+  if (!Array.isArray(chunks)) return;
+
+  for (const chunk of chunks) {
+    if (!chunk || typeof chunk !== 'object') continue;
+    const documentLink = (chunk as { document_link?: string }).document_link;
+    if (!documentLink) continue;
+    const linkMatch = documentLink.match(/href="([^"]+)"[^>]*>(.*?)<\/a>/);
+    if (!linkMatch) continue;
+    const url = linkMatch[1];
+    const title = linkMatch[2];
+    if (collectedSources.some((s) => s.metadata.url === url)) continue;
+    collectedSources.push({
+      pageContent: (chunk as { content?: string }).content || '',
+      metadata: { title, url },
+    });
+  }
+}
+
+export function streamAgentProgressToEmitter(
   options: StreamAgentProgressOptions,
 ): Promise<StreamAgentProgressResult> {
   const {
     agent,
     emitter,
     signal,
-    progressBookmarkByAgent,
     finishedMessage = 'SFC Kode Agent execution finished',
     onTextChunk,
     skipToolStartEvents = false,
   } = options;
 
-  let lastBookmark = progressBookmarkByAgent.get(agent as Agent);
   let hasEmittedWarning = false;
   let hasTextResponse = false;
-  const collectedSources: any[] = [];
+  let settled = false;
+  const collectedSources: Array<{
+    pageContent: string;
+    metadata: { title: string; url: string };
+  }> = [];
 
-  for await (const envelope of agent.subscribe(['progress'], {
-    since: lastBookmark,
-  }) as AsyncIterable<any>) {
-    if (signal?.aborted) break;
-    if (!envelope?.event) continue;
-    lastBookmark = envelope.bookmark ?? lastBookmark;
+  return new Promise((resolve) => {
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      unsubscribe();
+      signal?.removeEventListener('abort', onAbort);
 
-    const event = envelope.event;
+      if (collectedSources.length > 0) {
+        emitJson(emitter, {
+          type: 'sources',
+          data: collectedSources,
+        });
+      }
 
-    switch (event.type) {
-      case 'text_chunk':
-        hasTextResponse = true;
-        onTextChunk?.(event.delta ?? '');
-        if (!hasEmittedWarning) {
-          // Emit the warning message before the first text chunk
-          emitter.emit(
-            'data',
-            JSON.stringify({
-              type: 'response',
-              data: '<span class="text-red-500 font-bold">AI生成的回覆可能不準確，使用前請仔細核實。</span>\n\n',
-            }),
-          );
-          hasEmittedWarning = true;
+      emitJson(emitter, {
+        type: 'progress',
+        data: {
+          status: 'finished',
+          total: 2,
+          current: 2,
+          message: finishedMessage,
+        },
+      });
+      resolve({ hasTextResponse });
+    };
+
+    const onAbort = () => {
+      try {
+        agent.abort();
+      } catch {
+        /* ignore */
+      }
+      // Idle / not yet prompted: nothing to drain. During a run, wait for
+      // agent_end so pi-ai streamSimple can settle like pi-rag.
+      if (!agent.state.isStreaming) finish();
+    };
+
+    const unsubscribe = agent.subscribe((event) => {
+      if (!event?.type) return;
+
+      switch (event.type) {
+        case 'message_update': {
+          const ame = event.assistantMessageEvent;
+          if (ame?.type !== 'text_delta' || typeof ame.delta !== 'string') break;
+          hasTextResponse = true;
+          onTextChunk?.(ame.delta);
+          if (!hasEmittedWarning) {
+            emitJson(emitter, { type: 'response', data: DISCLAIMER });
+            hasEmittedWarning = true;
+          }
+          emitJson(emitter, { type: 'response', data: ame.delta });
+          break;
         }
-        emitter.emit(
-          'data',
-          JSON.stringify({ type: 'response', data: event.delta }),
-        );
-        break;
-      case 'tool:start': {
-        if (skipToolStartEvents) break;
-
-        emitter.emit(
-          'data',
-          JSON.stringify({
+        case 'tool_execution_start': {
+          if (skipToolStartEvents) break;
+          emitJson(emitter, {
             type: 'tool_execution',
             data: {
-              id: event.call.id,
-              name: event.call.name,
-              description: event.call.description,
+              id: event.toolCallId,
+              name: event.toolName,
               state: 'RUNNING',
-              inputPreview: event.call.inputPreview || event.call.args,
+              inputPreview: event.args,
             },
-          }),
-        );
-        break;
-      }
-      case 'tool:end':
-        if (
-          event.call?.result?.chunks &&
-          Array.isArray(event.call.result.chunks)
-        ) {
-          event.call.result.chunks.forEach((chunk: any) => {
-            if (chunk.document_link) {
-              // Extract URL and Title from anchor tag (e.g. <a href="URL"...>TITLE</a>)
-              const linkMatch = chunk.document_link.match(
-                /href="([^"]+)"[^>]*>(.*?)<\/a>/,
-              );
-              if (linkMatch) {
-                const url = linkMatch[1];
-                const title = linkMatch[2];
-                // Deduplicate by URL
-                if (!collectedSources.some((s) => s.metadata.url === url)) {
-                  collectedSources.push({
-                    pageContent: chunk.content || '',
-                    metadata: { title, url },
-                  });
-                }
-              }
-            }
           });
+          break;
         }
-        break;
-      case 'tool:error':
-        emitter.emit(
-          'data',
-          JSON.stringify({
-            type: 'tool_error',
-            data: {
-              id: event.call.id,
-              name: event.call.name,
-              state: event.call.state, // e.g., 'FAILED'
-              error: event.error,
-              inputPreview: event.call.inputPreview || event.call.args,
-            },
-          }),
-        );
-        break;
-      case 'done':
-        if (lastBookmark) {
-          progressBookmarkByAgent.set(agent as Agent, lastBookmark);
-        }
-
-        if (collectedSources.length > 0) {
-          emitter.emit(
-            'data',
-            JSON.stringify({
-              type: 'sources',
-              data: collectedSources,
-            }),
+        case 'tool_execution_end': {
+          if (event.isError) {
+            emitJson(emitter, {
+              type: 'tool_error',
+              data: {
+                id: event.toolCallId,
+                name: event.toolName,
+                state: 'FAILED',
+                error: toolErrorText(event.result),
+              },
+            });
+            break;
+          }
+          collectSourcesFromResult(event.result, collectedSources);
+          const { summary } = buildToolEndSummary(
+            event.toolName,
+            event.result,
+            false,
           );
-        }
-
-        emitter.emit(
-          'data',
-          JSON.stringify({
-            type: 'progress',
+          emitJson(emitter, {
+            type: 'tool_execution',
             data: {
-              status: 'finished',
-              total: 2,
-              current: 2,
-              message: finishedMessage,
+              id: event.toolCallId,
+              name: event.toolName,
+              state: 'COMPLETED',
+              inputPreview: event.args,
+              summary,
+              resultPreview: event.result?.details ?? event.result,
             },
-          }),
-        );
-        return { hasTextResponse };
+          });
+          break;
+        }
+        case 'agent_end':
+          finish();
+          break;
+        default:
+          break;
+      }
+    });
+
+    if (signal) {
+      if (signal.aborted) {
+        onAbort();
+        return;
+      }
+      signal.addEventListener('abort', onAbort);
     }
-  }
-
-  if (lastBookmark) {
-    progressBookmarkByAgent.set(agent as Agent, lastBookmark);
-  }
-
-  return { hasTextResponse };
+  });
 }

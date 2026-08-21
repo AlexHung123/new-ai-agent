@@ -11,7 +11,11 @@ const nextConfig = {
       },
     ],
   },
-  serverExternalPackages: ['pdf-parse', '@shareai-lab/kode-sdk', 'better-sqlite3', 'e2b'],
+  serverExternalPackages: [
+    '@earendil-works/pi-agent-core',
+    '@earendil-works/pi-ai',
+    'better-sqlite3',
+  ],
 };
 
 export default nextConfig;

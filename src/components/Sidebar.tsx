@@ -118,7 +118,7 @@ const Sidebar = ({ children }: { children: React.ReactNode }) => {
         ))}
       </div>
 
-      <Layout>{children}</Layout>
+      <Layout wide={segments.includes('agents')}>{children}</Layout>
     </div>
   );
 };

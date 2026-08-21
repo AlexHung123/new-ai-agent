@@ -1,10 +1,22 @@
-import { cn } from '@/lib/utils';
-import { ArrowUp, Square } from 'lucide-react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import { useChat } from '@/lib/hooks/useChat';
 import { focusModes } from '@/lib/agents';
 import SfcExactMatchToggle from './SfcExactMatchToggle';
+
+const SendArrow = () => (
+  <span className="send-btn-icon" aria-hidden>
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+      <path
+        d="M3 8h9M8.5 4.5 12 8l-3.5 3.5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  </span>
+);
 
 const MessageInput = memo(function MessageInput() {
   const {
@@ -40,7 +52,6 @@ const MessageInput = memo(function MessageInput() {
     inputRef.current?.focus();
   }, [loading, message, sendMessage, focusMode, documentId]);
 
-  // Global shortcut: press "/" to focus textarea when not typing in an input
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key !== '/') return;
@@ -71,7 +82,6 @@ const MessageInput = memo(function MessageInput() {
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      // Enter = send, Shift+Enter = newline
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         submit();
@@ -90,42 +100,46 @@ const MessageInput = memo(function MessageInput() {
   );
 
   const documentBlocked = focusMode === 'agentDocument' && !documentId;
-  const disabled =
-    (!loading && message.trim().length === 0) ||
-    (!loading && documentBlocked);
+  const canSend = message.trim().length > 0 && !documentBlocked;
+  const disabled = loading ? false : !canSend;
 
   return (
-    <form
-      onSubmit={onSubmit}
-      onKeyDown={onKeyDown}
-      className={cn(
-        'bg-light-secondary dark:bg-dark-secondary px-3 pt-5 pb-3 flex flex-col rounded-2xl w-full border border-light-200 dark:border-dark-200 shadow-sm shadow-light-200/10 dark:shadow-black/20 transition-all duration-200 focus-within:border-light-300 dark:focus-within:border-dark-300',
-      )}
-    >
+    <form onSubmit={onSubmit} onKeyDown={onKeyDown} className="composer">
       <TextareaAutosize
         ref={inputRef}
         value={message}
         onChange={(e) => setMessage(e.target.value)}
-        className="px-2 bg-transparent dark:placeholder:text-white/50 placeholder:text-sm text-sm dark:text-white resize-none focus:outline-none w-full max-h-24 lg:max-h-36 xl:max-h-48"
+        className="composer-input"
         placeholder={placeholder}
+        maxRows={8}
       />
 
-      <div className="flex flex-row items-center justify-end mt-4 gap-3">
-        <SfcExactMatchToggle />
-
-        <button
-          disabled={disabled}
-          onClick={onActionClick}
-          className="bg-[#24A0ED] text-white disabled:text-black/50 dark:disabled:text-white/50 hover:bg-opacity-85 transition duration-100 disabled:bg-[#e0e0dc79] dark:disabled:bg-[#ececec21] rounded-full p-2"
-          aria-label={loading ? 'Stop generating' : 'Send message'}
-          type="button"
-        >
-          {loading ? (
-            <Square className="bg-background" fill="white" size={17} />
-          ) : (
-            <ArrowUp className="bg-background" size={17} />
-          )}
-        </button>
+      <div className="composer-toolbar">
+        <div className="composer-toolbar-left">
+          <SfcExactMatchToggle />
+        </div>
+        <div className="composer-toolbar-right">
+          <button
+            disabled={disabled}
+            onClick={onActionClick}
+            className={
+              loading
+                ? 'send-btn stop-btn'
+                : `send-btn${canSend ? ' send-btn-active' : ''}`
+            }
+            aria-label={loading ? 'Stop generating' : 'Send message'}
+            type="button"
+          >
+            {loading ? (
+              'Stop'
+            ) : (
+              <>
+                <SendArrow />
+                Send
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </form>
   );

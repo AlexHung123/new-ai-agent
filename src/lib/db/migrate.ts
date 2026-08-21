@@ -1,21 +1,11 @@
-import Database from 'better-sqlite3';
-import path from 'path';
 import fs from 'fs';
+import path from 'path';
+import { Pool } from 'pg';
+import { getAppDatabaseUrl } from './connection';
+import { importSqliteIfNeeded } from './importSqlite';
 
 const DATA_DIR = process.env.DATA_DIR || process.cwd();
-const dbPath = path.join(DATA_DIR, './data/db.sqlite');
-
-const db = new Database(dbPath);
-
-const migrationsFolder = path.join(DATA_DIR, 'drizzle');
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS ran_migrations (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE,
-    run_on DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
-`);
+const migrationsFolder = path.join(DATA_DIR, 'drizzle', 'pg');
 
 function sanitizeSql(content: string) {
   return content
@@ -26,97 +16,59 @@ function sanitizeSql(content: string) {
     .join('\n');
 }
 
-fs.readdirSync(migrationsFolder)
-  .filter((f) => f.endsWith('.sql'))
-  .sort()
-  .forEach((file) => {
-    const filePath = path.join(migrationsFolder, file);
-    let content = fs.readFileSync(filePath, 'utf-8');
-    content = sanitizeSql(content);
+export async function runMigrations(): Promise<void> {
+  const pool = new Pool({ connectionString: getAppDatabaseUrl() });
 
-    const migrationName = file.split('_')[0] || file;
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ran_migrations (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        run_on TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
-    const already = db
-      .prepare('SELECT 1 FROM ran_migrations WHERE name = ?')
-      .get(migrationName);
-    if (already) {
-      console.log(`Skipping already-applied migration: ${file}`);
+    if (!fs.existsSync(migrationsFolder)) {
+      console.warn(`No postgres migrations folder at ${migrationsFolder}`);
       return;
     }
 
-    try {
-      if (migrationName === '0001') {
-        const messages = db
-          .prepare(
-            'SELECT id, type, metadata, content, chatId, messageId FROM messages',
-          )
-          .all();
+    const files = fs
+      .readdirSync(migrationsFolder)
+      .filter((f) => f.endsWith('.sql'))
+      .sort();
 
-        db.exec(`
-                    CREATE TABLE IF NOT EXISTS messages_with_sources (
-                        id INTEGER PRIMARY KEY,
-                        type TEXT NOT NULL,
-                        chatId TEXT NOT NULL,
-                        createdAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                        messageId TEXT NOT NULL,
-                        content TEXT,
-                        sources TEXT DEFAULT '[]'
-                    );
-                `);
-
-        const insertMessage = db.prepare(`
-                    INSERT INTO messages_with_sources (type, chatId, createdAt, messageId, content, sources)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                `);
-
-        messages.forEach((msg: any) => {
-          while (typeof msg.metadata === 'string') {
-            msg.metadata = JSON.parse(msg.metadata || '{}');
-          }
-          if (msg.type === 'user') {
-            insertMessage.run(
-              'user',
-              msg.chatId,
-              msg.metadata['createdAt'],
-              msg.messageId,
-              msg.content,
-              '[]',
-            );
-          } else if (msg.type === 'assistant') {
-            insertMessage.run(
-              'assistant',
-              msg.chatId,
-              msg.metadata['createdAt'],
-              msg.messageId,
-              msg.content,
-              '[]',
-            );
-            const sources = msg.metadata['sources'] || '[]';
-            if (sources && sources.length > 0) {
-              insertMessage.run(
-                'source',
-                msg.chatId,
-                msg.metadata['createdAt'],
-                `${msg.messageId}-source`,
-                '',
-                JSON.stringify(sources),
-              );
-            }
-          }
-        });
-
-        db.exec('DROP TABLE messages;');
-        db.exec('ALTER TABLE messages_with_sources RENAME TO messages;');
-      } else {
-        db.exec(content);
+    for (const file of files) {
+      const migrationName = file.split('_')[0] || file;
+      const already = await pool.query(
+        'SELECT 1 FROM ran_migrations WHERE name = $1',
+        [migrationName],
+      );
+      if (already.rowCount) {
+        console.log(`Skipping already-applied migration: ${file}`);
+        continue;
       }
 
-      db.prepare('INSERT OR IGNORE INTO ran_migrations (name) VALUES (?)').run(
-        migrationName,
+      const content = sanitizeSql(
+        fs.readFileSync(path.join(migrationsFolder, file), 'utf-8'),
       );
+      await pool.query(content);
+      await pool.query('INSERT INTO ran_migrations (name) VALUES ($1)', [
+        migrationName,
+      ]);
       console.log(`Applied migration: ${file}`);
-    } catch (err) {
-      console.error(`Failed to apply migration ${file}:`, err);
-      throw err;
     }
-  });
+
+    const imported = await importSqliteIfNeeded(pool);
+    if (imported.skipped) {
+      console.log('SQLite import skipped (no data/db.sqlite)');
+    } else {
+      console.log(
+        `SQLite import chats=${imported.chats} messages=${imported.messages} sfc=${imported.sfc}`,
+      );
+    }
+  } finally {
+    await pool.end();
+  }
+}
+

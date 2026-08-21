@@ -2,12 +2,36 @@
 @tailwind components;
 @tailwind utilities;
 
-@font-face {
-  font-family: 'PP Editorial';
-  src: url('/fonts/pp-ed-ul.otf') format('opentype');
-  font-weight: 300;
-  font-style: normal;
-  font-display: swap;
+:root {
+  --wiki-font: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont,
+    sans-serif;
+  --wiki-text: #171a19;
+  --wiki-text-secondary: #626866;
+  --wiki-text-tertiary: #858c89;
+  --wiki-border: #d9e2de;
+  --wiki-border-hover: #b8c9c2;
+  --wiki-border-subtle: #e8efec;
+  --wiki-surface: #ffffff;
+  --wiki-surface-secondary: #f7f9f8;
+  --wiki-bubble: #e8eef8;
+  --wiki-table-head: #f3f4f6;
+  --wiki-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  --wiki-shadow-focus: 0 0 0 3px rgba(15, 118, 110, 0.18);
+}
+
+.dark {
+  --wiki-text: #f3f4f6;
+  --wiki-text-secondary: #c5cbc8;
+  --wiki-text-tertiary: #9ca3af;
+  --wiki-border: #30363d;
+  --wiki-border-hover: #484f58;
+  --wiki-border-subtle: #21262d;
+  --wiki-surface: #0d1117;
+  --wiki-surface-secondary: #161b22;
+  --wiki-bubble: #243044;
+  --wiki-table-head: #161b22;
+  --wiki-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --wiki-shadow-focus: 0 0 0 3px rgba(36, 160, 237, 0.22);
 }
 
 @layer base {
@@ -78,6 +102,17 @@
   html {
     scroll-behavior: smooth;
   }
+
+  html,
+  body {
+    font-family: var(--wiki-font);
+  }
+
+  button,
+  input,
+  textarea {
+    font-family: inherit;
+  }
 }
 
 @layer utilities {
@@ -100,4 +135,669 @@
   .prose :where(h1):not(:where([class~='not-prose'], [class~='not-prose'] *)) {
     font-size: 1em !important;
   }
+}
+
+/* Thin checkpoint rail; hover → outline-style floating preview list */
+.message-outline-host {
+  position: fixed;
+  right: 1.25rem;
+  top: 6rem;
+  bottom: 8rem;
+  z-index: 30;
+  width: 32px;
+}
+
+.message-outline {
+  position: relative;
+  z-index: 6;
+  display: flex;
+  width: 32px;
+  height: 100%;
+  min-width: 32px;
+  flex-direction: column;
+  overflow: visible;
+}
+
+.message-outline-rail-track {
+  position: absolute;
+  top: 22px;
+  bottom: 22px;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  background: #d0d5d4;
+  pointer-events: none;
+}
+
+.dark .message-outline-rail-track {
+  background: #3a3f44;
+}
+
+.message-outline-rail-list {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 16px 0;
+  list-style: none;
+}
+
+.message-outline-rail-list > li {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  width: 100%;
+}
+
+.message-outline-dot {
+  display: flex;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.message-outline-dot-inner {
+  display: block;
+  width: 7px;
+  height: 7px;
+  border: 1.5px solid #b8c0be;
+  border-radius: 1.5px;
+  background: #f7f8f8;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+.dark .message-outline-dot-inner {
+  border-color: #6b7280;
+  background: #16181d;
+}
+
+.message-outline-dot:hover .message-outline-dot-inner,
+.message-outline-dot:focus-visible .message-outline-dot-inner,
+.message-outline-dot.is-hovered .message-outline-dot-inner {
+  border-color: #6b7280;
+  background: #e5e7eb;
+  transform: scale(1.12);
+}
+
+.dark .message-outline-dot:hover .message-outline-dot-inner,
+.dark .message-outline-dot:focus-visible .message-outline-dot-inner,
+.dark .message-outline-dot.is-hovered .message-outline-dot-inner {
+  background: #374151;
+  border-color: #9ca3af;
+}
+
+.message-outline-dot.is-active .message-outline-dot-inner {
+  border-color: #6b7280;
+  background: #6b7280;
+  box-shadow: 0 0 0 2px rgba(107, 114, 128, 0.18);
+}
+
+.message-outline-preview {
+  position: absolute;
+  top: 12px;
+  right: calc(100% + 8px);
+  bottom: 12px;
+  z-index: 40;
+  display: flex;
+  width: min(300px, calc(100vw - 72px));
+  max-width: 300px;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow:
+    0 4px 6px -1px rgba(15, 23, 42, 0.06),
+    0 12px 28px -6px rgba(15, 23, 42, 0.12);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(8px);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.dark .message-outline-preview {
+  border-color: #30363d;
+  background: #16181d;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.24),
+    0 12px 28px -6px rgba(0, 0, 0, 0.4);
+}
+
+.message-outline.is-open .message-outline-preview {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+}
+
+.message-outline-preview-list {
+  margin: 0;
+  padding: 6px 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.message-outline-preview-list > li + li {
+  border-top: 1px solid #f0f1f2;
+}
+
+.dark .message-outline-preview-list > li + li {
+  border-top-color: #262a31;
+}
+
+.message-outline-preview-entry {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 14px 11px 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  transition: background 120ms ease;
+}
+
+.message-outline-preview-entry:hover,
+.message-outline-preview-entry.is-focus {
+  background: #f6f7f8;
+}
+
+.dark .message-outline-preview-entry:hover,
+.dark .message-outline-preview-entry.is-focus {
+  background: #21262d;
+}
+
+.message-outline-preview-head {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.message-outline-preview-index {
+  flex: 0 0 auto;
+  min-width: 1.35em;
+  color: #9ca3af;
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.45;
+}
+
+.message-outline-preview-user {
+  min-width: 0;
+  overflow: hidden;
+  color: #111827;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.dark .message-outline-preview-user {
+  color: #f3f4f6;
+}
+
+.message-outline-preview-assistant {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 8px;
+  padding-left: calc(1.35em + 8px);
+  color: #6b7280;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.message-outline-preview-assistant.is-empty {
+  font-style: italic;
+  color: #9ca3af;
+}
+
+.message-outline-preview-a {
+  flex: 0 0 auto;
+  color: #9ca3af;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.message-outline-preview-assistant-text {
+  min-width: 0;
+  overflow: hidden;
+  white-space: pre-line;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+}
+
+[data-message-id] {
+  scroll-margin-top: 5rem;
+}
+
+[data-message-id].is-flash {
+  animation: message-flash 1.2s ease;
+}
+
+@keyframes message-flash {
+  0% {
+    background: color-mix(in srgb, #24a0ed 14%, transparent);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+@media (max-width: 1279px) {
+  .message-outline-host {
+    display: none;
+  }
+}
+
+/* Domain-wiki chat (pi-rag) */
+.wiki-chat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 16px 168px;
+}
+
+.message-list {
+  width: min(100%, 720px);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.message-turn {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.message {
+  display: flex;
+  flex-direction: column;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+.message.user {
+  align-self: flex-end;
+  align-items: flex-end;
+  max-width: min(85%, 520px);
+}
+
+.message.assistant {
+  align-self: stretch;
+  align-items: stretch;
+  padding: 2px 0 4px;
+}
+
+.message-body {
+  min-width: 0;
+  width: 100%;
+}
+
+.message-user-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  max-width: 100%;
+}
+
+.message-bubble {
+  padding: 10px 16px;
+  border-radius: 18px;
+  background: var(--wiki-bubble);
+  color: var(--wiki-text);
+}
+
+.message .content {
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.message-bubble .content {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--wiki-text);
+}
+
+.message-time {
+  display: block;
+  padding: 0 4px;
+  color: var(--wiki-text-tertiary);
+  font-size: 11px;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+
+.message .content.markdown {
+  white-space: normal;
+  color: var(--wiki-text);
+  font-size: 14.5px;
+  line-height: 1.65;
+}
+
+.message .content.markdown > :first-child {
+  margin-top: 0;
+}
+
+.message .content.markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.message .content.markdown p {
+  margin: 0 0 0.55em;
+}
+
+.message .content.markdown p:last-child {
+  margin-bottom: 0;
+}
+
+.message .content.markdown h1,
+.message .content.markdown h2,
+.message .content.markdown h3,
+.message .content.markdown h4 {
+  margin: 0.9em 0 0.4em;
+  font-weight: 650;
+  line-height: 1.3;
+  color: var(--wiki-text);
+}
+
+.message .content.markdown h1 {
+  font-size: 1.2em;
+}
+
+.message .content.markdown h2 {
+  font-size: 1.1em;
+}
+
+.message .content.markdown h3,
+.message .content.markdown h4 {
+  font-size: 1.02em;
+}
+
+.message .content.markdown ul,
+.message .content.markdown ol {
+  margin: 0.35em 0 0.55em;
+  padding-left: 1.35em;
+}
+
+.message .content.markdown ul {
+  list-style: disc;
+}
+
+.message .content.markdown ol {
+  list-style: decimal;
+}
+
+.message .content.markdown li {
+  margin: 0.2em 0;
+  padding-left: 0.15em;
+  line-height: 1.5;
+}
+
+.message .content.markdown li > ul,
+.message .content.markdown li > ol {
+  margin: 0.15em 0 0.25em;
+}
+
+.message .content.markdown li > p {
+  margin: 0.15em 0;
+}
+
+.message .content.markdown li > p:first-child {
+  margin-top: 0;
+}
+
+.message .content.markdown li > p:last-child {
+  margin-bottom: 0;
+}
+
+.message .content.markdown strong {
+  font-weight: 650;
+}
+
+.message .content.markdown blockquote {
+  margin: 0.5em 0;
+  padding: 0.25em 0 0.25em 0.85em;
+  border-left: 3px solid var(--wiki-border);
+  color: var(--wiki-text-secondary);
+}
+
+.message .content.markdown code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.88em;
+  padding: 0.12em 0.45em;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--wiki-text) 8%, var(--wiki-border));
+  background: color-mix(in srgb, var(--wiki-text) 4%, #f4f5f7);
+  color: var(--wiki-text);
+}
+
+.dark .message .content.markdown code {
+  background: color-mix(in srgb, var(--wiki-text) 8%, transparent);
+}
+
+.message .content.markdown pre {
+  margin: 0.5em 0;
+  padding: 0.75em 0.9em;
+  overflow-x: auto;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--wiki-text) 5%, transparent);
+  border: 1px solid var(--wiki-border);
+}
+
+.message .content.markdown pre code {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  font-size: 0.88em;
+}
+
+.message .content.markdown hr {
+  margin: 0.85em 0;
+  border: none;
+  border-top: 1px solid var(--wiki-border);
+}
+
+.message .content.markdown table {
+  width: 100%;
+  margin: 0.5em 0;
+  border-collapse: collapse;
+  font-size: 0.95em;
+}
+
+.message .content.markdown th,
+.message .content.markdown td {
+  padding: 0.35em 0.55em;
+  border: 1px solid var(--wiki-border);
+  text-align: left;
+}
+
+.message .content.markdown th {
+  background: var(--wiki-table-head);
+  font-weight: 600;
+}
+
+.wiki-chat-composer-dock {
+  position: fixed;
+  z-index: 40;
+  bottom: 0;
+  padding: 12px 0 20px;
+  background: linear-gradient(
+    to top,
+    var(--wiki-surface) 62%,
+    color-mix(in srgb, var(--wiki-surface) 0%, transparent)
+  );
+}
+
+.composer {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px 10px;
+  border: 1px solid var(--wiki-border);
+  border-radius: 24px;
+  background: var(--wiki-surface);
+  box-shadow: var(--wiki-shadow);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.composer:focus-within {
+  border-color: var(--wiki-border-hover);
+  box-shadow: var(--wiki-shadow-focus), var(--wiki-shadow);
+}
+
+.composer-input {
+  width: 100%;
+  min-height: 28px;
+  resize: none;
+  border: 0;
+  outline: 0;
+  padding: 4px 4px 8px;
+  background: transparent;
+  color: var(--wiki-text);
+  font: inherit;
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.composer-input::placeholder {
+  color: var(--wiki-text-tertiary);
+}
+
+.composer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 36px;
+}
+
+.composer-toolbar-left,
+.composer-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.composer-toolbar-left {
+  flex: 1 1 auto;
+}
+
+.composer-toolbar-right {
+  flex: 0 0 auto;
+}
+
+.send-btn {
+  display: inline-flex;
+  min-width: 40px;
+  height: 36px;
+  padding: 0 14px;
+  gap: 6px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: var(--wiki-surface-secondary);
+  color: var(--wiki-text-tertiary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.send-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.send-btn.send-btn-active {
+  background: #0f766e;
+  color: #ffffff;
+}
+
+.send-btn.send-btn-active:hover {
+  background: #115e59;
+}
+
+.send-btn-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.send-btn.stop-btn {
+  background: var(--wiki-surface-secondary);
+  color: #ef4444;
+  border: 1px solid color-mix(in srgb, #ef4444 35%, var(--wiki-border));
+  padding: 0 12px;
+}
+
+.send-btn.stop-btn:hover {
+  background: color-mix(in srgb, #ef4444 12%, var(--wiki-surface));
+}
+
+.welcome-wiki {
+  display: flex;
+  width: min(100%, 720px);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 16px 20px;
+  text-align: center;
+}
+
+.welcome-wiki h2 {
+  margin: 0 0 8px;
+  color: var(--wiki-text);
+  font-size: 24px;
+  font-weight: 720;
+}
+
+.welcome-wiki p {
+  margin: 0 0 24px;
+  max-width: 560px;
+  color: var(--wiki-text-secondary);
+  font-size: 14px;
+  line-height: 1.55;
 }

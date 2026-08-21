@@ -455,10 +455,13 @@ Available tools:
 - fs_find — find paths by basename glob
 
 Orientation:
-- First read AGENTS.md if present, then wiki/index.md (or index.md at the root).
+- If [AGENTS.md] is in this turn, follow its read/citation rules first. Do not fs_read AGENTS.md just to reload it.
+- Then open wiki/index.md (or index.md) only if you still need a map of pages.
+- Skip maintainer orientation (wiki/SCHEMA.md, wiki/log.md, "before any write") unless the user asked about wiki structure.
 - Then open only the pages needed to answer.
 
 Rules:
+- Ask-only: do not create, edit, or propose edits to document files (especially .md).
 - Answer only from files in this folder. If the files do not support a claim, say you could not find it.
 - Do not invent articles, dollar limits, ranks, or eligibility.
 - Cite as the wiki does (SPR 220(a), CSR 第 N 條) when those forms appear.
@@ -467,7 +470,7 @@ Rules:
 - Greetings or questions about you: answer without tools.
 ```
 
-If `getDocumentTurnContext()` is set when building the prompt is **not** required — the route wraps the whole `searchAndAnswer` in ALS; mention in the user turn is unnecessary because tools see the root. Optionally prefix the user message is **out of scope**; tools + system prompt are enough.
+`documentAgent.ts` prefixes each user turn with `buildDocumentUserPrompt`: document title plus injected `AGENTS.md` (capped), matching pi-rag Domain Wiki. Tools still resolve the root from ALS. The system prompt must override maintainer write/orientation checklists in that injected file.
 
 `documentAgent.ts`: copy `writingAgent.ts` skeleton. `getOrCreateAgent(id, ['fs_ls','fs_read','fs_grep','fs_find'], 'document-agent-template')`. Progress text `Initializing Document Agent`.
 

@@ -7,6 +7,7 @@ import eventEmitter from 'events';
 import { MetaSearchAgentType } from './metaSearchAgent';
 import { streamAgentProgressToEmitter } from '../utils/agentStream';
 import { getSharedAgentContext } from './shared/agent/getSharedAgentContext';
+import { buildDocumentUserPrompt } from './shared/prompts/documentTurnPrefix';
 import { safeJson } from './shared/utils/safeJson';
 
 const FS_TOOLS = ['fs_ls', 'fs_read', 'fs_grep', 'fs_find'];
@@ -84,7 +85,7 @@ export default class DocumentAgent implements MetaSearchAgentType {
               /* ignore */
             }
           } else {
-            await agent.prompt(message);
+            await agent.prompt(buildDocumentUserPrompt(message));
           }
           await subscriptionPromise;
         } finally {

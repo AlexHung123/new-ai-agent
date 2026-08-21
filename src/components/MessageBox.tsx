@@ -1,15 +1,12 @@
 'use client';
 
-/* eslint-disable @next/next/no-img-element */
-import React, { MutableRefObject, memo } from 'react';
-import { cn } from '@/lib/utils';
-import { BookCopy, Disc3, Volume2, StopCircle } from 'lucide-react';
+import React, { memo } from 'react';
 import Markdown, { MarkdownToJSX } from 'markdown-to-jsx';
 import Copy from './MessageActions/Copy';
 import Rewrite from './MessageActions/Rewrite';
 import MessageSources from './MessageSources';
-import { useSpeech } from 'react-text-to-speech';
 import ThinkBox from './ThinkBox';
+import AgentProcessPanel from './AgentProcessPanel';
 import { useChat, Section } from '@/lib/hooks/useChat';
 
 const ThinkTagProcessor = ({
@@ -23,6 +20,16 @@ const ThinkTagProcessor = ({
     <ThinkBox content={children as string} thinkingEnded={thinkingEnded} />
   );
 };
+
+function formatMessageTime(value: Date | string | undefined): string {
+  if (!value) return '';
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleTimeString(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
 const MemoizedMessageContent = memo(
   ({ content, thinkingEnded }: { content: string; thinkingEnded: boolean }) => {
@@ -39,10 +46,7 @@ const MemoizedMessageContent = memo(
 
     return (
       <Markdown
-        className={cn(
-          'prose prose-h1:mb-3 prose-h2:mb-2 prose-h2:mt-6 prose-h2:font-[800] prose-h3:mt-4 prose-h3:mb-1.5 prose-h3:font-[600] dark:prose-invert prose-p:leading-relaxed prose-pre:p-0 font-[400]',
-          'max-w-none break-words text-black dark:text-white',
-        )}
+        className="content markdown"
         options={markdownOverrides}
       >
         {content}
@@ -62,53 +66,53 @@ MemoizedMessageContent.displayName = 'MemoizedMessageContent';
 const MessageBox = memo(
   ({
     section,
-    sectionIndex,
-    dividerRef,
     isLast,
     loading,
     rewrite,
   }: {
     section: Section;
     sectionIndex: number;
-    dividerRef?: MutableRefObject<HTMLDivElement | null>;
     isLast: boolean;
     loading: boolean;
     rewrite: (messageId: string) => void;
   }) => {
     const parsedMessage = section.parsedAssistantMessage || '';
-    // const speechMessage = section.speechMessage || '';
     const thinkingEnded = section.thinkingEnded;
-
-    // const { speechStatus, start, stop } = useSpeech({ text: speechMessage });
+    const { agentProcess } = useChat();
+    const timestamp = formatMessageTime(section.userMessage.createdAt);
 
     return (
-      <div className="space-y-6">
-        <div className={'w-full pt-8 break-words'}>
-          <h2 className="text-black dark:text-white font-medium text-3xl lg:w-9/12">
-            {section.userMessage.content}
-          </h2>
+      <div
+        className="message-turn"
+        data-message-id={section.userMessage.messageId}
+      >
+        <div className="message user">
+          <div className="message-user-wrap">
+            <div className="message-bubble">
+              <div className="content">{section.userMessage.content}</div>
+            </div>
+            {timestamp ? (
+              <time
+                className="message-time"
+                dateTime={
+                  section.userMessage.createdAt instanceof Date
+                    ? section.userMessage.createdAt.toISOString()
+                    : String(section.userMessage.createdAt)
+                }
+                suppressHydrationWarning
+              >
+                {timestamp}
+              </time>
+            ) : null}
+          </div>
         </div>
 
-        <div className="flex flex-col space-y-9 lg:space-y-0 lg:flex-row lg:justify-between lg:space-x-9">
-          <div
-            ref={dividerRef}
-            className="flex flex-col space-y-6 w-full lg:w-9/12"
-          >
-            <div className="flex flex-col space-y-2">
-              {section.sourceMessage && (
-                <div className="flex flex-row items-center space-x-2">
-                  <Disc3
-                    className={cn(
-                      'text-black dark:text-white',
-                      isLast && loading ? 'animate-spin' : 'animate-none',
-                    )}
-                    size={20}
-                  />
-                  <h3 className="text-black dark:text-white font-medium text-xl">
-                    Answer
-                  </h3>
-                </div>
-              )}
+        {(isLast && agentProcess) || section.assistantMessage ? (
+          <div className="message assistant">
+            <div className="message-body">
+              {isLast && agentProcess ? (
+                <AgentProcessPanel process={agentProcess} />
+              ) : null}
 
               {section.assistantMessage && (
                 <>
@@ -118,7 +122,7 @@ const MessageBox = memo(
                   />
 
                   {loading && isLast ? null : (
-                    <div className="flex flex-row items-center justify-between w-full text-black dark:text-white py-4 -mx-2">
+                    <div className="flex flex-row items-center justify-between w-full text-black dark:text-white py-3 -mx-2">
                       <div className="flex flex-row items-center space-x-1">
                         <Rewrite
                           rewrite={rewrite}
@@ -126,7 +130,9 @@ const MessageBox = memo(
                         />
                         {section.sourceMessage &&
                           section.sourceMessage.sources.length > 0 && (
-                            <MessageSources sources={section.sourceMessage.sources} />
+                            <MessageSources
+                              sources={section.sourceMessage.sources}
+                            />
                           )}
                       </div>
                       <div className="flex flex-row items-center space-x-1">
@@ -134,22 +140,6 @@ const MessageBox = memo(
                           initialMessage={section.assistantMessage.content}
                           section={section}
                         />
-                        {/* <button
-                        onClick={() => {
-                          if (speechStatus === 'started') {
-                            stop();
-                          } else {
-                            start();
-                          }
-                        }}
-                        className="p-2 text-black/70 dark:text-white/70 rounded-xl hover:bg-light-secondary dark:hover:bg-dark-secondary transition duration-200 hover:text-black dark:hover:text-white"
-                      >
-                        {speechStatus === 'started' ? (
-                          <StopCircle size={18} />
-                        ) : (
-                          <Volume2 size={18} />
-                        )}
-                      </button> */}
                       </div>
                     </div>
                   )}
@@ -157,7 +147,7 @@ const MessageBox = memo(
               )}
             </div>
           </div>
-        </div>
+        ) : null}
       </div>
     );
   },

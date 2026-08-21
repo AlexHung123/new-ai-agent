@@ -2,7 +2,6 @@
 
 import DeleteChat from '@/components/DeleteChat';
 import { cn, formatTimeDifference } from '@/lib/utils';
-// import { getUserIdFromStorage } from '@/lib/utils/userId';
 import { getAuthHeaders } from '@/lib/utils/auth';
 import { BookOpenText, ClockIcon, Delete, ScanEye } from 'lucide-react';
 import Link from 'next/link';

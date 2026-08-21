@@ -1,7 +1,5 @@
-import {
-  defineTool,
-  EnhancedToolContext,
-} from '@shareai-lab/kode-sdk/dist/tools/define';
+import { Type } from 'typebox';
+import type { AgentTool } from '@earendil-works/pi-agent-core';
 import {
   getLimeSurveySummaryBySid,
   getLimeSurveySummaryIdsByUserId,
@@ -10,6 +8,7 @@ import {
 import { executeSql } from '@/lib/postgres/itmsdb';
 import { headers } from 'next/headers';
 import { stripHtml } from '@/lib/utils';
+import { jsonToolResult } from '../runtime/piToolResult';
 
 export interface SurveyItem {
   id: string;
@@ -586,127 +585,114 @@ export function slimSurveyToolResultForClient(
   }
 }
 
-export function createSurveySearchTools() {
-  const loadSurveyQuestionsTool = defineTool({
+const surveyClusterSchema = Type.Object({
+  label: Type.String(),
+  item_ids: Type.Array(Type.String()),
+});
+
+export function createSurveySearchTools(): AgentTool[] {
+  const loadSurveyQuestionsTool: AgentTool = {
     name: 'load_survey_questions',
+    label: 'Load survey questions',
     description:
       'Load survey questions once by surveyId or query and cache them in memory',
-    params: {
-      surveyId: {
-        type: 'string',
-        description: 'Survey ID (optional if query provided)',
-        required: false,
-      },
-      query: {
-        type: 'string',
-        description: 'User query that contains a survey ID',
-        required: false,
-      },
+    parameters: Type.Object({
+      surveyId: Type.Optional(
+        Type.String({
+          description: 'Survey ID (optional if query provided)',
+        }),
+      ),
+      query: Type.Optional(
+        Type.String({
+          description: 'User query that contains a survey ID',
+        }),
+      ),
+    }),
+    execute: async (_id, raw) => {
+      const args = raw as { surveyId?: string; query?: string };
+      return jsonToolResult(await loadSurveyQuestionsService(args));
     },
-    attributes: { readonly: false, noEffect: false },
-    async exec(args: { surveyId?: string; query?: string }) {
-      return loadSurveyQuestionsService(args);
-    },
-  });
+  };
 
-  const getQuestionPayloadTool = defineTool({
+  const getQuestionPayloadTool: AgentTool = {
     name: 'get_question_payload',
+    label: 'Get question payload',
     description:
       'Get one cached survey question payload by surveyId and questionId.',
-    params: {
-      surveyId: { type: 'string' },
-      questionId: { type: 'string' },
+    parameters: Type.Object({
+      surveyId: Type.String(),
+      questionId: Type.String(),
+    }),
+    execute: async (_id, raw) => {
+      const args = raw as { surveyId: string; questionId: string };
+      return jsonToolResult(
+        getSurveyQuestionPayloadService(String(args.surveyId), String(args.questionId)),
+      );
     },
-    attributes: { readonly: true, noEffect: true },
-    async exec(args: { surveyId: string; questionId: string }) {
-      return getSurveyQuestionPayloadService(args.surveyId, args.questionId);
-    },
-  });
+  };
 
-  const processSurveyQuestionTool = defineTool({
+  const processSurveyQuestionTool: AgentTool = {
     name: 'process_survey_question',
+    label: 'Process survey question',
     description:
       'Process one survey question by questionId using cached original data. Submit cluster labels and item_ids only.',
-    params: {
-      surveyId: { type: 'string' },
-      questionId: { type: 'string' },
-      clusters: {
-        type: 'array',
-        items: {
-          type: 'object',
-          properties: {
-            label: { type: 'string' },
-            item_ids: { type: 'array', items: { type: 'string' } },
-          },
-        },
-      },
-    },
-    attributes: { readonly: false, noEffect: false },
-    async exec(
-      args: {
+    parameters: Type.Object({
+      surveyId: Type.String(),
+      questionId: Type.String(),
+      clusters: Type.Array(surveyClusterSchema),
+    }),
+    execute: async (_id, raw) => {
+      const args = raw as {
         surveyId: string;
         questionId: string;
-        clusters: SurveyCluster[];
-      },
-      ctx: EnhancedToolContext,
-    ) {
-      const result = processSurveyQuestionService(args);
-      if (result.ok) {
-        ctx.emit('question_processed', {
-          questionId: result.questionId,
-          question: result.question,
-        });
-      }
-      return result;
+        clusters?: SurveyCluster[];
+      };
+      return jsonToolResult(
+        processSurveyQuestionService({
+          surveyId: String(args.surveyId),
+          questionId: String(args.questionId),
+          clusters: args.clusters ?? [],
+        }),
+      );
     },
-  });
+  };
 
-  const assembleMarkdownReportTool = defineTool({
+  const assembleMarkdownReportTool: AgentTool = {
     name: 'assemble_markdown_report',
+    label: 'Assemble markdown report',
     description:
       'Assemble final markdown from cached process_survey_question results. Only surveyId is required.',
-    params: {
-      surveyId: { type: 'string' },
-      sections: {
-        type: 'array',
-        required: false,
-        description: 'Optional overrides; prefer cache.',
-        items: {
-          type: 'object',
-          properties: {
-            questionId: { type: 'string' },
-            clusters: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  label: { type: 'string' },
-                  item_ids: { type: 'array', items: { type: 'string' } },
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-    attributes: { readonly: true, noEffect: true },
-    async exec(args: {
-      surveyId: string;
-      sections?: Array<{ questionId: string; clusters: SurveyCluster[] }>;
-    }) {
-      if (Array.isArray(args.sections) && args.sections.length > 0) {
-        for (const s of args.sections) {
+    parameters: Type.Object({
+      surveyId: Type.String(),
+      sections: Type.Optional(
+        Type.Array(
+          Type.Object({
+            questionId: Type.String(),
+            clusters: Type.Array(surveyClusterSchema),
+          }),
+          { description: 'Optional overrides; prefer cache.' },
+        ),
+      ),
+    }),
+    execute: async (_id, raw) => {
+      const args = raw as {
+        surveyId: string;
+        sections?: Array<{ questionId: string; clusters: SurveyCluster[] }>;
+      };
+      const sections = args.sections;
+      if (Array.isArray(sections) && sections.length > 0) {
+        for (const s of sections) {
           if (!s?.questionId) continue;
           processSurveyQuestionService({
-            surveyId: args.surveyId,
+            surveyId: String(args.surveyId),
             questionId: s.questionId,
             clusters: s.clusters ?? [],
           });
         }
       }
-      return assembleSurveyReportFromCache(args.surveyId);
+      return jsonToolResult(assembleSurveyReportFromCache(String(args.surveyId)));
     },
-  });
+  };
 
   return [
     loadSurveyQuestionsTool,

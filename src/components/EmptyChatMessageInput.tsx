@@ -1,22 +1,31 @@
-import { ArrowRight } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import { useChat } from '@/lib/hooks/useChat';
 import { focusModes } from '@/lib/agents';
 import SfcExactMatchToggle from './SfcExactMatchToggle';
 
+const SendArrow = () => (
+  <span className="send-btn-icon" aria-hidden>
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+      <path
+        d="M3 8h9M8.5 4.5 12 8l-3.5 3.5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  </span>
+);
+
 const EmptyChatMessageInput = () => {
   const { sendMessage, focusMode, sfcExactMatch, documentId } = useChat();
-
-  /* const [copilotEnabled, setCopilotEnabled] = useState(false); */
   const [message, setMessage] = useState('');
-
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const currentAgent = focusModes.find((mode) => mode.key === focusMode);
-  let placeholder = currentAgent?.placeholder || 'Input SFC question...';
-  const documentBlocked =
-    focusMode === 'agentDocument' && !documentId;
+  let placeholder = currentAgent?.placeholder || 'Ask about this domain wiki…';
+  const documentBlocked = focusMode === 'agentDocument' && !documentId;
 
   if (focusMode === 'agentSFC' && sfcExactMatch) {
     placeholder = 'Search exact wording ...';
@@ -38,7 +47,6 @@ const EmptyChatMessageInput = () => {
     };
 
     document.addEventListener('keydown', handleKeyDown);
-
     inputRef.current?.focus();
 
     return () => {
@@ -46,43 +54,51 @@ const EmptyChatMessageInput = () => {
     };
   }, []);
 
+  const canSend = message.trim().length > 0 && !documentBlocked;
+
+  const submit = () => {
+    if (!canSend) return;
+    sendMessage(message);
+    setMessage('');
+  };
+
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (documentBlocked) return;
-        sendMessage(message);
-        setMessage('');
+        submit();
       }}
       onKeyDown={(e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
           e.preventDefault();
-          if (documentBlocked) return;
-          sendMessage(message);
-          setMessage('');
+          submit();
         }
       }}
-      className="w-full"
+      className="composer"
     >
-      <div className="flex flex-col bg-light-secondary dark:bg-dark-secondary px-3 pt-5 pb-3 rounded-2xl w-full border border-light-200 dark:border-dark-200 shadow-sm shadow-light-200/10 dark:shadow-black/20 transition-all duration-200 focus-within:border-light-300 dark:focus-within:border-dark-300">
-        <TextareaAutosize
-          ref={inputRef}
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          minRows={2}
-          className="px-2 bg-transparent placeholder:text-[15px] placeholder:text-black/50 dark:placeholder:text-white/50 text-sm text-black dark:text-white resize-none focus:outline-none w-full max-h-24 lg:max-h-36 xl:max-h-48"
-          placeholder={placeholder}
-        />
-        <div className="flex flex-row items-center justify-end mt-4">
+      <TextareaAutosize
+        ref={inputRef}
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        minRows={1}
+        maxRows={8}
+        className="composer-input"
+        placeholder={placeholder}
+      />
+      <div className="composer-toolbar">
+        <div className="composer-toolbar-left">
           <SfcExactMatchToggle />
-          <div className="flex flex-row items-center space-x-2">
-            <button
-              disabled={message.trim().length === 0 || documentBlocked}
-              className="bg-sky-500 text-white disabled:text-black/50 dark:disabled:text-white/50 disabled:bg-[#e0e0dc] dark:disabled:bg-[#ececec21] hover:bg-opacity-85 transition duration-100 rounded-full p-2"
-            >
-              <ArrowRight className="bg-background" size={17} />
-            </button>
-          </div>
+        </div>
+        <div className="composer-toolbar-right">
+          <button
+            type="submit"
+            disabled={!canSend}
+            className={`send-btn${canSend ? ' send-btn-active' : ''}`}
+            aria-label="Send message"
+          >
+            <SendArrow />
+            Send
+          </button>
         </div>
       </div>
     </form>

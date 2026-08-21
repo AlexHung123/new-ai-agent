@@ -7,6 +7,7 @@ Scope: Add a new chat Agent **Document**. Each conversation is bound to one ship
 Related:
 
 - pi-rag Domain Wiki: `D:\Projects\pi-rag\docs\superpowers\specs\2026-08-14-domain-wiki-design.md`
+- pi-rag Domain Wiki AGENTS.md alignment: `D:\Projects\pi-rag\docs\superpowers\specs\2026-08-20-domain-wiki-agents-md-align-design.md`
 - pi-rag fs tools: `D:\Projects\pi-rag\apps\api\src\agent\agent-fs-tools.ts`, `agent-fs-path.ts`, `agent-fs-config.ts`
 - Source wikis:
   - SPR: `D:\Projects\pi-rag\apps\api\data\projects\cd09b57f-5047-4f6f-903c-7dd703cbdca8\d3507547-d362-4fc9-b2d9-ee21b16d4b34\`
@@ -249,14 +250,16 @@ Must include:
 
 - Current document title and that all `fs_*` paths are relative to that document root.
 - Tool inventory: `fs_ls`, `fs_read`, `fs_grep`, `fs_find` only.
-- First orientation: read `AGENTS.md` if present, then `wiki/index.md` (or `index.md` at root).
+- Ask-only: do not create, edit, or **propose** edits to document files (especially `.md`).
+- **Inject** project-root `AGENTS.md` into the user turn (same as pi-rag Domain Wiki). Do **not** tell the model to `fs_read` `AGENTS.md` first.
+- Then open `wiki/index.md` (or `index.md`) only if a page map is still needed. Skip maintainer orientation (`SCHEMA.md`, `log.md`, “before any write”).
 - Answer only from files in this folder. If not found, say so. Do not invent articles, dollar limits, or eligibility.
 - Cite as the wiki does (`SPR 220(a)`, `CSR 第 N 條`) when the files use those forms.
 - **Override AGENTS.md write instructions:** those files tell a maintainer to edit `wiki/`. This Agent cannot create, edit, or delete files. Ignore write/maintain workflows.
 - Language: honor an explicit request; else match the user; if unclear, Traditional Chinese.
 - Greetings / “what can you do” → no tools required.
 
-Do not list RAG, Python, or `read_skill`.
+Do not list RAG, Python, or `read_skill`. Do not register `read_skill`.
 
 ---
 
@@ -403,4 +406,4 @@ Modify:
 4. Reloading the SPR chat does not offer CSR.
 5. Third slot is absent until a folder is added.
 6. `fs_read('../../package.json')` fails.
-7. AGENTS.md “maintain the wiki” text does not cause file writes (impossible: no write tool).
+7. AGENTS.md “maintain the wiki” text does not cause file writes (no write tool) and does not cause a first-turn `fs_read` of AGENTS.md / SCHEMA.md / log.md (injected + ask-only override).
