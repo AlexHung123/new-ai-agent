@@ -57,19 +57,39 @@ export function applySseProcessEvent(
   if (event.type === 'tool_execution') {
     const name = typeof data.name === 'string' ? data.name : 'tool';
     const state = typeof data.state === 'string' ? data.state : '';
-    if (state === 'RUNNING') return applyToolStart(prev, name);
+    const toolCallId = typeof data.id === 'string' ? data.id : undefined;
+    if (state === 'RUNNING') return applyToolStart(prev, name, toolCallId);
     if (state === 'COMPLETED') {
-      return applyToolEnd(prev, name, true, toolSummary(name, data, false));
+      return applyToolEnd(
+        prev,
+        name,
+        true,
+        toolSummary(name, data, false),
+        toolCallId,
+      );
     }
     if (state === 'FAILED') {
-      return applyToolEnd(prev, name, false, toolSummary(name, data, true));
+      return applyToolEnd(
+        prev,
+        name,
+        false,
+        toolSummary(name, data, true),
+        toolCallId,
+      );
     }
     return prev;
   }
 
   if (event.type === 'tool_error') {
     const name = typeof data.name === 'string' ? data.name : 'tool';
-    return applyToolEnd(prev, name, false, toolSummary(name, data, true));
+    const toolCallId = typeof data.id === 'string' ? data.id : undefined;
+    return applyToolEnd(
+      prev,
+      name,
+      false,
+      toolSummary(name, data, true),
+      toolCallId,
+    );
   }
 
   if (event.type === 'progress') {

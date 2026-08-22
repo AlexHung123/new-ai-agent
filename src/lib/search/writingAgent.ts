@@ -8,6 +8,8 @@ import { MetaSearchAgentType } from './metaSearchAgent';
 import { streamAgentProgressToEmitter } from '../utils/agentStream';
 import { getSharedAgentContext } from './shared/agent/getSharedAgentContext';
 import { buildWritingUserPrompt } from './shared/prompts/writingTurnPrefix';
+import { bindTurnFsTools } from './shared/runtime/bindTurnFsTools';
+import { getWritingTurnContext } from './shared/runtime/writingTurnContext';
 import { safeJson } from './shared/utils/safeJson';
 
 const FS_TOOLS = ['fs_ls', 'fs_read', 'fs_grep', 'fs_find'];
@@ -35,6 +37,7 @@ export default class WritingAgent implements MetaSearchAgentType {
     };
 
     (async () => {
+      const writingCtx = getWritingTurnContext();
       try {
         if (signal?.aborted) return;
 
@@ -69,6 +72,7 @@ export default class WritingAgent implements MetaSearchAgentType {
 
         harnessAgentManager.markBusy(stableAgentId);
         harnessAgentManager.touchAgent(stableAgentId);
+        const restoreFs = bindTurnFsTools(agent, { writing: writingCtx });
 
         try {
           const subscriptionPromise = streamAgentProgressToEmitter({
@@ -85,10 +89,11 @@ export default class WritingAgent implements MetaSearchAgentType {
               /* ignore */
             }
           } else {
-            await agent.prompt(buildWritingUserPrompt(message));
+            await agent.prompt(buildWritingUserPrompt(message, writingCtx));
           }
           await subscriptionPromise;
         } finally {
+          restoreFs();
           await harnessAgentManager.markIdle(stableAgentId);
         }
       } catch (error: unknown) {

@@ -18,6 +18,22 @@ describe('buildWritingUserPrompt', () => {
     );
   });
 
+  it('uses an explicit writing context without ALS', () => {
+    root = mkdtempSync(join(tmpdir(), 'writing-prefix-'));
+    writeFileSync(
+      join(root, 'INDEX.md'),
+      '# Attachments\n\n- `memo-ab/INDEX.md` — memo.docx (1 part)\n',
+      'utf8',
+    );
+    const prompt = buildWritingUserPrompt('Summarize this', {
+      userId: 'user-42',
+      rootAbs: root,
+      files: [],
+    });
+    expect(prompt).toContain('[Attachments]');
+    expect(prompt).toContain('memo.docx');
+  });
+
   it('injects INDEX.md inside a writing turn', async () => {
     root = mkdtempSync(join(tmpdir(), 'writing-prefix-'));
     writeFileSync(
@@ -59,5 +75,7 @@ describe('buildWritingUserPrompt', () => {
     );
     expect(prompt).toContain('[Mentioned files]');
     expect(prompt).toContain('memo.docx');
+    expect(prompt).toMatch(/fs_grep/);
+    expect(prompt).not.toMatch(/Read them first/i);
   });
 });

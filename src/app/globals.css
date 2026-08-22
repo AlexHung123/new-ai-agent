@@ -17,6 +17,8 @@
   --wiki-table-head: #f3f4f6;
   --wiki-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
   --wiki-shadow-focus: 0 0 0 3px rgba(15, 118, 110, 0.18);
+  --wiki-primary: #0f766e;
+  --wiki-primary-soft: #e5f3f0;
 }
 
 .dark {
@@ -32,6 +34,8 @@
   --wiki-table-head: #161b22;
   --wiki-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   --wiki-shadow-focus: 0 0 0 3px rgba(36, 160, 237, 0.22);
+  --wiki-primary: #2dd4bf;
+  --wiki-primary-soft: color-mix(in srgb, #2dd4bf 16%, transparent);
 }
 
 @layer base {
@@ -802,48 +806,76 @@
   line-height: 1.55;
 }
 
-.writing-workspace {
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 20px;
-  width: min(100%, 1040px);
+.agent-card {
+  width: clamp(10.5rem, calc(10.5rem + 0.55 * (100vw - 80rem)), 18.75rem);
+  gap: clamp(0.75rem, 0.45rem + 0.5vw, 1rem);
+  padding: clamp(0.75rem, 0.45rem + 0.5vw, 1rem);
+}
+
+.agent-card-art {
+  aspect-ratio: 1;
+  max-height: 16rem;
 }
 
 .writing-file-browser {
-  width: 260px;
-  flex: 0 0 260px;
-  background: var(--wiki-surface-secondary);
+  width: 280px;
+  flex: 0 0 280px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--wiki-surface);
   border: 1px solid var(--wiki-border-subtle);
   border-radius: 12px;
   overflow: hidden;
   text-align: left;
 }
 
-.writing-file-browser-head {
+.writing-files-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 10px 12px;
-  color: var(--wiki-text-secondary);
-  font-size: 13px;
+  padding: 10px 12px 6px;
+  flex: 0 0 auto;
 }
 
-.writing-file-browser-title {
+.writing-files-header h2 {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--wiki-text-tertiary);
+  line-height: 1.3;
+}
+
+.writing-files-toggle {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-weight: 600;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  min-width: 0;
+  flex: 1;
+  text-align: left;
 }
 
-.writing-file-browser-actions {
-  display: inline-flex;
-  gap: 4px;
+.writing-files-toggle svg {
+  transition: transform 0.15s ease;
+  flex: 0 0 auto;
+  opacity: 0.65;
+  color: var(--wiki-text-tertiary);
 }
 
-.writing-file-browser-actions button,
-.writing-file-browser-remove,
+.writing-files-toggle svg.rotated {
+  transform: rotate(90deg);
+}
+
+.writing-files-upload,
+.writing-file-remove,
 .writing-tool-btn {
   display: inline-flex;
   align-items: center;
@@ -851,70 +883,272 @@
   width: 28px;
   height: 28px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 6px;
   background: transparent;
-  color: var(--wiki-text-secondary);
+  color: var(--wiki-text-tertiary);
   cursor: pointer;
+  flex: 0 0 auto;
 }
 
-.writing-file-browser-actions button:hover,
-.writing-file-browser-remove:hover,
+.writing-files-upload:hover,
 .writing-tool-btn:hover {
-  background: var(--wiki-border-subtle);
+  background: color-mix(in srgb, var(--wiki-primary) 8%, transparent);
   color: var(--wiki-text);
 }
 
-.writing-file-browser-list {
+.writing-files-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.writing-files-path {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px 6px;
+  font-size: 11px;
+  color: var(--wiki-text-tertiary);
+  flex: 0 0 auto;
+}
+
+.writing-files-path-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+}
+
+.writing-files-path-up {
+  border: 0;
+  background: transparent;
+  color: var(--wiki-primary);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+  font-weight: 600;
+}
+
+.writing-files-path-up:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.writing-files-list {
   list-style: none;
   margin: 0;
-  padding: 0 0 8px;
+  padding: 0 8px 10px;
   max-height: 360px;
   overflow: auto;
 }
 
-.writing-file-browser-list li {
+.writing-files-list li {
+  display: flex;
+  align-items: center;
+}
+
+.writing-files-empty {
+  margin: 0;
+  padding: 8px 6px 12px;
+  font-size: 12px;
+  color: var(--wiki-text-tertiary);
+  list-style: none;
+}
+
+.writing-file-row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 0 6px;
+  min-height: 28px;
+  width: 100%;
+  min-width: 0;
+  padding: 0 4px 0 6px;
+  border-radius: 6px;
 }
 
-.writing-file-browser-item {
-  flex: 1;
+.writing-file-row:hover {
+  background: color-mix(in srgb, var(--wiki-primary) 8%, transparent);
+}
+
+.writing-file-row.is-selected {
+  background: color-mix(in srgb, var(--wiki-primary) 6%, transparent);
+}
+
+.writing-file-row-main {
   display: flex;
-  min-width: 0;
+  flex: 1 1 auto;
   align-items: center;
   gap: 8px;
-  padding: 8px 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 5px 4px;
   border: 0;
-  border-radius: 8px;
   background: transparent;
-  color: var(--wiki-text);
+  color: inherit;
   font: inherit;
-  font-size: 13px;
   text-align: left;
   cursor: pointer;
 }
 
-.writing-file-browser-item:hover {
-  background: color-mix(in srgb, var(--wiki-text) 6%, transparent);
+.writing-file-row-main:disabled {
+  cursor: default;
+  opacity: 0.7;
 }
 
-.writing-file-browser-name {
+.writing-file-name {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 12.5px;
+  color: var(--wiki-text);
 }
 
-.writing-file-browser-empty {
-  padding: 12px 16px 16px;
+.writing-file-meta {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font-size: 11px;
   color: var(--wiki-text-tertiary);
-  font-size: 12px;
 }
 
-.writing-file-browser-error {
+.writing-file-error {
+  flex: 0 0 auto;
+  margin-left: auto;
   color: #ef4444;
   font-size: 11px;
+}
+
+.writing-file-select {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.35;
+}
+
+.writing-file-row:hover .writing-file-select,
+.writing-file-row:focus-within .writing-file-select,
+.writing-file-select.is-selected {
+  opacity: 1;
+}
+
+.writing-file-sel-dot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--wiki-text-tertiary) 55%, transparent);
+  background: transparent;
+}
+
+.writing-file-select.is-selected .writing-file-sel-dot,
+.writing-file-row.is-selected .writing-file-sel-dot {
+  border-color: var(--wiki-primary);
+  background: var(--wiki-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--wiki-primary) 18%, transparent);
+}
+
+.writing-file-mention {
+  display: none;
+  flex: 0 0 auto;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border: 1px solid var(--wiki-border);
+  border-radius: 4px;
+  background: var(--wiki-surface);
+  color: var(--wiki-primary);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.writing-file-row:hover .writing-file-mention,
+.writing-file-row:focus-within .writing-file-mention {
+  display: inline-flex;
+}
+
+.writing-file-mention:hover {
+  border-color: color-mix(in srgb, var(--wiki-primary) 45%, var(--wiki-border));
+  background: var(--wiki-primary-soft);
+}
+
+.writing-file-remove {
+  opacity: 0;
+}
+
+.writing-file-row:hover .writing-file-remove,
+.writing-file-row:focus-within .writing-file-remove {
+  opacity: 1;
+}
+
+.writing-file-remove:hover {
+  color: #dc2626;
+  background: color-mix(in srgb, #ef4444 10%, transparent);
+}
+
+.file-type-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  border: 1px solid var(--wiki-border);
+  background: var(--wiki-surface-secondary);
+  color: var(--wiki-text-tertiary);
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  user-select: none;
+}
+
+.file-type-icon.kind-pdf {
+  color: #b91c1c;
+  border-color: color-mix(in srgb, #b91c1c 30%, var(--wiki-border));
+  background: color-mix(in srgb, #b91c1c 8%, transparent);
+}
+
+.file-type-icon.kind-text {
+  color: var(--wiki-text-secondary);
+}
+
+.file-type-icon.kind-image {
+  color: #7c3aed;
+  border-color: color-mix(in srgb, #7c3aed 30%, var(--wiki-border));
+  background: color-mix(in srgb, #7c3aed 8%, transparent);
+}
+
+.file-type-icon.kind-excel {
+  color: #15803d;
+  border-color: color-mix(in srgb, #15803d 30%, var(--wiki-border));
+  background: color-mix(in srgb, #15803d 8%, transparent);
+}
+
+.file-type-icon.kind-ppt {
+  color: #c2410c;
+  border-color: color-mix(in srgb, #c2410c 30%, var(--wiki-border));
+  background: color-mix(in srgb, #c2410c 8%, transparent);
+}
+
+.file-type-icon.kind-docx {
+  color: #1d4ed8;
+  border-color: color-mix(in srgb, #1d4ed8 30%, var(--wiki-border));
+  background: color-mix(in srgb, #1d4ed8 8%, transparent);
 }
 
 .writing-file-browser-chat {
@@ -963,19 +1197,6 @@
 .writing-at-menu-item.is-active,
 .writing-at-menu-item:hover {
   background: var(--wiki-surface-secondary);
-}
-
-@media (max-width: 900px) {
-  .writing-workspace {
-    flex-direction: column;
-    align-items: stretch;
-    width: min(100%, 720px);
-  }
-
-  .writing-file-browser {
-    width: 100%;
-    flex: none;
-  }
 }
 
 @media (min-width: 1280px) {

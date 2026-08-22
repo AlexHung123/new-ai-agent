@@ -18,6 +18,11 @@ import {
   resolveFsPath,
   shouldIgnoreDirName,
 } from './fsPath';
+import { getWritingTurnContext } from '../../runtime/writingTurnContext';
+import {
+  mergeFsReadRange,
+  parseFsReadLocator,
+} from './fsReadLocator';
 
 /** Minimal tool shape matching agent.tools AppAgentTool. */
 export type FsAgentTool = {
@@ -88,6 +93,81 @@ function matchGlob(name: string, pattern: string): boolean {
   } catch {
     return false;
   }
+}
+
+function splitTextLines(text: string): string[] {
+  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  if (normalized === '') return [];
+  const lines = normalized.split('\n');
+  if (lines[lines.length - 1] === '') lines.pop();
+  return lines;
+}
+
+function numberLines(lines: string[], startLine: number, width: number): string {
+  return lines
+    .map((line, i) => `${String(startLine + i).padStart(width, ' ')}|${line}`)
+    .join('\n');
+}
+
+function fitNumberedLines(
+  lines: string[],
+  startLine: number,
+  width: number,
+  maxBytes: number,
+): { body: string; used: number; byteTruncated: boolean } {
+  if (lines.length === 0) {
+    return { body: '', used: 0, byteTruncated: false };
+  }
+  let used = lines.length;
+  let body = numberLines(lines.slice(0, used), startLine, width);
+  while (used > 1 && Buffer.byteLength(body, 'utf8') > maxBytes) {
+    used -= 1;
+    body = numberLines(lines.slice(0, used), startLine, width);
+  }
+  if (Buffer.byteLength(body, 'utf8') <= maxBytes) {
+    return { body, used, byteTruncated: used < lines.length };
+  }
+  const slice = Buffer.from(body, 'utf8').subarray(0, maxBytes).toString('utf8');
+  return { body: slice, used: 1, byteTruncated: true };
+}
+
+export function writingFsReadOverlay(cfg?: AgentFsConfig): {
+  description: string;
+  parameters: unknown;
+} {
+  const c = cfg ?? getAgentFsConfig();
+  const unlimited = c.maxReadLines <= 0;
+  const lineGuide = unlimited
+    ? 'Default is the whole file. Optional fromLine (1-based) and maxLines, or path:fromLine:maxLines (e.g. "dir/part-01.md:142:40").'
+    : `Pass fromLine (1-based) and maxLines, or a path suffix path:fromLine:maxLines (e.g. "dir/part-01.md:142:40"). Lines are numbered. Defaults to the first ${c.maxReadLines} lines — do not load a whole large file; fs_grep first, then peek around the hit.`;
+  return {
+    description:
+      `Read a text file (read-only). Path is relative to project root. ${lineGuide} ` +
+      `Binary files are rejected. Also capped by byte size.`,
+    parameters: Type.Object({
+      path: Type.String({
+        description:
+          'Relative file path under project root. Optional suffix :fromLine or :fromLine:maxLines',
+      }),
+      fromLine: Type.Optional(
+        Type.Number({
+          description: '1-based start line (overrides a path suffix). Default 1',
+        }),
+      ),
+      maxLines: Type.Optional(
+        Type.Number({
+          description: unlimited
+            ? 'Lines to return (omit to read the rest of the file)'
+            : `Lines to return (default/hard max ${c.maxReadLines})`,
+        }),
+      ),
+      maxBytes: Type.Optional(
+        Type.Number({
+          description: `Max bytes to return (default/hard max ${c.maxReadBytes})`,
+        }),
+      ),
+    }),
+  };
 }
 
 function noRootResult(tool: string) {
@@ -285,12 +365,23 @@ export function createAgentFsTools(opts: {
           message: 'path required',
         });
       }
+      const writingPeek = Boolean(getWritingTurnContext());
+      const locator = writingPeek
+        ? parseFsReadLocator(pathArg)
+        : { path: pathArg };
+      if (!locator.path) {
+        return textResult('fs_read requires path', {
+          ok: false,
+          path: 'fs_read',
+          message: 'path required',
+        });
+      }
       const maxBytes =
         typeof params.maxBytes === 'number' && Number.isFinite(params.maxBytes)
           ? Math.min(cfg.maxReadBytes, Math.max(1, Math.floor(params.maxBytes)))
           : cfg.maxReadBytes;
 
-      const resolved = resolveFsPath(root, pathArg);
+      const resolved = resolveFsPath(root, locator.path);
       if (!resolved.ok) {
         return textResult(resolved.message, {
           ok: false,
@@ -333,21 +424,75 @@ export function createAgentFsTools(opts: {
         });
       }
 
-      const truncated = buf.length > maxBytes;
-      const slice = truncated ? buf.subarray(0, maxBytes) : buf;
-      const body = bufferToUtf8(slice);
-      const header = [
-        `fs_read path=${resolved.rel}`,
-        `size=${buf.length} returned=${slice.length}${truncated ? ' (truncated)' : ''}`,
-        '',
-      ].join('\n');
+      if (!writingPeek) {
+        const truncated = buf.length > maxBytes;
+        const slice = truncated ? buf.subarray(0, maxBytes) : buf;
+        const body = bufferToUtf8(slice);
+        const header = [
+          `fs_read path=${resolved.rel}`,
+          `size=${buf.length} returned=${slice.length}${truncated ? ' (truncated)' : ''}`,
+          '',
+        ].join('\n');
+        return textResult(header + body, {
+          ok: true,
+          path: 'fs_read',
+          rel: resolved.rel,
+          size: buf.length,
+          returnedBytes: slice.length,
+          truncated,
+        });
+      }
+
+      const { fromLine, maxLines } = mergeFsReadRange({
+        locator,
+        fromLine: params.fromLine,
+        maxLines: params.maxLines,
+        maxReadLines: cfg.maxReadLines,
+      });
+      const allLines = splitTextLines(bufferToUtf8(buf));
+      const totalLines = allLines.length;
+      if (fromLine > totalLines) {
+        const msg =
+          totalLines === 0
+            ? `File is empty: ${resolved.rel}`
+            : `fromLine ${fromLine} is past end of file (${totalLines} lines). Use fromLine 1–${totalLines}.`;
+        return textResult(msg, {
+          ok: false,
+          path: 'fs_read',
+          rel: resolved.rel,
+          message: msg,
+          fromLine,
+          totalLines,
+        });
+      }
+
+      const startIdx = fromLine - 1;
+      const ranged = allLines.slice(startIdx, startIdx + maxLines);
+      const width = String(totalLines).length;
+      const fitted = fitNumberedLines(ranged, fromLine, width, maxBytes);
+      const toLine = fromLine + fitted.used - 1;
+      const lineTruncated = startIdx + fitted.used < totalLines;
+      const truncated = lineTruncated || fitted.byteTruncated;
+      const nextFromLine = truncated ? toLine + 1 : undefined;
+      const rangeLabel = `lines=${fromLine}-${toLine}/${totalLines}`;
+      const truncLabel = truncated
+        ? ` (truncated; next fromLine=${nextFromLine})`
+        : '';
+      const header = [`fs_read path=${resolved.rel} ${rangeLabel}${truncLabel}`, ''].join(
+        '\n',
+      );
+      const body = fitted.body;
       return textResult(header + body, {
         ok: true,
         path: 'fs_read',
         rel: resolved.rel,
         size: buf.length,
-        returnedBytes: slice.length,
+        returnedBytes: Buffer.byteLength(body, 'utf8'),
         truncated,
+        fromLine,
+        toLine,
+        totalLines,
+        ...(nextFromLine !== undefined ? { nextFromLine } : {}),
       });
     },
   };

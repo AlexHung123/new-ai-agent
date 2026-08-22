@@ -460,7 +460,12 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     const tempId = `tmp-${crypto.randomBytes(4).toString('hex')}`;
     setWritingFiles((prev) => [
       ...prev,
-      { fileId: tempId, name: file.name, status: 'uploading' },
+      {
+        fileId: tempId,
+        name: file.name,
+        status: 'uploading',
+        sizeBytes: file.size,
+      },
     ]);
     try {
       const form = new FormData();

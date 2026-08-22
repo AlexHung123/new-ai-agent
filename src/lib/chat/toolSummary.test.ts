@@ -17,6 +17,23 @@ describe('buildToolEndSummary', () => {
     expect(out.summary).toBe('Read wiki/SCHEMA.md');
   });
 
+  it('summarizes fs_read with a line range', () => {
+    const out = buildToolEndSummary(
+      'fs_read',
+      {
+        details: {
+          ok: true,
+          rel: 'part-01.md',
+          fromLine: 120,
+          toLine: 159,
+          truncated: true,
+        },
+      },
+      false,
+    );
+    expect(out.summary).toBe('Read part-01.md · L120-159 · truncated');
+  });
+
   it('summarizes fs_grep as match count and query', () => {
     const out = buildToolEndSummary(
       'fs_grep',
@@ -30,6 +47,21 @@ describe('buildToolEndSummary', () => {
     );
     expect(out.summary).toBe('3 matches · 轉職');
     expect(out.hitCount).toBe(3);
+  });
+
+  it('summarizes skipped fs_ls with the bound-folder error', () => {
+    const out = buildToolEndSummary(
+      'fs_ls',
+      {
+        details: {
+          ok: false,
+          message: 'No folder bound for this turn.',
+          skipped: true,
+        },
+      },
+      false,
+    );
+    expect(out.summary).toBe('No folder bound for this turn.');
   });
 
   it('summarizes fs_ls with entry count and path', () => {

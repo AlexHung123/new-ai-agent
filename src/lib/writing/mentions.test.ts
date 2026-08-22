@@ -65,4 +65,23 @@ describe('resolveMentionedFiles', () => {
     );
     expect(hits.map((f) => f.fileId)).toEqual(['a1', 'b2']);
   });
+
+  it('resolves @mentions whose filenames contain spaces', () => {
+    const resume: WritingAttachment = {
+      fileId: 'r1',
+      userId: 'u',
+      name: 'Yuan Shiwei Resume-English.pdf',
+      status: 'ready',
+      relDir: 'yuan-shiwei-resume-english-r1',
+      parts: 1,
+      charCount: 100,
+      format: 'pdf',
+      createdAt: 't',
+    };
+    const hits = resolveMentionedFiles(
+      '@Yuan Shiwei Resume-English.pdf 帮我总结一下这份文件',
+      [resume],
+    );
+    expect(hits.map((f) => f.fileId)).toEqual(['r1']);
+  });
 });

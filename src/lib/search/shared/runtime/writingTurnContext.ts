@@ -7,7 +7,14 @@ export type WritingTurnContext = {
   files: WritingAttachment[];
 };
 
-const storage = new AsyncLocalStorage<WritingTurnContext>();
+const globalForAls = globalThis as typeof globalThis & {
+  __writingTurnAls?: AsyncLocalStorage<WritingTurnContext>;
+};
+
+const storage =
+  globalForAls.__writingTurnAls ??
+  (globalForAls.__writingTurnAls =
+    new AsyncLocalStorage<WritingTurnContext>());
 
 export function getWritingTurnContext(): WritingTurnContext | undefined {
   return storage.getStore();

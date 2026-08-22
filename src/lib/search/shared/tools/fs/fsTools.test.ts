@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { AgentFsConfig } from './fsConfig';
+import { runWithWritingTurn } from '../../runtime/writingTurnContext';
 import { createAgentFsTools } from './fsTools';
 
 function makeCfg(root: string, overrides: Partial<AgentFsConfig> = {}): AgentFsConfig {
@@ -16,6 +17,7 @@ function makeCfg(root: string, overrides: Partial<AgentFsConfig> = {}): AgentFsC
     root,
     adminOnly: false,
     maxReadBytes: 50_000,
+    maxReadLines: 80,
     maxLsEntries: 100,
     maxLsDepth: 3,
     maxGrepHits: 20,
@@ -134,6 +136,75 @@ describe('createAgentFsTools', () => {
     } finally {
       rmSync(outside, { force: true });
     }
+  });
+
+  it('fs_read peeks by fromLine/maxLines only during a writing turn', async () => {
+    setupTree();
+    const lines = Array.from({ length: 40 }, (_, i) => `line-${i + 1}`).join('\n');
+    writeFileSync(join(root, 'long.md'), `${lines}\n`, 'utf8');
+    const tools = createAgentFsTools({
+      isAdmin: true,
+      config: makeCfg(root, { maxReadLines: 10 }),
+      projectRootAbs: root,
+    });
+    const read = tools.find((t) => t.name === 'fs_read')!;
+    const writing = { userId: 'u', rootAbs: root, files: [] };
+
+    const outside = await read.execute('1', { path: 'long.md' });
+    expect(outside.details.fromLine).toBeUndefined();
+    expect(outside.content[0]!.text).toMatch(/line-40/);
+    expect(outside.content[0]!.text).not.toMatch(/1\|line-1/);
+
+    const def = await runWithWritingTurn(writing, () =>
+      read.execute('1', { path: 'long.md' }),
+    );
+    expect(def.details.fromLine).toBe(1);
+    expect(def.details.toLine).toBe(10);
+    expect(def.details.totalLines).toBe(40);
+    expect(def.details.truncated).toBe(true);
+    expect(def.details.nextFromLine).toBe(11);
+    expect(def.content[0]!.text).toMatch(/ 1\|line-1/);
+    expect(def.content[0]!.text).not.toMatch(/line-11/);
+
+    const ranged = await runWithWritingTurn(writing, () =>
+      read.execute('1', {
+        path: 'long.md',
+        fromLine: 20,
+        maxLines: 5,
+      }),
+    );
+    expect(ranged.details.fromLine).toBe(20);
+    expect(ranged.details.toLine).toBe(24);
+    expect(ranged.content[0]!.text).toMatch(/20\|line-20/);
+    expect(ranged.content[0]!.text).toMatch(/24\|line-24/);
+    expect(ranged.content[0]!.text).not.toMatch(/line-25/);
+
+    const suffix = await runWithWritingTurn(writing, () =>
+      read.execute('1', { path: 'long.md:30:3' }),
+    );
+    expect(suffix.details.fromLine).toBe(30);
+    expect(suffix.details.toLine).toBe(32);
+    expect(suffix.content[0]!.text).toMatch(/30\|line-30/);
+  });
+
+  it('fs_read reads the whole file when writing maxReadLines is 0', async () => {
+    setupTree();
+    const lines = Array.from({ length: 40 }, (_, i) => `line-${i + 1}`).join('\n');
+    writeFileSync(join(root, 'long.md'), `${lines}\n`, 'utf8');
+    const tools = createAgentFsTools({
+      isAdmin: true,
+      config: makeCfg(root, { maxReadLines: 0 }),
+      projectRootAbs: root,
+    });
+    const read = tools.find((t) => t.name === 'fs_read')!;
+    const out = await runWithWritingTurn(
+      { userId: 'u', rootAbs: root, files: [] },
+      () => read.execute('1', { path: 'long.md' }),
+    );
+    expect(out.details.fromLine).toBe(1);
+    expect(out.details.toLine).toBe(40);
+    expect(out.details.truncated).toBe(false);
+    expect(out.content[0]!.text).toMatch(/40\|line-40/);
   });
 
   it('fs_read refuses binary files', async () => {

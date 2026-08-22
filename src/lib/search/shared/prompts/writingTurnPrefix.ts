@@ -1,7 +1,10 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolveMentionedFiles } from '@/lib/writing/mentions';
-import { getWritingTurnContext } from '../runtime/writingTurnContext';
+import {
+  getWritingTurnContext,
+  type WritingTurnContext,
+} from '../runtime/writingTurnContext';
 
 const MAX_INDEX_CHARS = 6_000;
 
@@ -25,15 +28,17 @@ export function loadWritingIndexMd(
   };
 }
 
-export function buildWritingUserPrompt(userMessage: string): string {
-  const ctx = getWritingTurnContext();
+export function buildWritingUserPrompt(
+  userMessage: string,
+  ctx: WritingTurnContext | undefined = getWritingTurnContext(),
+): string {
   const question = `[User request]\n${userMessage}`;
   if (!ctx) return question;
   const index = loadWritingIndexMd(ctx.rootAbs);
   const mentioned = resolveMentionedFiles(userMessage, ctx.files || []);
   const mentionBlock =
     mentioned.length > 0
-      ? `[Mentioned files]\nThe user @-mentioned these files. Read them first:\n` +
+      ? `[Mentioned files]\nThe user @-mentioned these files. Search inside them with fs_grep, then fs_read only the matching line range (fromLine/maxLines or path:from:count). Do not read a whole part:\n` +
         mentioned
           .map(
             (file) =>
@@ -48,7 +53,7 @@ export function buildWritingUserPrompt(userMessage: string): string {
     `These files belong to this user. INDEX.md is already below when present.\n` +
     `Do not fs_read INDEX.md just to reload it.\n` +
     `If it lists no files, do not use fs_* tools; write from the user request only.\n` +
-    `If the user @-mentioned files, read those first, then complete the writing task.\n\n` +
+    `If the user @-mentioned files, grep those files first, then peek with fs_read around the hits. Do not load a whole part-*.md.\n\n` +
     mentionBlock +
     (index
       ? index.content + (index.truncated ? '\n…(truncated)\n' : '\n')

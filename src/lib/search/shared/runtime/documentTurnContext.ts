@@ -6,7 +6,14 @@ export type DocumentTurnContext = {
   rootAbs: string;
 };
 
-const storage = new AsyncLocalStorage<DocumentTurnContext>();
+const globalForAls = globalThis as typeof globalThis & {
+  __documentTurnAls?: AsyncLocalStorage<DocumentTurnContext>;
+};
+
+const storage =
+  globalForAls.__documentTurnAls ??
+  (globalForAls.__documentTurnAls =
+    new AsyncLocalStorage<DocumentTurnContext>());
 
 export function getDocumentTurnContext(): DocumentTurnContext | undefined {
   return storage.getStore();

@@ -129,6 +129,39 @@ describe('applySseProcessEvent', () => {
     expect(afterFinish).toBe(withProgress);
   });
 
+  it('keeps parallel fs_read calls on distinct step ids', () => {
+    const first = applySseProcessEvent(createInitialProcess('msg-1'), {
+      type: 'tool_execution',
+      data: { id: 't-a', name: 'fs_read', state: 'RUNNING' },
+    });
+    const second = applySseProcessEvent(first, {
+      type: 'tool_execution',
+      data: { id: 't-b', name: 'fs_read', state: 'RUNNING' },
+    });
+    const tools = (second?.steps ?? []).filter((s) => s.kind === 'tool');
+    expect(tools).toHaveLength(2);
+    expect(new Set(tools.map((s) => s.id)).size).toBe(2);
+    expect(tools.every((s) => s.status === 'running')).toBe(true);
+
+    const afterFirst = applySseProcessEvent(second, {
+      type: 'tool_execution',
+      data: {
+        id: 't-a',
+        name: 'fs_read',
+        state: 'COMPLETED',
+        resultPreview: { ok: true, rel: 'a.md' },
+      },
+    });
+    const afterTools = (afterFirst?.steps ?? []).filter((s) => s.kind === 'tool');
+    expect(afterTools.find((s) => s.toolCallId === 't-a')).toMatchObject({
+      status: 'done',
+      detail: 'Read a.md',
+    });
+    expect(afterTools.find((s) => s.toolCallId === 't-b')).toMatchObject({
+      status: 'running',
+    });
+  });
+
   it('starts writing on the first message event', () => {
     const next = applySseProcessEvent(createInitialProcess('msg-1'), {
       type: 'message',

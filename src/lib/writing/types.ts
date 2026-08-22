@@ -121,6 +121,7 @@ export type WritingAttachmentView = {
   parts?: number;
   charCount?: number;
   format?: string;
+  sizeBytes?: number;
   error?: string;
 };
 
@@ -134,8 +135,16 @@ export function toPublicWritingAttachment(
     parts: item.parts,
     charCount: item.charCount,
     format: item.format,
+    sizeBytes: item.sizeBytes,
     error: item.error,
   };
+}
+
+export function formatWritingBytes(n: number | undefined): string {
+  if (n == null || !Number.isFinite(n) || n < 0) return '';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export function fileExtension(filename: string): string {

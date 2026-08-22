@@ -3,7 +3,10 @@
  * 与 pi-rag Domain Wiki 的 buildProjectWorkspacePromptPrefix 对齐。
  */
 
-import { getDocumentTurnContext } from '../runtime/documentTurnContext';
+import {
+  getDocumentTurnContext,
+  type DocumentTurnContext,
+} from '../runtime/documentTurnContext';
 import { loadDocumentAgentsMd } from '../tools/fs/loadDocumentAgentsMd';
 
 const AGENTS_WRAP = `Follow language, citation, and do-not-invent rules only.
@@ -38,8 +41,10 @@ export function buildDocumentTurnPrefix(opts?: {
 }
 
 /** 绑定文档时注入 AGENTS.md；未绑定则给出明确标记。 */
-export function buildDocumentUserPrompt(userMessage: string): string {
-  const ctx = getDocumentTurnContext();
+export function buildDocumentUserPrompt(
+  userMessage: string,
+  ctx: DocumentTurnContext | undefined = getDocumentTurnContext(),
+): string {
   const question = `[User question]\n${userMessage}`;
   if (!ctx) {
     return `[No document bound]\n\n${question}`;

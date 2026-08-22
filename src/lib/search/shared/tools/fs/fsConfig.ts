@@ -14,13 +14,15 @@ function envBool(key: string, fallback: boolean): boolean {
   return fallback;
 }
 
-function envPositiveInt(
+function envIntInRange(
   key: string,
   fallback: number,
   min: number,
   max: number,
 ): number {
-  const n = Number(process.env[key] ?? fallback);
+  const raw = process.env[key];
+  if (raw === undefined || raw.trim() === '') return fallback;
+  const n = Number(raw.trim());
   if (!Number.isFinite(n)) return fallback;
   return Math.min(max, Math.max(min, Math.floor(n)));
 }
@@ -69,6 +71,11 @@ export type AgentFsConfig = {
   /** When true, only users with role=admin may use fs_* tools. */
   adminOnly: boolean;
   maxReadBytes: number;
+  /**
+   * Writing-agent fs_read line cap. 0 = whole file (byte cap still applies).
+   * Document agent ignores this and always reads the full file.
+   */
+  maxReadLines: number;
   maxLsEntries: number;
   maxLsDepth: number;
   maxGrepHits: number;
@@ -99,11 +106,12 @@ export function getAgentFsConfig(): AgentFsConfig {
     root,
     adminOnly: envBool('AGENT_FS_ADMIN_ONLY', true),
     maxReadBytes: envBytes('AGENT_FS_MAX_READ_BYTES', 200 * 1024),
-    maxLsEntries: envPositiveInt('AGENT_FS_MAX_LS_ENTRIES', 500, 10, 5_000),
-    maxLsDepth: envPositiveInt('AGENT_FS_MAX_LS_DEPTH', 3, 0, 20),
-    maxGrepHits: envPositiveInt('AGENT_FS_MAX_GREP_HITS', 40, 1, 500),
+    maxReadLines: envIntInRange('AGENT_FS_MAX_READ_LINES', 80, 0, 400),
+    maxLsEntries: envIntInRange('AGENT_FS_MAX_LS_ENTRIES', 500, 10, 5_000),
+    maxLsDepth: envIntInRange('AGENT_FS_MAX_LS_DEPTH', 3, 0, 20),
+    maxGrepHits: envIntInRange('AGENT_FS_MAX_GREP_HITS', 40, 1, 500),
     maxGrepFileBytes: envBytes('AGENT_FS_MAX_GREP_FILE_BYTES', 1 * 1024 * 1024),
-    maxFindResults: envPositiveInt('AGENT_FS_MAX_FIND_RESULTS', 200, 1, 2_000),
+    maxFindResults: envIntInRange('AGENT_FS_MAX_FIND_RESULTS', 200, 1, 2_000),
     ignoreDirNames: new Set(ignoreList.map((s) => s.toLowerCase())),
   };
 }

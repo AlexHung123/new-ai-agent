@@ -8,6 +8,7 @@ export type AgentProcessStep = {
   status: AgentStepStatus;
   startedAt: number;
   endedAt?: number;
+  toolCallId?: string;
 };
 
 export type AgentProcessState = {
@@ -35,6 +36,15 @@ export function friendlyToolName(name: string): string {
   return key.replace(/_/g, ' ') || 'tool';
 }
 
+let stepSeq = 0;
+
+function uniqueStepId(...parts: Array<string | undefined>): string {
+  stepSeq += 1;
+  return [...parts.filter((part) => part && part.length > 0), Date.now(), String(stepSeq)].join(
+    '-',
+  );
+}
+
 export function createInitialProcess(messageId: string): AgentProcessState {
   const now = Date.now();
   return {
@@ -43,7 +53,7 @@ export function createInitialProcess(messageId: string): AgentProcessState {
     startedAt: now,
     steps: [
       {
-        id: `thinking-${now}`,
+        id: uniqueStepId('thinking'),
         kind: 'thinking',
         label: 'Thinking',
         status: 'running',
@@ -56,12 +66,14 @@ export function createInitialProcess(messageId: string): AgentProcessState {
 export function applyToolStart(
   prev: AgentProcessState | null,
   toolName: string,
+  toolCallId?: string,
 ): AgentProcessState | null {
   if (!prev || prev.status === 'done') return prev;
   const now = Date.now();
   const name = friendlyToolName(toolName);
+  const callId = toolCallId?.trim() || undefined;
   const closed = prev.steps.map((s) =>
-    s.status === 'running' && (s.kind === 'thinking' || s.kind === 'tool')
+    s.status === 'running' && s.kind === 'thinking'
       ? { ...s, status: 'done' as const, endedAt: now }
       : s,
   );
@@ -70,12 +82,13 @@ export function applyToolStart(
     steps: [
       ...closed,
       {
-        id: `tool-${toolName}-${now}`,
+        id: uniqueStepId('tool', callId ?? toolName),
         kind: 'tool',
         label: name,
         detail: toolName,
         status: 'running',
         startedAt: now,
+        ...(callId ? { toolCallId: callId } : {}),
       },
     ],
   };
@@ -86,29 +99,32 @@ export function applyToolEnd(
   toolName: string,
   ok: boolean,
   summary?: string,
+  toolCallId?: string,
 ): AgentProcessState | null {
   if (!prev || prev.status === 'done') return prev;
   const now = Date.now();
   const friendly = friendlyToolName(toolName);
+  const callId = toolCallId?.trim() || undefined;
   const detailText =
     typeof summary === 'string' && summary.trim() ? summary.trim() : undefined;
+  const nextStatus: AgentStepStatus = ok ? 'done' : 'error';
+
+  const matchesRunningTool = (s: AgentProcessStep): boolean => {
+    if (s.kind !== 'tool' || s.status !== 'running') return false;
+    if (callId) return s.toolCallId === callId;
+    return s.detail === toolName || s.label === friendly;
+  };
+
   let matched = false;
   const steps = [...prev.steps].reverse().map((s) => {
-    if (
-      !matched &&
-      s.kind === 'tool' &&
-      s.status === 'running' &&
-      (s.detail === toolName || s.label === friendly)
-    ) {
-      matched = true;
-      return {
-        ...s,
-        status: (ok ? 'done' : 'error') as AgentStepStatus,
-        endedAt: now,
-        detail: detailText,
-      };
-    }
-    return s;
+    if (matched || !matchesRunningTool(s)) return s;
+    matched = true;
+    return {
+      ...s,
+      status: nextStatus,
+      endedAt: now,
+      detail: detailText,
+    };
   });
   steps.reverse();
   if (!matched) {
@@ -117,7 +133,7 @@ export function applyToolEnd(
       if (steps[i].kind === 'tool' && steps[i].status === 'running') {
         steps[i] = {
           ...steps[i],
-          status: ok ? 'done' : 'error',
+          status: nextStatus,
           endedAt: now,
           detail: detailText,
         };
@@ -127,13 +143,14 @@ export function applyToolEnd(
     }
     if (!closed) {
       steps.push({
-        id: `tool-${toolName}-end-${now}`,
+        id: uniqueStepId('tool', callId ?? toolName, 'end'),
         kind: 'tool',
         label: friendly,
         detail: detailText,
-        status: ok ? 'done' : 'error',
+        status: nextStatus,
         startedAt: now,
         endedAt: now,
+        ...(callId ? { toolCallId: callId } : {}),
       });
     }
   }
@@ -154,7 +171,7 @@ export function applyTextStarted(
     steps: [
       ...steps,
       {
-        id: `writing-${now}`,
+        id: uniqueStepId('writing'),
         kind: 'writing',
         label: 'Writing answer',
         status: 'running',
@@ -190,7 +207,7 @@ export function applyProgressMessage(
     steps: [
       ...prev.steps,
       {
-        id: `status-progress-${now}`,
+        id: uniqueStepId('status-progress'),
         kind: 'status',
         label: text,
         detail: 'progress',

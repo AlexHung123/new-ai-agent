@@ -8,6 +8,8 @@ import { MetaSearchAgentType } from './metaSearchAgent';
 import { streamAgentProgressToEmitter } from '../utils/agentStream';
 import { getSharedAgentContext } from './shared/agent/getSharedAgentContext';
 import { buildDocumentUserPrompt } from './shared/prompts/documentTurnPrefix';
+import { bindTurnFsTools } from './shared/runtime/bindTurnFsTools';
+import { getDocumentTurnContext } from './shared/runtime/documentTurnContext';
 import { safeJson } from './shared/utils/safeJson';
 
 const FS_TOOLS = ['fs_ls', 'fs_read', 'fs_grep', 'fs_find'];
@@ -35,6 +37,7 @@ export default class DocumentAgent implements MetaSearchAgentType {
     };
 
     (async () => {
+      const documentCtx = getDocumentTurnContext();
       try {
         if (signal?.aborted) return;
 
@@ -69,6 +72,7 @@ export default class DocumentAgent implements MetaSearchAgentType {
 
         harnessAgentManager.markBusy(stableAgentId);
         harnessAgentManager.touchAgent(stableAgentId);
+        const restoreFs = bindTurnFsTools(agent, { document: documentCtx });
 
         try {
           const subscriptionPromise = streamAgentProgressToEmitter({
@@ -85,10 +89,11 @@ export default class DocumentAgent implements MetaSearchAgentType {
               /* ignore */
             }
           } else {
-            await agent.prompt(buildDocumentUserPrompt(message));
+            await agent.prompt(buildDocumentUserPrompt(message, documentCtx));
           }
           await subscriptionPromise;
         } finally {
+          restoreFs();
           await harnessAgentManager.markIdle(stableAgentId);
         }
       } catch (error: unknown) {

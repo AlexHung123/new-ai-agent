@@ -26,14 +26,14 @@ const AgentCard = () => {
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="w-[300px] flex flex-col gap-4 p-4 rounded-xl border border-light-200 dark:border-dark-200 bg-light-primary dark:bg-dark-primary shadow-lg"
+      className="agent-card flex flex-col rounded-xl border border-light-200 dark:border-dark-200 bg-light-primary dark:bg-dark-primary shadow-lg"
     >
-      <div className="relative w-full h-64 rounded-lg overflow-hidden bg-white dark:bg-black">
+      <div className="agent-card-art relative w-full rounded-lg overflow-hidden bg-white dark:bg-black">
         <Image
           src={currentFocusMode.image}
           alt={currentFocusMode.title}
           fill
-          sizes="300px"
+          sizes="(min-width: 1536px) 300px, 200px"
           className="object-contain"
           priority
         />

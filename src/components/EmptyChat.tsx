@@ -36,23 +36,20 @@ const EmptyChat = () => {
         <AgentCard />
       </motion.div>
 
+      {focusMode === 'agentWriting' ? (
+        <div className="writing-file-browser-chat">
+          <WritingFileBrowser />
+        </div>
+      ) : null}
+
       <div className="absolute w-full flex flex-row items-center justify-end mr-5 mt-5">
         <SettingsButtonMobile />
       </div>
       <div className="flex flex-col items-center justify-center min-h-screen mx-auto p-2">
-        <div
-          className={
-            focusMode === 'agentWriting'
-              ? 'writing-workspace'
-              : 'welcome-wiki'
-          }
-        >
-          {focusMode === 'agentWriting' ? <WritingFileBrowser /> : null}
-          <div className="welcome-wiki">
-            <h2>{heading}</h2>
-            {subheading ? <p>{subheading}</p> : null}
-            {needsDocumentPick ? <DocumentPicker /> : <EmptyChatMessageInput />}
-          </div>
+        <div className="welcome-wiki">
+          <h2>{heading}</h2>
+          {subheading ? <p>{subheading}</p> : null}
+          {needsDocumentPick ? <DocumentPicker /> : <EmptyChatMessageInput />}
         </div>
       </div>
     </div>

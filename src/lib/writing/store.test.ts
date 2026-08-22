@@ -48,6 +48,8 @@ describe('writing attachment store', () => {
     );
     expect(index).toContain('memo.docx');
     expect(index).toContain(`${item.relDir}/INDEX.md`);
+    expect(index).toMatch(/fromLine/);
+    expect(index).not.toMatch(/read those first/i);
   });
 
   it('keeps a failed conversion in the manifest but not the workspace index', async () => {

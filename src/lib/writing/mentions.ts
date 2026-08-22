@@ -40,6 +40,17 @@ export function resolveMentionedFiles(
   const sorted = [...ready].sort((a, b) => b.name.length - a.name.length);
   const found: WritingAttachment[] = [];
   const seen = new Set<string>();
+  const lower = text.toLowerCase();
+
+  for (const file of sorted) {
+    const needles = [`@${file.name.toLowerCase()}`];
+    if (file.relDir) needles.push(`@${file.relDir.toLowerCase()}`);
+    if (needles.some((needle) => lower.includes(needle))) {
+      seen.add(file.fileId);
+      found.push(file);
+    }
+  }
+
   const re = /@([^\s@]+)/g;
   let match: RegExpExecArray | null;
   while ((match = re.exec(text))) {

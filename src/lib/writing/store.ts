@@ -79,8 +79,8 @@ export function writeWorkspaceIndex(
     lines.push(
       'Converted Markdown for files this user uploaded (personal library).',
       'Original office files are not in this folder.',
-      'Use fs_ls, fs_read, fs_grep, and fs_find. Prefer fs_grep to locate a section, then fs_read that part.',
-      'If the user @-mentioned files, read those first.',
+      'Use fs_ls, fs_read, fs_grep, and fs_find. Prefer fs_grep to locate a section, then fs_read that range (fromLine/maxLines or path:from:count).',
+      'An @-mention is a search scope, not a request to read the whole file.',
       'Do not invent text that is not in these files.',
       '',
       '## Files',
@@ -112,7 +112,7 @@ function writeAttachmentIndex(
     `- Characters: ${item.charCount}`,
     `- Parts: ${item.parts}`,
     '',
-    'Read with fs_read. Prefer fs_grep to find a section, then read that part.',
+    'Do not fs_read a whole part. Prefer fs_grep, then fs_read around the hit (path:fromLine:maxLines).',
     '',
   ];
   for (const name of partFiles) {

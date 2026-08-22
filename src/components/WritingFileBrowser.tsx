@@ -1,47 +1,22 @@
 'use client';
 
-import { useRef } from 'react';
-import {
-  ChevronDown,
-  File,
-  FileCode,
-  FileSpreadsheet,
-  FileText,
-  Image as ImageIcon,
-  RefreshCw,
-  Upload,
-  X,
-} from 'lucide-react';
+import { useState, useRef } from 'react';
+import { ChevronRight, Trash2, Upload } from 'lucide-react';
 import { useChat } from '@/lib/hooks/useChat';
-import { fileExtension } from '@/lib/writing/types';
-
-function FileGlyph({ name }: { name: string }) {
-  const ext = fileExtension(name);
-  if (['xls', 'xlsx', 'xlsm', 'xlsb', 'csv', 'ods'].includes(ext)) {
-    return <FileSpreadsheet size={16} />;
-  }
-  if (['doc', 'docx', 'docm', 'odt', 'rtf', 'pdf'].includes(ext)) {
-    return <FileText size={16} />;
-  }
-  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) {
-    return <ImageIcon size={16} />;
-  }
-  if (['sh', 'py', 'js', 'ts', 'json', 'yml', 'yaml', 'pi'].includes(ext)) {
-    return <FileCode size={16} />;
-  }
-  return <File size={16} />;
-}
+import { WRITING_ACCEPT, formatWritingBytes } from '@/lib/writing/types';
+import FileTypeIcon from './FileTypeIcon';
 
 const WritingFileBrowser = ({ compact = false }: { compact?: boolean }) => {
   const {
     focusMode,
     writingFiles,
-    refreshWritingFiles,
     uploadWritingFile,
     removeWritingFile,
     requestMention,
   } = useChat();
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const [filesOpen, setFilesOpen] = useState(true);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   if (focusMode !== 'agentWriting') return null;
 
@@ -53,74 +28,155 @@ const WritingFileBrowser = ({ compact = false }: { compact?: boolean }) => {
     if (inputRef.current) inputRef.current.value = '';
   };
 
+  const mentionFile = (fileId: string, name: string) => {
+    requestMention(name);
+    setSelectedIds((prev) => (prev.includes(fileId) ? prev : [...prev, fileId]));
+  };
+
+  const toggleFile = (fileId: string, name: string) => {
+    if (selectedIds.includes(fileId)) {
+      setSelectedIds((prev) => prev.filter((id) => id !== fileId));
+      return;
+    }
+    mentionFile(fileId, name);
+  };
+
+  const onRemove = (fileId: string) => {
+    setSelectedIds((prev) => prev.filter((id) => id !== fileId));
+    void removeWritingFile(fileId);
+  };
+
   return (
     <aside
       className={`writing-file-browser${compact ? ' writing-file-browser-compact' : ''}`}
     >
-      <header className="writing-file-browser-head">
-        <span className="writing-file-browser-title">
-          <ChevronDown size={14} />
-          文件浏览器
-        </span>
-        <span className="writing-file-browser-actions">
-          <button
-            type="button"
-            aria-label="Upload file"
-            onClick={() => inputRef.current?.click()}
-          >
-            <Upload size={15} />
-          </button>
-          <button
-            type="button"
-            aria-label="Refresh files"
-            onClick={() => void refreshWritingFiles()}
-          >
-            <RefreshCw size={15} />
-          </button>
-        </span>
+      <header className="writing-files-header">
+        <button
+          type="button"
+          className="writing-files-toggle"
+          onClick={() => setFilesOpen((open) => !open)}
+        >
+          <ChevronRight
+            size={14}
+            className={filesOpen ? 'rotated' : undefined}
+          />
+          <h2>Files</h2>
+        </button>
+        <button
+          type="button"
+          className="writing-files-upload"
+          aria-label="Upload file"
+          title="Upload files"
+          onClick={() => inputRef.current?.click()}
+        >
+          <Upload size={15} />
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          multiple
+          accept={WRITING_ACCEPT}
+          className="hidden"
+          onChange={(e) => onFiles(e.target.files)}
+        />
       </header>
-      <input
-        ref={inputRef}
-        type="file"
-        multiple
-        className="hidden"
-        onChange={(e) => onFiles(e.target.files)}
-      />
-      <ul className="writing-file-browser-list">
-        {writingFiles.length === 0 ? (
-          <li className="writing-file-browser-empty">还没有文件。点击上传。</li>
-        ) : (
-          writingFiles.map((file) => (
-            <li key={file.fileId}>
-              <button
-                type="button"
-                className="writing-file-browser-item"
-                onClick={() => requestMention(file.name)}
-                disabled={file.status === 'uploading'}
-                title={file.error || file.name}
-              >
-                <FileGlyph name={file.name} />
-                <span className="writing-file-browser-name">
-                  {file.status === 'uploading' ? `上传中… ${file.name}` : file.name}
-                </span>
-                {file.status === 'failed' ? (
-                  <span className="writing-file-browser-error">失败</span>
-                ) : null}
-              </button>
-              {file.status !== 'uploading' ? (
-                <button
-                  type="button"
-                  className="writing-file-browser-remove"
-                  aria-label={`Delete ${file.name}`}
-                  onClick={() => void removeWritingFile(file.fileId)}
-                >
-                  <X size={12} />
-                </button>
-              ) : null}
-            </li>
-          ))
-        )}
-      </ul>
+
+      {filesOpen ? (
+        <div className="writing-files-body">
+          <div className="writing-files-path">
+            <button type="button" className="writing-files-path-up" disabled>
+              ..
+            </button>
+            <span className="writing-files-path-text">/</span>
+          </div>
+          <ul className="writing-files-list" aria-label="Writing files">
+            {writingFiles.length === 0 ? (
+              <li className="writing-files-empty">
+                Empty — upload files with ↑
+              </li>
+            ) : (
+              writingFiles.map((file) => {
+                const uploading = file.status === 'uploading';
+                const failed = file.status === 'failed';
+                const selected = selectedIds.includes(file.fileId);
+                const size = formatWritingBytes(file.sizeBytes);
+                return (
+                  <li key={file.fileId}>
+                    <div
+                      className={`writing-file-row${selected ? ' is-selected' : ''}`}
+                    >
+                      <button
+                        type="button"
+                        className="writing-file-row-main"
+                        onClick={() => mentionFile(file.fileId, file.name)}
+                        disabled={uploading}
+                        title={file.error || `Mention ${file.name}`}
+                      >
+                        <FileTypeIcon name={file.name} size={16} />
+                        <span className="writing-file-name" title={file.name}>
+                          {uploading ? `Uploading… ${file.name}` : file.name}
+                        </span>
+                        {failed ? (
+                          <span className="writing-file-error">失败</span>
+                        ) : size ? (
+                          <span className="writing-file-meta">{size}</span>
+                        ) : null}
+                      </button>
+                      {!uploading ? (
+                        <>
+                          <button
+                            type="button"
+                            className={`writing-file-select${selected ? ' is-selected' : ''}`}
+                            onClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              toggleFile(file.fileId, file.name);
+                            }}
+                            title={
+                              selected
+                                ? `Deselect ${file.name}`
+                                : `Select ${file.name}`
+                            }
+                            aria-pressed={selected}
+                            aria-label={
+                              selected
+                                ? `Deselect ${file.name}`
+                                : `Select ${file.name}`
+                            }
+                          >
+                            <span className="writing-file-sel-dot" aria-hidden />
+                          </button>
+                          <button
+                            type="button"
+                            className="writing-file-mention"
+                            title={`Mention ${file.name}`}
+                            onClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              mentionFile(file.fileId, file.name);
+                            }}
+                          >
+                            @ mention
+                          </button>
+                          <button
+                            type="button"
+                            className="writing-file-remove"
+                            aria-label={`Delete ${file.name}`}
+                            title="Delete"
+                            onClick={() => onRemove(file.fileId)}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </>
+                      ) : null}
+                    </div>
+                  </li>
+                );
+              })
+            )}
+          </ul>
+        </div>
+      ) : null}
     </aside>
   );
 };

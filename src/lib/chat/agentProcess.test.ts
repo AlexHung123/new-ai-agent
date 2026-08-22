@@ -56,6 +56,29 @@ describe('applyToolStart', () => {
       status: 'running',
     });
   });
+
+  it('gives unique ids when the same tool starts twice in the same millisecond', () => {
+    const first = applyToolStart(createInitialProcess('msg-1'), 'fs_read');
+    const second = applyToolStart(first, 'fs_read');
+    const toolIds = (second?.steps ?? [])
+      .filter((s) => s.kind === 'tool')
+      .map((s) => s.id);
+    expect(toolIds).toHaveLength(2);
+    expect(new Set(toolIds).size).toBe(2);
+  });
+
+  it('keeps a previous running tool open when another starts', () => {
+    const first = applyToolStart(
+      createInitialProcess('msg-1'),
+      'fs_read',
+      'call-a',
+    );
+    const second = applyToolStart(first, 'fs_read', 'call-b');
+    const tools = (second?.steps ?? []).filter((s) => s.kind === 'tool');
+    expect(tools).toHaveLength(2);
+    expect(tools.every((s) => s.status === 'running')).toBe(true);
+    expect(tools.map((s) => s.toolCallId)).toEqual(['call-a', 'call-b']);
+  });
 });
 
 describe('applyToolEnd', () => {
@@ -82,6 +105,31 @@ describe('applyToolEnd', () => {
       kind: 'tool',
       status: 'error',
       detail: 'timeout',
+    });
+  });
+
+  it('ends only the matching parallel tool call', () => {
+    const first = applyToolStart(
+      createInitialProcess('msg-1'),
+      'fs_read',
+      'call-a',
+    );
+    const second = applyToolStart(first, 'fs_read', 'call-b');
+    const ended = applyToolEnd(
+      second,
+      'fs_read',
+      true,
+      'Read a.md',
+      'call-a',
+    );
+    const tools = (ended?.steps ?? []).filter((s) => s.kind === 'tool');
+    expect(tools).toHaveLength(2);
+    expect(tools.find((s) => s.toolCallId === 'call-a')).toMatchObject({
+      status: 'done',
+      detail: 'Read a.md',
+    });
+    expect(tools.find((s) => s.toolCallId === 'call-b')).toMatchObject({
+      status: 'running',
     });
   });
 });

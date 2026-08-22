@@ -120,6 +120,15 @@ export function buildToolEndSummary(
     };
   }
 
+  if (
+    details &&
+    details.ok === false &&
+    typeof details.message === 'string' &&
+    details.message.trim()
+  ) {
+    return { summary: clip(details.message, MAX_SUMMARY_CHARS) };
+  }
+
   switch (name) {
     case 'es_bm25_search':
     case 'guide_search':
@@ -218,11 +227,23 @@ export function buildToolEndSummary(
       if (details && details.ok === false && typeof details.message === 'string') {
         return { summary: clip(details.message, MAX_SUMMARY_CHARS) };
       }
+      const fromLine =
+        details && typeof details.fromLine === 'number'
+          ? details.fromLine
+          : undefined;
+      const toLine =
+        details && typeof details.toLine === 'number'
+          ? details.toLine
+          : undefined;
+      const range =
+        fromLine !== undefined && toLine !== undefined
+          ? ` · L${fromLine}-${toLine}`
+          : '';
       const trunc =
         details && details.truncated === true ? ' · truncated' : '';
       return {
         summary: clip(
-          rel ? `Read ${rel}${trunc}` : `Read file${trunc}`,
+          rel ? `Read ${rel}${range}${trunc}` : `Read file${range}${trunc}`,
           MAX_SUMMARY_CHARS,
         ),
       };
