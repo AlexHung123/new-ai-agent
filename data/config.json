@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "setupComplete": true,
+  "preferences": {},
+  "personalization": {},
+  "modelProviders": [
+    {
+      "id": "ca05a8fb-3754-473f-b4e7-d931217bccbe",
+      "name": "Transformers",
+      "type": "transformers",
+      "chatModels": [],
+      "embeddingModels": [],
+      "config": {},
+      "hash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    {
+      "id": "1233ab5d-7c89-46d2-ac39-35fc440ff3c2",
+      "name": "llamacpp",
+      "type": "openai",
+      "config": {
+        "apiKey": "there-is-no-key",
+        "baseURL": "http://192.168.1.21:443/v1"
+      },
+      "chatModels": [
+        {
+          "name": "qwen3-30b-a3b-instruct",
+          "key": "qwen3-30b-a3b-instruct"
+        },
+        {
+          "name": "gpt-oss-120b",
+          "key": "gpt-oss-120b"
+        }
+      ],
+      "embeddingModels": [],
+      "hash": "b44d707321b102c4e80481fbae28612486801cd5c8f065bf9da3cae71a2396d1"
+    }
+  ],
+  "search": {
+    "searxngURL": ""
+  },
+  "databases": {
+    "limesurvey": {
+      "connectionString": "postgresql://postgres:pass1234@192.168.1.83:5432/limesurveydb"
+    },
+    "secondary": {
+      "connectionString": "postgresql://postgres:pass1234@192.168.1.127:5432/itmsdb"
+    },
+    "agent": {
+      "connectionString": "postgresql://itmsagent:P%40ssw0rd1234@192.168.56.150:5432/itmsagentdb"
+    }
+  }
+}
