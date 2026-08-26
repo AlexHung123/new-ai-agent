@@ -9,7 +9,7 @@ import { parseAdminChatQuery } from '@/lib/auth/adminChatQuery';
 import { Shield } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import { focusModes } from '@/lib/agents';
+import { findDisplayFocusMode } from '@/lib/agents';
 
 export interface AdminChat {
   id: string;
@@ -17,6 +17,7 @@ export interface AdminChat {
   createdAt: string;
   focusMode: string;
   userId: string;
+  dpId?: string;
 }
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
@@ -242,9 +243,7 @@ const Page = () => {
                   </tr>
                 ) : (
                   chats.map((chat) => {
-                    const agent = focusModes.find(
-                      (m) => m.key === chat.focusMode,
-                    );
+                    const agent = findDisplayFocusMode(chat.focusMode);
                     return (
                       <tr
                         key={chat.id}
@@ -254,7 +253,7 @@ const Page = () => {
                           {chat.title}
                         </td>
                         <td className="whitespace-nowrap px-3 py-2.5 text-black/70 dark:text-white/70">
-                          {chat.userId}
+                          {chat.dpId ?? chat.userId}
                         </td>
                         <td className="whitespace-nowrap px-3 py-2.5 text-black/70 dark:text-white/70">
                           <span className="inline-flex items-center gap-1.5">

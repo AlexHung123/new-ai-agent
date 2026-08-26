@@ -5,7 +5,9 @@ import MessageInput from './MessageInput';
 import MessageBox from './MessageBox';
 import MessageBoxLoading from './MessageBoxLoading';
 import { useChat } from '@/lib/hooks/useChat';
+import { findDisplayFocusMode } from '@/lib/agents';
 import WritingFileBrowser from './WritingFileBrowser';
+import Link from 'next/link';
 
 const Chat = () => {
   const {
@@ -18,6 +20,8 @@ const Chat = () => {
     agentProcess,
     focusMode,
   } = useChat();
+  const currentAgent = findDisplayFocusMode(focusMode);
+  const isToolChat = currentAgent?.kind === 'tool';
 
   const columnRef = useRef<HTMLDivElement | null>(null);
   const messageEnd = useRef<HTMLDivElement | null>(null);
@@ -99,7 +103,22 @@ const Chat = () => {
           className="wiki-chat-composer-dock"
           style={{ width: dock.width, left: dock.left }}
         >
-          <MessageInput />
+          {isToolChat ? (
+            <div className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-black/70 dark:border-white/10 dark:bg-gray-950 dark:text-white/70">
+              {currentAgent?.href ? (
+                <Link
+                  href={currentAgent.href}
+                  className="font-medium text-blue-600 hover:underline dark:text-blue-400"
+                >
+                  Generate more speech
+                </Link>
+              ) : (
+                'This history item cannot be continued as a chat.'
+              )}
+            </div>
+          ) : (
+            <MessageInput />
+          )}
         </div>
       )}
     </div>

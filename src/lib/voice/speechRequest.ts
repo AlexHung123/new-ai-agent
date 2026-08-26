@@ -1,10 +1,11 @@
+import configManager from '@/lib/config';
 import { DEFAULT_TTS_MODEL, isAllowedTtsModel } from './ttsModels';
 
 export { DEFAULT_TTS_MODEL };
-export const DEFAULT_TTS_BASE_URL = 'http://192.168.1.56:8020';
+export const DEFAULT_TTS_BASE_URL = 'http://192.168.1.56:8020/voice';
 export const DEFAULT_TTS_MAX_TOKENS = 2000;
 export const DEFAULT_RESPONSE_FORMAT = 'wav';
-export const MAX_REF_AUDIO_BYTES = 10 * 1024 * 1024;
+export const DEFAULT_MAX_REF_AUDIO_BYTES = 10 * 1024 * 1024;
 
 const AUDIO_MIME_TYPES = new Set([
   'audio/wav',
@@ -24,6 +25,8 @@ export type TtsConfig = {
   baseUrl: string;
   model: string;
   maxTokens: number;
+  responseFormat: string;
+  maxRefAudioBytes: number;
 };
 
 export type SpeechRequestInput = {
@@ -48,18 +51,24 @@ export type SpeechSuccess = {
 
 type EnvLike = Record<string, string | undefined>;
 
-export function getTtsConfig(env: EnvLike = process.env): TtsConfig {
-  const maxTokensRaw = env.TTS_MAX_TOKENS;
-  const parsedTokens = maxTokensRaw ? Number.parseInt(maxTokensRaw, 10) : NaN;
+export function resolveTtsConfig(tts: unknown, env: EnvLike = {}): TtsConfig {
+  const section = isRecord(tts) ? tts : {};
 
   return {
-    baseUrl: stripTrailingSlash(env.TTS_BASE_URL || DEFAULT_TTS_BASE_URL),
+    baseUrl: stripTrailingSlash(
+      readNonEmptyString(section.baseUrl) ?? DEFAULT_TTS_BASE_URL,
+    ),
     model: env.TTS_MODEL || DEFAULT_TTS_MODEL,
-    maxTokens:
-      Number.isFinite(parsedTokens) && parsedTokens > 0
-        ? parsedTokens
-        : DEFAULT_TTS_MAX_TOKENS,
+    maxTokens: parsePositiveInt(section.maxTokens) ?? DEFAULT_TTS_MAX_TOKENS,
+    responseFormat:
+      readNonEmptyString(section.responseFormat) ?? DEFAULT_RESPONSE_FORMAT,
+    maxRefAudioBytes:
+      parsePositiveInt(section.maxRefAudioBytes) ?? DEFAULT_MAX_REF_AUDIO_BYTES,
   };
+}
+
+export function getTtsConfig(env: EnvLike = process.env): TtsConfig {
+  return resolveTtsConfig(configManager.getConfig('tts'), env);
 }
 
 export function encodeAudioDataUri(
@@ -69,12 +78,18 @@ export function encodeAudioDataUri(
   return `data:${mimeType};base64,${Buffer.from(bytes).toString('base64')}`;
 }
 
-export function parseSpeechFields(fields: {
-  input?: string | null;
-  refText?: string | null;
-  model?: string | null;
-  file?: { bytes: Uint8Array; mimeType: string; name: string } | null;
-}): { ok: true; data: SpeechRequestInput } | SpeechRequestError {
+export function parseSpeechFields(
+  fields: {
+    input?: string | null;
+    refText?: string | null;
+    model?: string | null;
+    file?: { bytes: Uint8Array; mimeType: string; name: string } | null;
+  },
+  tts?: unknown,
+): { ok: true; data: SpeechRequestInput } | SpeechRequestError {
+  const config = resolveTtsConfig(
+    tts === undefined ? configManager.getConfig('tts') : tts,
+  );
   const input = fields.input?.trim() ?? '';
   if (!input) {
     return { ok: false, status: 400, error: 'input is required' };
@@ -86,11 +101,11 @@ export function parseSpeechFields(fields: {
     return { ok: false, status: 400, error: 'ref_audio is required' };
   }
 
-  if (fields.file.bytes.length > MAX_REF_AUDIO_BYTES) {
+  if (fields.file.bytes.length > config.maxRefAudioBytes) {
     return {
       ok: false,
       status: 400,
-      error: 'ref_audio must be 10 MB or smaller',
+      error: `ref_audio must be ${formatByteLimit(config.maxRefAudioBytes)} or smaller`,
     };
   }
 
@@ -157,7 +172,7 @@ export function buildVoxcpmSpeechBody(
     model: data.model || config.model,
     input: data.input,
     ref_audio: encodeAudioDataUri(data.refAudioBytes, data.refAudioMimeType),
-    response_format: DEFAULT_RESPONSE_FORMAT,
+    response_format: config.responseFormat,
     max_tokens: config.maxTokens,
   };
 
@@ -173,9 +188,13 @@ export async function synthesizeSpeech(
   options: {
     fetchImpl?: typeof fetch;
     env?: EnvLike;
+    tts?: unknown;
   } = {},
 ): Promise<SpeechSuccess | SpeechRequestError> {
-  const config = getTtsConfig(options.env ?? process.env);
+  const config = resolveTtsConfig(
+    options.tts ?? configManager.getConfig('tts'),
+    options.env ?? process.env,
+  );
   const fetchImpl = options.fetchImpl ?? fetch;
   const url = `${config.baseUrl}/v1/audio/speech`;
 
@@ -227,6 +246,37 @@ function readFormString(value: FormDataEntryValue | null): string | null {
 
 function stripTrailingSlash(value: string): string {
   return value.replace(/\/+$/, '');
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function readNonEmptyString(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function parsePositiveInt(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+    return Math.floor(value);
+  }
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+  return undefined;
+}
+
+function formatByteLimit(bytes: number): string {
+  if (bytes >= 1024 * 1024 && bytes % (1024 * 1024) === 0) {
+    return `${bytes / (1024 * 1024)} MB`;
+  }
+  if (bytes >= 1024 && bytes % 1024 === 0) {
+    return `${bytes / 1024} KB`;
+  }
+  return `${bytes} bytes`;
 }
 
 function normalizeAudioMimeType(

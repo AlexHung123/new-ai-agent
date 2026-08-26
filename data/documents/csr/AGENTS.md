@@ -8,7 +8,6 @@ This directory is an [LLM Wiki](../llm-wiki.md) for the Hong Kong *Civil Service
 
 | Layer | Path | Rule |
 | --- | --- | --- |
-| Raw source | `csr.md` | Immutable. Read only. Never edit, reformat, or “fix” OCR. |
 | Wiki | `wiki/` | You own every file here. Create, update, cross-link, keep consistent. |
 | Schema | `AGENTS.md` + `wiki/SCHEMA.md` | Conventions and workflows. Co-evolve with the user. |
 
@@ -21,7 +20,6 @@ This directory is an [LLM Wiki](../llm-wiki.md) for the Hong Kong *Civil Service
 
 ## Do not
 
-- Modify `csr.md`.
 - Invent articles, rates, or eligibility that the source does not support.
 - Silently overwrite a claim when a later revision or another article conflicts — record both and mark `contested: true`.
 - Create a page for a passing mention.

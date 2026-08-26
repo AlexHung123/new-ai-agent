@@ -9,6 +9,7 @@ import {
 } from '@headlessui/react';
 import jsPDF from 'jspdf';
 import { useChat, Section } from '@/lib/hooks/useChat';
+import { isSfcFocusMode } from '@/lib/agents';
 import Link from 'next/link';
 
 const downloadFile = (filename: string, content: string, type: string) => {
@@ -225,7 +226,7 @@ const Navbar = () => {
           </div>
 
           <div className="flex items-center gap-1 min-w-0">
-            {focusMode !== 'agentSFC' && focusMode !== 'newSfcAgent' && (
+            {!isSfcFocusMode(focusMode) && (
               <Popover className="relative">
                 <PopoverButton className="p-2 rounded-lg hover:bg-light-secondary dark:hover:bg-dark-secondary transition-colors duration-200">
                   <Share

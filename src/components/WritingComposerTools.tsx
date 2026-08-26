@@ -9,13 +9,22 @@ import {
   type RefObject,
 } from 'react';
 import { AtSign, File, Paperclip } from 'lucide-react';
+import { toast } from 'sonner';
 import { useChat } from '@/lib/hooks/useChat';
 import {
   atQueryAtCursor,
   filterFilesByQuery,
   insertMention,
 } from '@/lib/writing/mentions';
-import type { WritingAttachmentView } from '@/lib/writing/types';
+import {
+  MAX_WRITING_FILES,
+  WRITING_ACCEPT,
+  filterAllowedWritingFiles,
+  planWritingUploads,
+  writingFileLimitMessage,
+  writingUnsupportedTypeMessage,
+  type WritingAttachmentView,
+} from '@/lib/writing/types';
 
 export function useWritingMention(opts: {
   value: string;
@@ -94,11 +103,30 @@ export function useWritingMention(opts: {
     setMenuOpen(true);
   };
 
-  const onUploadClick = () => fileInputRef.current?.click();
+  const atLimit = writingFiles.length >= MAX_WRITING_FILES;
+
+  const onUploadClick = () => {
+    if (atLimit) {
+      toast.error(writingFileLimitMessage());
+      return;
+    }
+    fileInputRef.current?.click();
+  };
 
   const onFilesPicked = (list: FileList | null) => {
     if (!list) return;
-    Array.from(list).forEach((file) => {
+    const typed = filterAllowedWritingFiles(Array.from(list));
+    if (typed.rejected > 0) {
+      toast.error(writingUnsupportedTypeMessage());
+    }
+    const { accepted, rejected } = planWritingUploads(
+      writingFiles.length,
+      typed.accepted,
+    );
+    if (rejected > 0) {
+      toast.error(writingFileLimitMessage());
+    }
+    accepted.forEach((file) => {
       void uploadWritingFile(file);
     });
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -142,6 +170,7 @@ export function useWritingMention(opts: {
     onUploadClick,
     fileInputRef,
     onFilesPicked,
+    uploadDisabled: atLimit,
     query: at?.query ?? '',
   };
 }
@@ -184,11 +213,13 @@ export function WritingToolbarButtons({
   onUploadClick,
   fileInputRef,
   onFilesPicked,
+  uploadDisabled = false,
 }: {
   onAtClick: () => void;
   onUploadClick: () => void;
   fileInputRef: RefObject<HTMLInputElement | null> | RefObject<HTMLInputElement>;
   onFilesPicked: (list: FileList | null) => void;
+  uploadDisabled?: boolean;
 }) {
   return (
     <>
@@ -204,6 +235,8 @@ export function WritingToolbarButtons({
         type="button"
         className="writing-tool-btn"
         aria-label="Upload file"
+        title={uploadDisabled ? writingFileLimitMessage() : 'Upload files'}
+        disabled={uploadDisabled}
         onClick={onUploadClick}
       >
         <Paperclip size={16} />
@@ -212,6 +245,7 @@ export function WritingToolbarButtons({
         ref={fileInputRef as RefObject<HTMLInputElement>}
         type="file"
         multiple
+        accept={WRITING_ACCEPT}
         className="hidden"
         onChange={(e) => onFilesPicked(e.target.files)}
       />

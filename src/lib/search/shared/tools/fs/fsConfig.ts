@@ -1,9 +1,13 @@
 /**
  * Chrooted project filesystem tools (read-only) — env knobs.
  * Disabled by default until AGENT_FS_ENABLED=true and AGENT_FS_ROOT is set.
+ *
+ * AGENT_FS_MAX_READ_LINES: env overrides data/config.json; default 80.
+ * 0 = whole file (byte cap still applies).
  */
 
 import { isAbsolute, resolve } from 'node:path';
+import configManager from '@/lib/config';
 
 function envBool(key: string, fallback: boolean): boolean {
   const raw = process.env[key];
@@ -20,11 +24,42 @@ function envIntInRange(
   min: number,
   max: number,
 ): number {
-  const raw = process.env[key];
-  if (raw === undefined || raw.trim() === '') return fallback;
-  const n = Number(raw.trim());
-  if (!Number.isFinite(n)) return fallback;
+  return parseBoundedInt(process.env[key], min, max) ?? fallback;
+}
+
+function parseBoundedInt(
+  raw: unknown,
+  min: number,
+  max: number,
+): number | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (trimmed === '') return undefined;
+    const n = Number(trimmed);
+    if (!Number.isFinite(n)) return undefined;
+    return Math.min(max, Math.max(min, Math.floor(n)));
+  }
+  const n = typeof raw === 'number' ? raw : Number(raw);
+  if (!Number.isFinite(n)) return undefined;
   return Math.min(max, Math.max(min, Math.floor(n)));
+}
+
+const MAX_READ_LINES_FALLBACK = 80;
+const MAX_READ_LINES_MIN = 0;
+const MAX_READ_LINES_MAX = 400;
+
+/** Env wins, then data/config.json AGENT_FS_MAX_READ_LINES, then 80. */
+export function resolveAgentFsMaxReadLines(
+  envRaw: string | undefined,
+  configVal: unknown,
+  fallback = MAX_READ_LINES_FALLBACK,
+): number {
+  return (
+    parseBoundedInt(envRaw, MAX_READ_LINES_MIN, MAX_READ_LINES_MAX) ??
+    parseBoundedInt(configVal, MAX_READ_LINES_MIN, MAX_READ_LINES_MAX) ??
+    fallback
+  );
 }
 
 function envBytes(key: string, fallback: number): number {
@@ -106,7 +141,10 @@ export function getAgentFsConfig(): AgentFsConfig {
     root,
     adminOnly: envBool('AGENT_FS_ADMIN_ONLY', true),
     maxReadBytes: envBytes('AGENT_FS_MAX_READ_BYTES', 200 * 1024),
-    maxReadLines: envIntInRange('AGENT_FS_MAX_READ_LINES', 80, 0, 400),
+    maxReadLines: resolveAgentFsMaxReadLines(
+      process.env.AGENT_FS_MAX_READ_LINES,
+      configManager.getConfig('AGENT_FS_MAX_READ_LINES'),
+    ),
     maxLsEntries: envIntInRange('AGENT_FS_MAX_LS_ENTRIES', 500, 10, 5_000),
     maxLsDepth: envIntInRange('AGENT_FS_MAX_LS_DEPTH', 3, 0, 20),
     maxGrepHits: envIntInRange('AGENT_FS_MAX_GREP_HITS', 40, 1, 500),

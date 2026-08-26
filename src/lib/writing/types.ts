@@ -1,10 +1,27 @@
 export const MAX_WRITING_FILE_BYTES = 15 * 1024 * 1024;
-export const MAX_WRITING_FILES = 10;
+export const MAX_WRITING_FILES = 5;
 /** Stay under AGENT_FS_MAX_READ_BYTES (200 KiB), including CJK. */
 export const MAX_WRITING_PART_BYTES = 150 * 1024;
 
-export const WRITING_ACCEPT =
-  '.doc,.docx,.docm,.ppt,.pps,.pot,.pptx,.pptm,.ppsx,.ppsm,.xls,.xlsx,.xlsm,.xlsb,.odt,.ods,.odp,.rtf,.epub,.csv,.pdf,.txt,.md,.markdown,.json,.xml,.yml,.yaml,.html,.htm,.csv,.sh,.py,.js,.ts,.sql,.jpg,.jpeg,.png,.gif,.webp,.svg';
+export function writingFileLimitMessage(): string {
+  return `At most ${MAX_WRITING_FILES} files per user.`;
+}
+
+export function planWritingUploads<T>(
+  currentCount: number,
+  files: readonly T[],
+): { accepted: T[]; rejected: number } {
+  const used = Number.isFinite(currentCount)
+    ? Math.max(0, Math.floor(currentCount))
+    : 0;
+  const remaining = Math.max(0, MAX_WRITING_FILES - used);
+  const accepted = files.slice(0, remaining);
+  return { accepted, rejected: files.length - accepted.length };
+}
+
+export function writingUnsupportedTypeMessage(): string {
+  return 'This file type is not supported. Attach Word, PowerPoint, Excel, OpenDocument, RTF, EPUB, CSV, or PDF files.';
+}
 
 const PLAIN_TEXT_EXT = new Set([
   'txt',
@@ -71,31 +88,7 @@ const OFFICE_EXT = new Set([
 
 const IMAGE_EXT = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp']);
 
-const DENIED_EXT = new Set([
-  'exe',
-  'dll',
-  'so',
-  'dylib',
-  'bin',
-  'zip',
-  'rar',
-  '7z',
-  'gz',
-  'tar',
-  'iso',
-  'dmg',
-  'apk',
-  'wasm',
-  'msi',
-  'mp3',
-  'mp4',
-  'mov',
-  'avi',
-  'mkv',
-  'webm',
-  'wma',
-  'wmv',
-]);
+export const WRITING_ACCEPT = [...OFFICE_EXT].map((ext) => `.${ext}`).join(',');
 
 export type WritingAttachmentStatus = 'ready' | 'failed';
 
@@ -167,9 +160,14 @@ export function isImageFilename(filename: string): boolean {
 }
 
 export function isAllowedWritingFilename(filename: string): boolean {
-  const ext = fileExtension(filename);
-  if (DENIED_EXT.has(ext)) return false;
-  return true;
+  return OFFICE_EXT.has(fileExtension(filename));
+}
+
+export function filterAllowedWritingFiles<T extends { name: string }>(
+  files: readonly T[],
+): { accepted: T[]; rejected: number } {
+  const accepted = files.filter((file) => isAllowedWritingFilename(file.name));
+  return { accepted, rejected: files.length - accepted.length };
 }
 
 export function displayFilename(filename: string): string {

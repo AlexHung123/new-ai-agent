@@ -31,7 +31,7 @@ describe('buildToolEndSummary', () => {
       },
       false,
     );
-    expect(out.summary).toBe('Read part-01.md · L120-159 · truncated');
+    expect(out.summary).toBe('Read part-01.md · L120-159');
   });
 
   it('summarizes fs_grep as match count and query', () => {

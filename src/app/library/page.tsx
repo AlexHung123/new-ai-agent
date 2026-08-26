@@ -6,7 +6,7 @@ import { getAuthHeaders } from '@/lib/utils/auth';
 import { BookOpenText, ClockIcon, Delete, ScanEye } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { focusModes } from '@/lib/agents';
+import { findDisplayFocusMode } from '@/lib/agents';
 
 export interface Chat {
   id: string;
@@ -75,7 +75,7 @@ const Page = () => {
       {chats.length > 0 && (
         <div className="flex flex-col pb-20 lg:pb-2">
           {chats.map((chat, i) => {
-            const agent = focusModes.find((m) => m.key === chat.focusMode);
+            const agent = findDisplayFocusMode(chat.focusMode);
             return (
               <div
                 className={cn(

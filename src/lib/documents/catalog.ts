@@ -11,15 +11,59 @@ export type DocumentSlot = {
 export const DOCUMENT_SLOTS: DocumentSlot[] = [
   {
     id: 'spr',
-    title: 'SPR',
-    description: 'Stores and Procurement Regulations (物料供應及採購規例)',
+    title: 'Stores and Procurement Regulations (SPR)',
+    description: '',
     dirName: 'spr',
   },
   {
     id: 'csr',
-    title: 'CSR',
-    description: 'Civil Service Regulations (公務員事務規例)',
+    title: 'Civil Service Regulations (CSR)',
+    description: '',
     dirName: 'csr',
+  },
+  {
+    id: 'acqn',
+    title:
+      'Acquisition Procedures for Listing Arrangement for Government Procurement of IT Products (GITP)',
+    description: '',
+    dirName: 'acqn',
+  },
+  {
+    id: 'department-it-security',
+    title: 'Departmental IT Security Policy and Guidelines (DITSP)',
+    description: '',
+    dirName: 'department-it-security',
+  },
+  {
+    id: 'g3',
+    title: 'IT Security Guidelines (G3)',
+    description: '',
+    dirName: 'g3',
+  },
+  {
+    id: 'rm-manual',
+    title: 'Records Management Manual (RMM)',
+    description: '',
+    dirName: 'rm-manual',
+  },
+  {
+    id: 's17',
+    title: 'Baseline IT Security Policy (S17)',
+    description: '',
+    dirName: 's17',
+  },
+  {
+    id: 'sfc',
+    title:
+      'Finance Committee Special Meetings written replies on the Estimates of Expenditure (SFC)',
+    description: '',
+    dirName: 'sfc',
+  },
+  {
+    id: 'training-guide',
+    title: 'Guidelines on Training in the Civil Service (Training Guide)',
+    description: '',
+    dirName: 'training-guide',
   },
 ];
 

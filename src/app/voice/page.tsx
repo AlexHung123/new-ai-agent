@@ -274,7 +274,7 @@ const VoicePage = () => {
                 onChange={(event) => setRefText(event.target.value)}
                 rows={4}
                 className="resize-y rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-black outline-none ring-[#24A0ED] focus:ring-2 dark:border-white/10 dark:bg-gray-950 dark:text-white"
-                placeholder="在2014年4月15日国家主席习近平首次提出了总体国家安全观..."
+                placeholder="在2014年4月15日國家主席習近平首次提出了總體國家安全觀..."
               />
             </label>
 

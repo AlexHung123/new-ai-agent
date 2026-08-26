@@ -3,7 +3,7 @@
  * Uses 'jose' library which works in Edge Runtime (Next.js middleware)
  */
 
-import { jwtVerify } from 'jose';
+import { jwtVerify } from 'jose/jwt/verify';
 
 export interface VerifiedUser {
   userId: string;

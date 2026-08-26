@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { completePiAgent } from './completePiAgent';
 import type { PooledAgent } from './piAgentSessionManager';
 
-function createStreamingAgent(deltas: string[]): PooledAgent {
+function createScriptedAgent(
+  events: Array<Record<string, unknown>>,
+): PooledAgent {
   const listeners = new Set<(event: any, signal?: AbortSignal) => void>();
 
   return {
@@ -13,16 +15,10 @@ function createStreamingAgent(deltas: string[]): PooledAgent {
       isStreaming: false,
     },
     async prompt() {
-      for (const delta of deltas) {
+      for (const event of events) {
         for (const listener of listeners) {
-          listener({
-            type: 'message_update',
-            assistantMessageEvent: { type: 'text_delta', delta },
-          });
+          listener(event);
         }
-      }
-      for (const listener of listeners) {
-        listener({ type: 'agent_end' });
       }
     },
     subscribe(listener) {
@@ -31,6 +27,38 @@ function createStreamingAgent(deltas: string[]): PooledAgent {
     },
     abort() {},
     async waitForIdle() {},
+  };
+}
+
+function createStreamingAgent(deltas: string[]): PooledAgent {
+  return createScriptedAgent(
+    deltas.map((delta) => ({
+      type: 'message_update',
+      assistantMessageEvent: { type: 'text_delta', delta },
+    })),
+  );
+}
+
+const SURVEY_CHAT_USER_PROMPT =
+  '你是通用對話助理（Kode agent），同時具備 LimeSurvey 自由文字問卷分析能力。請用繁體中文回覆。\n\n## 使用者最新訊息\n你好';
+
+function userPromptEndEvent(text: string) {
+  return {
+    type: 'message_end',
+    message: {
+      role: 'user',
+      content: [{ type: 'text', text }],
+    },
+  };
+}
+
+function assistantEndEvent(text: string) {
+  return {
+    type: 'message_end',
+    message: {
+      role: 'assistant',
+      content: [{ type: 'text', text }],
+    },
   };
 }
 
@@ -88,5 +116,42 @@ describe('completePiAgent', () => {
 
     expect(abortCalls).toBe(1);
     expect(result).toEqual({ status: 'aborted', text: 'hel' });
+  });
+
+  it('does not treat the user prompt message_end as the reply', async () => {
+    const agent = createScriptedAgent([
+      userPromptEndEvent(SURVEY_CHAT_USER_PROMPT),
+      {
+        type: 'message_update',
+        assistantMessageEvent: { type: 'text_delta', delta: '你好！' },
+      },
+      {
+        type: 'message_update',
+        assistantMessageEvent: { type: 'text_delta', delta: '有什麼可以幫忙？' },
+      },
+      assistantEndEvent('你好！有什麼可以幫忙？'),
+    ]);
+
+    const result = await completePiAgent(agent, SURVEY_CHAT_USER_PROMPT);
+
+    expect(result).toEqual({
+      status: 'ok',
+      text: '你好！有什麼可以幫忙？',
+    });
+    expect(result.text).not.toContain('你是通用對話助理');
+  });
+
+  it('uses the assistant message_end when the provider does not stream deltas', async () => {
+    const agent = createScriptedAgent([
+      userPromptEndEvent(SURVEY_CHAT_USER_PROMPT),
+      assistantEndEvent('這段文字的重點是…'),
+    ]);
+
+    const result = await completePiAgent(agent, SURVEY_CHAT_USER_PROMPT);
+
+    expect(result).toEqual({
+      status: 'ok',
+      text: '這段文字的重點是…',
+    });
   });
 });

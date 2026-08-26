@@ -1,24 +1,25 @@
-import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
-import * as schema from './schema';
 import { getAppDatabaseUrl } from './connection';
+import { createAppDb } from './createAppDb';
 
 declare global {
   // eslint-disable-next-line no-var
-  var __appPgPool: Pool | undefined;
+  var __appDbResources: ReturnType<typeof createAppDb> | undefined;
 }
 
-const pool =
-  global.__appPgPool ??
-  new Pool({
-    connectionString: getAppDatabaseUrl(),
-  });
+const resources =
+  (process.env.NODE_ENV !== 'production' && global.__appDbResources) ||
+  createAppDb(getAppDatabaseUrl);
 
 if (process.env.NODE_ENV !== 'production') {
-  global.__appPgPool = pool;
+  global.__appDbResources = resources;
 }
 
-const db = drizzle(pool, { schema });
+export const pool = new Proxy({} as Pool, {
+  get(_target, prop) {
+    const real = resources.getPool();
+    return Reflect.get(real, prop, real);
+  },
+});
 
-export { pool };
-export default db;
+export default resources.db;

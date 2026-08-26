@@ -9,6 +9,7 @@ import {
   documentRootAbs,
   resolveDocument,
 } from '@/lib/documents/catalog';
+import { resolveBoundDocument } from '@/lib/documents/resolveBoundDocument';
 import { runWithDocumentTurn } from '@/lib/search/shared/runtime/documentTurnContext';
 
 interface ChatRequestBody {
@@ -64,13 +65,22 @@ export const POST = async (req: Request) => {
         body.systemInstructions || '',
       );
 
+    const bound = resolveBoundDocument({
+      focusMode: body.focusMode,
+      chatExists: false,
+      bodyDocumentId: body.documentId,
+    });
+    if (bound.status === 'error') {
+      return Response.json({ message: bound.message }, { status: 400 });
+    }
+
     let emitter;
-    if (body.focusMode === 'agentDocument') {
-      const slot = resolveDocument(body.documentId);
+    if (bound.status === 'ok') {
+      const slot = resolveDocument(bound.documentId);
       if (!slot) {
         return Response.json(
           {
-            message: body.documentId
+            message: bound.documentId
               ? 'Unknown or unavailable document'
               : 'Select a document',
           },

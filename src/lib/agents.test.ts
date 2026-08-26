@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { focusModes, resolveFocusMode } from './agents';
+import {
+  SFC_DOCUMENT_FOCUS_MODE,
+  SFC_DOCUMENT_ID,
+  SFC_REPLY_FOCUS_MODE,
+  findDisplayFocusMode,
+  focusModes,
+  isSfcFocusMode,
+  resolveFocusMode,
+  resolveLoadedFocusMode,
+  shouldPersistFocusMode,
+} from './agents';
 
 describe('focusModes', () => {
   it('exposes remaining chat agents plus the voice tool', () => {
@@ -34,10 +44,22 @@ describe('focusModes', () => {
 describe('resolveFocusMode', () => {
   it('keeps remaining chat modes', () => {
     expect(resolveFocusMode('agentSFC')).toBe('agentSFC');
-    expect(resolveFocusMode('newSfcAgent')).toBe('newSfcAgent');
+    expect(resolveFocusMode(SFC_REPLY_FOCUS_MODE)).toBe(SFC_REPLY_FOCUS_MODE);
+    expect(resolveFocusMode(SFC_DOCUMENT_FOCUS_MODE)).toBe(
+      SFC_DOCUMENT_FOCUS_MODE,
+    );
     expect(resolveFocusMode('newSurveyAgent')).toBe('newSurveyAgent');
     expect(resolveFocusMode('agentWriting')).toBe('agentWriting');
     expect(resolveFocusMode('agentDocument')).toBe('agentDocument');
+  });
+
+  it('maps internal SFC modes to the Agent SFC card', () => {
+    expect(isSfcFocusMode('agentSFC')).toBe(true);
+    expect(isSfcFocusMode(SFC_REPLY_FOCUS_MODE)).toBe(true);
+    expect(isSfcFocusMode(SFC_DOCUMENT_FOCUS_MODE)).toBe(true);
+    expect(isSfcFocusMode('agentDocument')).toBe(false);
+    expect(findDisplayFocusMode(SFC_DOCUMENT_FOCUS_MODE)?.key).toBe('agentSFC');
+    expect(SFC_DOCUMENT_ID).toBe('sfc');
   });
 
   it('maps leftover survey mode to the pi survey agent', () => {
@@ -55,5 +77,17 @@ describe('resolveFocusMode', () => {
 
   it('does not treat Agent Voice as a chat focus mode', () => {
     expect(resolveFocusMode('agentVoice')).toBe('agentSFC');
+  });
+
+  it('keeps Agent Voice when loading an existing history chat', () => {
+    expect(resolveLoadedFocusMode('agentVoice')).toBe('agentVoice');
+    expect(resolveLoadedFocusMode('agentWriting')).toBe('agentWriting');
+    expect(resolveLoadedFocusMode('agentGuide')).toBe('agentSFC');
+  });
+
+  it('does not persist tool agents as the next new-chat focus mode', () => {
+    expect(shouldPersistFocusMode('agentVoice')).toBe(false);
+    expect(shouldPersistFocusMode('agentWriting')).toBe(true);
+    expect(shouldPersistFocusMode('agentSFC')).toBe(true);
   });
 });

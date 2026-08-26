@@ -1,3 +1,5 @@
+import { SFC_DOCUMENT_FOCUS_MODE, SFC_DOCUMENT_ID } from '@/lib/agents';
+
 export type BoundDocumentInput = {
   focusMode: string;
   chatExists: boolean;
@@ -13,6 +15,9 @@ export type BoundDocumentResult =
 export function resolveBoundDocument(
   input: BoundDocumentInput,
 ): BoundDocumentResult {
+  if (input.focusMode === SFC_DOCUMENT_FOCUS_MODE) {
+    return { status: 'ok', documentId: SFC_DOCUMENT_ID };
+  }
   if (input.focusMode !== 'agentDocument') return { status: 'none' };
   if (input.chatExists) {
     const id = (input.existingDocumentId || '').trim();

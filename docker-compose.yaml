@@ -1,6 +1,6 @@
 services:
   aiagent:
-    image: itms-ai-agent:v5
+    image: itms-ai-agent:v55
     ports:
       - '8080:3000'
     volumes:
@@ -13,6 +13,7 @@ services:
       - TTS_BASE_URL=http://192.168.1.56:8020
       - TTS_MODEL=mlx-community/VoxCPM2-4bit
       - TTS_MAX_TOKENS=2000
+      - DATABASE_URL=postgresql://itmsagent:P%40ssw0rd1234@192.168.56.150:5432/itmsagentdb
 # volumes:
 #   data:
 #     name: 'aiagent-data'

@@ -1,7 +1,10 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import { useChat } from '@/lib/hooks/useChat';
-import { focusModes } from '@/lib/agents';
+import {
+  SFC_DOCUMENT_FOCUS_MODE,
+  findDisplayFocusMode,
+} from '@/lib/agents';
 import SfcExactMatchToggle from './SfcExactMatchToggle';
 import {
   useWritingMention,
@@ -44,10 +47,12 @@ const MessageInput = memo(function MessageInput() {
   });
 
   const placeholder = useMemo(() => {
-    const currentAgent = focusModes.find((m) => m.key === focusMode);
+    const currentAgent = findDisplayFocusMode(focusMode);
     const base = currentAgent?.followUpPlaceholder || 'Ask a follow-up';
     if (focusMode === 'agentSFC' && sfcExactMatch)
       return 'Search exact wording ...';
+    if (focusMode === SFC_DOCUMENT_FOCUS_MODE)
+      return 'Ask a follow-up about SFC written replies…';
     return base;
   }, [focusMode, sfcExactMatch]);
 
@@ -149,6 +154,7 @@ const MessageInput = memo(function MessageInput() {
               onUploadClick={writing.onUploadClick}
               fileInputRef={writing.fileInputRef}
               onFilesPicked={writing.onFilesPicked}
+              uploadDisabled={writing.uploadDisabled}
             />
           ) : null}
         </div>

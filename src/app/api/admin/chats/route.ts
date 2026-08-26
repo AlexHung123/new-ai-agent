@@ -1,12 +1,21 @@
 import db from '@/lib/db';
 import { toAdminChatListItem } from '@/lib/auth/adminChatList';
 import { paginateAdminChats, parseAdminChatQuery } from '@/lib/auth/adminChatQuery';
+import { attachDpIds, fetchDpIdByUserId } from '@/lib/auth/capUserDpIds';
 import { requireAdmin } from '@/lib/auth/isAdminUser';
-import { focusModes } from '@/lib/agents';
+import {
+  SFC_DOCUMENT_FOCUS_MODE,
+  SFC_REPLY_FOCUS_MODE,
+  findDisplayFocusMode,
+  focusModes,
+} from '@/lib/agents';
 
-const agentTitleByFocusMode = Object.fromEntries(
-  focusModes.map((mode) => [mode.key, mode.title]),
-);
+const agentTitleByFocusMode = {
+  ...Object.fromEntries(focusModes.map((mode) => [mode.key, mode.title])),
+  [SFC_REPLY_FOCUS_MODE]: findDisplayFocusMode(SFC_REPLY_FOCUS_MODE)?.title ?? 'Agent SFC',
+  [SFC_DOCUMENT_FOCUS_MODE]:
+    findDisplayFocusMode(SFC_DOCUMENT_FOCUS_MODE)?.title ?? 'Agent SFC',
+};
 
 export const GET = async (req: Request) => {
   try {
@@ -25,7 +34,19 @@ export const GET = async (req: Request) => {
 
     const rows = await db.query.chats.findMany();
     const items = rows.map(toAdminChatListItem).reverse();
-    const result = paginateAdminChats(items, query, agentTitleByFocusMode);
+
+    let dpIdByUserId: Record<string, string> = {};
+    try {
+      dpIdByUserId = await fetchDpIdByUserId(items.map((item) => item.userId));
+    } catch (err) {
+      console.error('Error looking up cap_user dp_id: ', err);
+    }
+
+    const result = paginateAdminChats(
+      attachDpIds(items, dpIdByUserId),
+      query,
+      agentTitleByFocusMode,
+    );
 
     return Response.json(result, { status: 200 });
   } catch (err) {

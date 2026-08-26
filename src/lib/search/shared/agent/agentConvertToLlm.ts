@@ -132,12 +132,13 @@ export function formatCompactionSummaryForLlm(summaryBody: string): string {
  * Compaction nodes become a single labeled user message.
  */
 export function convertAgentMessagesToLlm(
-  messages: AgentMessageLike[],
+  messages: readonly unknown[],
 ): LlmRoleMessage[] {
   const out: LlmRoleMessage[] = [];
 
-  for (const msg of messages || []) {
-    if (!msg || typeof msg !== 'object') continue;
+  for (const raw of messages || []) {
+    if (!raw || typeof raw !== 'object') continue;
+    const msg = raw as AgentMessageLike;
 
     if (isCompactionAgentMessage(msg)) {
       const body = extractCompactionSummaryBody(msg);

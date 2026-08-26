@@ -11,7 +11,12 @@ describe('searchHandlers', () => {
         'agentWriting',
         'newSfcAgent',
         'newSurveyAgent',
+        'sfcDocumentAgent',
       ].sort(),
     );
+  });
+
+  it('routes Agent SFC Document Q&A through the document agent', () => {
+    expect(searchHandlers.sfcDocumentAgent).toBe(searchHandlers.agentDocument);
   });
 });

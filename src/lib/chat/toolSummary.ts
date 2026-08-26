@@ -239,11 +239,9 @@ export function buildToolEndSummary(
         fromLine !== undefined && toLine !== undefined
           ? ` · L${fromLine}-${toLine}`
           : '';
-      const trunc =
-        details && details.truncated === true ? ' · truncated' : '';
       return {
         summary: clip(
-          rel ? `Read ${rel}${range}${trunc}` : `Read file${range}${trunc}`,
+          rel ? `Read ${rel}${range}` : `Read file${range}`,
           MAX_SUMMARY_CHARS,
         ),
       };

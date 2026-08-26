@@ -32,7 +32,9 @@ describe('document catalog', () => {
 
   it('includes csr when wiki/ exists', () => {
     mkdirSync(join(root, 'csr', 'wiki'), { recursive: true });
-    expect(resolveDocument('csr')?.title).toBe('CSR');
+    expect(resolveDocument('csr')?.title).toBe(
+      'Civil Service Regulations (CSR)',
+    );
   });
 
   it('returns null for unknown or missing slots', () => {
@@ -40,7 +42,25 @@ describe('document catalog', () => {
     expect(resolveDocument('nope')).toBeNull();
   });
 
-  it('does not ship a third slot yet', () => {
-    expect(DOCUMENT_SLOTS.map((s) => s.id)).toEqual(['spr', 'csr']);
+  it('registers every shipped document slot', () => {
+    expect(DOCUMENT_SLOTS.map((s) => s.id)).toEqual([
+      'spr',
+      'csr',
+      'acqn',
+      'department-it-security',
+      'g3',
+      'rm-manual',
+      's17',
+      'sfc',
+      'training-guide',
+    ]);
+  });
+
+  it('keeps titles and descriptions free of Chinese characters', () => {
+    const cjk = /[\u3000-\u9fff\uf900-\ufaff]/;
+    for (const slot of DOCUMENT_SLOTS) {
+      expect(slot.title).not.toMatch(cjk);
+      expect(slot.description).not.toMatch(cjk);
+    }
   });
 });

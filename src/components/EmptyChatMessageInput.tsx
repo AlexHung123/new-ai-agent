@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import { useChat } from '@/lib/hooks/useChat';
-import { focusModes } from '@/lib/agents';
+import {
+  SFC_DOCUMENT_FOCUS_MODE,
+  findDisplayFocusMode,
+} from '@/lib/agents';
 import SfcExactMatchToggle from './SfcExactMatchToggle';
 import {
   useWritingMention,
@@ -34,12 +37,14 @@ const EmptyChatMessageInput = () => {
     inputRef,
   });
 
-  const currentAgent = focusModes.find((mode) => mode.key === focusMode);
-  let placeholder = currentAgent?.placeholder || 'Ask about this domain wiki…';
+  const currentAgent = findDisplayFocusMode(focusMode);
+  let placeholder = currentAgent?.placeholder || 'Ask a question…';
   const documentBlocked = focusMode === 'agentDocument' && !documentId;
 
   if (focusMode === 'agentSFC' && sfcExactMatch) {
     placeholder = 'Search exact wording ...';
+  } else if (focusMode === SFC_DOCUMENT_FOCUS_MODE) {
+    placeholder = 'Ask about SFC written replies…';
   }
 
   useEffect(() => {
@@ -119,6 +124,7 @@ const EmptyChatMessageInput = () => {
               onUploadClick={writing.onUploadClick}
               fileInputRef={writing.fileInputRef}
               onFilesPicked={writing.onFilesPicked}
+              uploadDisabled={writing.uploadDisabled}
             />
           ) : null}
         </div>

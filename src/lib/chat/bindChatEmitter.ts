@@ -151,8 +151,13 @@ export function bindChatEmitterToWriter(options: BindChatEmitterOptions) {
         data: parsedData.data,
       });
     } else if (parsedData.type === 'tool_execution') {
-      const toolData = parsedData.data ?? {};
-      let safeToolData = toolData;
+      const toolData =
+        parsedData.data &&
+        typeof parsedData.data === 'object' &&
+        !Array.isArray(parsedData.data)
+          ? (parsedData.data as Record<string, unknown>)
+          : {};
+      let safeToolData: Record<string, unknown> = toolData;
       try {
         const encoded = JSON.stringify(toolData);
         if (encoded.length > 80_000) {

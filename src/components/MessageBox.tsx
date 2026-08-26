@@ -8,6 +8,7 @@ import MessageSources from './MessageSources';
 import ThinkBox from './ThinkBox';
 import AgentProcessPanel from './AgentProcessPanel';
 import { useChat, Section } from '@/lib/hooks/useChat';
+import { findDisplayFocusMode } from '@/lib/agents';
 
 const ThinkTagProcessor = ({
   children,
@@ -78,8 +79,9 @@ const MessageBox = memo(
   }) => {
     const parsedMessage = section.parsedAssistantMessage || '';
     const thinkingEnded = section.thinkingEnded;
-    const { agentProcess } = useChat();
+    const { agentProcess, focusMode } = useChat();
     const timestamp = formatMessageTime(section.userMessage.createdAt);
+    const hideRewrite = findDisplayFocusMode(focusMode)?.kind === 'tool';
 
     return (
       <div
@@ -124,10 +126,12 @@ const MessageBox = memo(
                   {loading && isLast ? null : (
                     <div className="flex flex-row items-center justify-between w-full text-black dark:text-white py-3 -mx-2">
                       <div className="flex flex-row items-center space-x-1">
-                        <Rewrite
-                          rewrite={rewrite}
-                          messageId={section.assistantMessage.messageId}
-                        />
+                        {hideRewrite ? null : (
+                          <Rewrite
+                            rewrite={rewrite}
+                            messageId={section.assistantMessage.messageId}
+                          />
+                        )}
                         {section.sourceMessage &&
                           section.sourceMessage.sources.length > 0 && (
                             <MessageSources

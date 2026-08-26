@@ -79,13 +79,51 @@ const FOCUS_MODE_ALIASES: Record<string, string> = {
   agentSurvey: 'newSurveyAgent',
 };
 
+/** Internal SFC chat modes that are not separate agent cards. */
+export const SFC_REPLY_FOCUS_MODE = 'newSfcAgent';
+export const SFC_DOCUMENT_FOCUS_MODE = 'sfcDocumentAgent';
+/** Agent Document catalog id for `data/documents/sfc`. */
+export const SFC_DOCUMENT_ID = 'sfc';
+
+const SFC_INTERNAL_FOCUS_MODES = new Set<string>([
+  SFC_REPLY_FOCUS_MODE,
+  SFC_DOCUMENT_FOCUS_MODE,
+]);
+
+export function isSfcFocusMode(key: string): boolean {
+  return key === DEFAULT_FOCUS_MODE || SFC_INTERNAL_FOCUS_MODES.has(key);
+}
+
 export function isChatFocusMode(key: string): boolean {
   return focusModes.some((mode) => mode.key === key && mode.kind !== 'tool');
 }
 
+export function isToolFocusMode(key: string): boolean {
+  return focusModes.some((mode) => mode.key === key && mode.kind === 'tool');
+}
+
+/** Focus mode stored on an existing chat, including tool agents such as Voice. */
+export function resolveLoadedFocusMode(stored?: string | null): string {
+  if (stored && isToolFocusMode(stored)) return stored;
+  return resolveFocusMode(stored);
+}
+
+export function shouldPersistFocusMode(mode: string): boolean {
+  return isChatFocusMode(mode);
+}
+
+export function resolveDisplayFocusMode(key: string): string {
+  return isSfcFocusMode(key) ? DEFAULT_FOCUS_MODE : key;
+}
+
+export function findDisplayFocusMode(key: string): AgentMode | undefined {
+  const displayKey = resolveDisplayFocusMode(key);
+  return focusModes.find((mode) => mode.key === displayKey);
+}
+
 export function resolveFocusMode(stored?: string | null): string {
   if (!stored) return DEFAULT_FOCUS_MODE;
-  if (stored === 'newSfcAgent') return stored;
+  if (SFC_INTERNAL_FOCUS_MODES.has(stored)) return stored;
   if (FOCUS_MODE_ALIASES[stored]) return FOCUS_MODE_ALIASES[stored];
   if (isChatFocusMode(stored)) return stored;
   return DEFAULT_FOCUS_MODE;

@@ -12,6 +12,25 @@ describe('resolveBoundDocument', () => {
     expect(r).toEqual({ status: 'none' });
   });
 
+  it('always binds Agent SFC Document Q&A to the sfc catalog slot', () => {
+    expect(
+      resolveBoundDocument({
+        focusMode: 'sfcDocumentAgent',
+        existingDocumentId: 'spr',
+        bodyDocumentId: 'csr',
+        chatExists: true,
+      }),
+    ).toEqual({ status: 'ok', documentId: 'sfc' });
+    expect(
+      resolveBoundDocument({
+        focusMode: 'sfcDocumentAgent',
+        existingDocumentId: null,
+        bodyDocumentId: undefined,
+        chatExists: false,
+      }),
+    ).toEqual({ status: 'ok', documentId: 'sfc' });
+  });
+
   it('requires body documentId when creating a document chat', () => {
     const r = resolveBoundDocument({
       focusMode: 'agentDocument',

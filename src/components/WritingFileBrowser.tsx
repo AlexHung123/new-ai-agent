@@ -2,8 +2,17 @@
 
 import { useState, useRef } from 'react';
 import { ChevronRight, Trash2, Upload } from 'lucide-react';
+import { toast } from 'sonner';
 import { useChat } from '@/lib/hooks/useChat';
-import { WRITING_ACCEPT, formatWritingBytes } from '@/lib/writing/types';
+import {
+  MAX_WRITING_FILES,
+  WRITING_ACCEPT,
+  filterAllowedWritingFiles,
+  formatWritingBytes,
+  planWritingUploads,
+  writingFileLimitMessage,
+  writingUnsupportedTypeMessage,
+} from '@/lib/writing/types';
 import FileTypeIcon from './FileTypeIcon';
 
 const WritingFileBrowser = ({ compact = false }: { compact?: boolean }) => {
@@ -20,9 +29,22 @@ const WritingFileBrowser = ({ compact = false }: { compact?: boolean }) => {
 
   if (focusMode !== 'agentWriting') return null;
 
+  const atLimit = writingFiles.length >= MAX_WRITING_FILES;
+
   const onFiles = (list: FileList | null) => {
     if (!list) return;
-    Array.from(list).forEach((file) => {
+    const typed = filterAllowedWritingFiles(Array.from(list));
+    if (typed.rejected > 0) {
+      toast.error(writingUnsupportedTypeMessage());
+    }
+    const { accepted, rejected } = planWritingUploads(
+      writingFiles.length,
+      typed.accepted,
+    );
+    if (rejected > 0) {
+      toast.error(writingFileLimitMessage());
+    }
+    accepted.forEach((file) => {
       void uploadWritingFile(file);
     });
     if (inputRef.current) inputRef.current.value = '';
@@ -61,12 +83,16 @@ const WritingFileBrowser = ({ compact = false }: { compact?: boolean }) => {
             className={filesOpen ? 'rotated' : undefined}
           />
           <h2>Files</h2>
+          <span className="writing-files-count">
+            {writingFiles.length}/{MAX_WRITING_FILES}
+          </span>
         </button>
         <button
           type="button"
           className="writing-files-upload"
           aria-label="Upload file"
-          title="Upload files"
+          title={atLimit ? writingFileLimitMessage() : 'Upload files'}
+          disabled={atLimit}
           onClick={() => inputRef.current?.click()}
         >
           <Upload size={15} />

@@ -6,6 +6,7 @@ import {
   isImageFilename,
   isOfficeFilename,
   isPlainTextFilename,
+  writingUnsupportedTypeMessage,
 } from './types';
 
 export type ConvertOk = {
@@ -70,8 +71,7 @@ export async function convertAttachment(
   if (!isAllowedWritingFilename(filename)) {
     return {
       ok: false,
-      error:
-        'This file type is not supported. Attach documents, spreadsheets, PDFs, text, or images.',
+      error: writingUnsupportedTypeMessage(),
     };
   }
 

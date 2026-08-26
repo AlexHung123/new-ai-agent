@@ -15,6 +15,8 @@ import {
   displayFilename,
   isAllowedWritingFilename,
   toPublicWritingAttachment,
+  writingFileLimitMessage,
+  writingUnsupportedTypeMessage,
   type WritingAttachment,
 } from './types';
 
@@ -67,9 +69,7 @@ export async function addUserWritingFile(opts: {
   }
   const filename = displayFilename(opts.filename);
   if (!isAllowedWritingFilename(filename)) {
-    throw new WritingAttachmentError(
-      'This file type is not supported. Attach documents, spreadsheets, PDFs, text, or images.',
-    );
+    throw new WritingAttachmentError(writingUnsupportedTypeMessage());
   }
   if (opts.bytes.byteLength === 0) {
     throw new WritingAttachmentError('This file is empty.');
@@ -80,9 +80,7 @@ export async function addUserWritingFile(opts: {
 
   const existing = await listUserWritingFiles(userId);
   if (existing.length >= MAX_WRITING_FILES) {
-    throw new WritingAttachmentError(
-      `At most ${MAX_WRITING_FILES} files per user.`,
-    );
+    throw new WritingAttachmentError(writingFileLimitMessage());
   }
 
   const item = await addWritingAttachment({

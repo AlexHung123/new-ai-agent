@@ -8,7 +8,6 @@ This directory is an [LLM Wiki](../llm-wiki.md) for the Hong Kong *Stores and Pr
 
 | Layer | Path | Rule |
 | --- | --- | --- |
-| Raw source | `MinerU_markdown_spr_e_clean.md` | Immutable. Read only. Never edit, reformat, or “fix” OCR. |
 | Wiki | `wiki/` | You own every file here. Create, update, cross-link, keep consistent. |
 | Schema | `AGENTS.md` + `wiki/SCHEMA.md` | Conventions and workflows. Co-evolve with the user. |
 
@@ -21,7 +20,6 @@ This directory is an [LLM Wiki](../llm-wiki.md) for the Hong Kong *Stores and Pr
 
 ## Do not
 
-- Modify `MinerU_markdown_spr_e_clean.md`.
 - Invent articles, dollar limits, ranks, or eligibility that the source does not support.
 - Silently overwrite a claim when another article or a circular conflicts — record both and mark `contested: true`.
 - Create a page for a passing mention.

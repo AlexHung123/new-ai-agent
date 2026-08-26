@@ -19,6 +19,7 @@ import { splitMarkdownParts } from './splitMarkdown';
 import {
   MAX_WRITING_FILES,
   MAX_WRITING_PART_BYTES,
+  writingFileLimitMessage,
   type WritingAttachment,
 } from './types';
 
@@ -150,9 +151,7 @@ export async function addWritingAttachment(opts: {
   }
   const existing = listWritingAttachments(userId);
   if (existing.length >= MAX_WRITING_FILES) {
-    throw new WritingAttachmentError(
-      `At most ${MAX_WRITING_FILES} files per user.`,
-    );
+    throw new WritingAttachmentError(writingFileLimitMessage());
   }
 
   const fileId = (opts.fileId || randomBytes(8).toString('hex')).replace(

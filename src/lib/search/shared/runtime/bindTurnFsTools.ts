@@ -36,7 +36,7 @@ function wrapFsTool(tool: NamedTool, turn: TurnFsBinding): NamedTool {
       if (turn.document) return runWithDocumentTurn(turn.document, invoke);
       return invoke();
     },
-  };
+  } as NamedTool;
 }
 
 /**

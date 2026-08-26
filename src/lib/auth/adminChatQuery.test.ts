@@ -74,6 +74,22 @@ describe('paginateAdminChats', () => {
     ).toEqual(['1']);
   });
 
+  it('filters by dpId case-insensitively', () => {
+    const withDpIds = [
+      chat({ id: '1', userId: '9', dpId: 'tswong' }),
+      chat({ id: '2', userId: '3', dpId: 'jdoe' }),
+      chat({ id: '3', userId: '9', dpId: 'tswong' }),
+    ];
+
+    expect(
+      paginateAdminChats(
+        withDpIds,
+        { q: 'TSWONG', page: 1, pageSize: 10 },
+        agentTitles,
+      ).chats.map((c) => c.id),
+    ).toEqual(['1', '3']);
+  });
+
   it('returns a page of 10 and clamps an out-of-range page', () => {
     const many = Array.from({ length: 25 }, (_, i) =>
       chat({ id: String(i + 1), title: `Chat ${i + 1}` }),

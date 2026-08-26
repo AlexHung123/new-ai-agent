@@ -3,6 +3,8 @@ import {
   parseSpeechFormData,
   synthesizeSpeech,
 } from '@/lib/voice/speechRequest';
+import { DEFAULT_TTS_MODEL } from '@/lib/voice/ttsModels';
+import { saveVoiceHistory } from '@/lib/voice/voiceHistory';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -41,6 +43,17 @@ export async function POST(req: NextRequest) {
       { error: result.error },
       { status: result.status },
     );
+  }
+
+  try {
+    await saveVoiceHistory({
+      userId,
+      spokenText: parsed.data.input,
+      model: parsed.data.model || DEFAULT_TTS_MODEL,
+      refText: parsed.data.refText,
+    });
+  } catch (err) {
+    console.error('Failed to save voice history:', err);
   }
 
   return new NextResponse(Buffer.from(result.audio), {

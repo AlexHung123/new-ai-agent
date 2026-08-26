@@ -18,10 +18,16 @@ import React, {
   useState,
 } from 'react';
 import crypto from 'crypto';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams, usePathname, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { getSuggestions } from '../actions';
-import { resolveFocusMode } from '../agents';
+import {
+  SFC_DOCUMENT_FOCUS_MODE,
+  SFC_DOCUMENT_ID,
+  resolveFocusMode,
+  resolveLoadedFocusMode,
+  shouldPersistFocusMode,
+} from '../agents';
 import { assistantContentAfterAbort } from '../chat/abortedReply';
 import {
   applyProcessDone,
@@ -30,6 +36,7 @@ import {
   type AgentProcessState,
 } from '../chat/agentProcess';
 import { applySseProcessEvent } from '../chat/applySseProcessEvent';
+import { initialChatQuery } from '../chat/initialChatQuery';
 import { messageFromChatHttpError } from '../chat/readChatHttpError';
 import {
   extractUserIdFromToken,
@@ -37,7 +44,11 @@ import {
   getAuthHeaders,
   initializeAuthToken,
 } from '../utils/auth';
-import type { WritingAttachmentView } from '../writing/types';
+import {
+  isAllowedWritingFilename,
+  writingUnsupportedTypeMessage,
+  type WritingAttachmentView,
+} from '../writing/types';
 
 export type Section = {
   userMessage: UserMessage;
@@ -240,11 +251,14 @@ const loadMessages = async (args: {
   if (chatTurns.length > 0) document.title = chatTurns[0].content;
 
   setChatHistory(history);
-  setFocusMode(resolveFocusMode(data.chat.focusMode));
+  const resolvedFocus = resolveLoadedFocusMode(data.chat.focusMode);
+  setFocusMode(resolvedFocus);
   setDocumentId(
     typeof data.chat.documentId === 'string' && data.chat.documentId
       ? data.chat.documentId
-      : null,
+      : resolvedFocus === SFC_DOCUMENT_FOCUS_MODE
+        ? SFC_DOCUMENT_ID
+        : null,
   );
   setIsMessagesLoaded(true);
 };
@@ -334,8 +348,9 @@ const buildSections = (messages: Message[]): Section[] => {
 
 export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   const params: { chatId: string } = useParams();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
-  const initialMessage = searchParams.get('q'); // read-only search params hook [web:9]
+  const initialMessage = initialChatQuery(pathname, searchParams.get('q'));
 
   const [userId, setUserId] = useState<string | null>(null);
   const [chatId, setChatId] = useState<string | undefined>(params.chatId);
@@ -356,9 +371,15 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   });
 
   const [optimizationMode, setOptimizationMode] = useState('speed');
-  const [sfcExactMatch, setSfcExactMatch] = useState(true);
+  const [sfcExactMatch, setSfcExactMatch] = useState(
+    () => resolveFocusMode(safeLocalStorageGet('focusMode')) === 'agentSFC',
+  );
   const [sfcTrainingRelated, setSfcTrainingRelated] = useState(true);
-  const [documentId, setDocumentId] = useState<string | null>(null);
+  const [documentId, setDocumentId] = useState<string | null>(() =>
+    resolveFocusMode(safeLocalStorageGet('focusMode')) === SFC_DOCUMENT_FOCUS_MODE
+      ? SFC_DOCUMENT_ID
+      : null,
+  );
   const [documentItems, setDocumentItems] = useState<
     Array<{ id: string; title: string; description: string }>
   >([]);
@@ -457,6 +478,10 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   }, [focusMode, userId, refreshWritingFiles]);
 
   const uploadWritingFile = useCallback(async (file: File) => {
+    if (!isAllowedWritingFilename(file.name)) {
+      toast.error(writingUnsupportedTypeMessage());
+      return;
+    }
     const tempId = `tmp-${crypto.randomBytes(4).toString('hex')}`;
     setWritingFiles((prev) => [
       ...prev,
@@ -535,7 +560,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     const resolved = resolveFocusMode(mode);
     setFocusMode(resolved);
     safeLocalStorageSet('focusMode', resolved);
-    setDocumentId(null);
+    setDocumentId(resolved === SFC_DOCUMENT_FOCUS_MODE ? SFC_DOCUMENT_ID : null);
   }, []);
 
   const chatTurns = useMemo((): ChatTurn[] => {
@@ -616,9 +641,12 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         setIsMessagesLoaded,
         setChatHistory,
         setFocusMode: (m) => {
-          const resolved = resolveFocusMode(m);
+          const resolved = resolveLoadedFocusMode(m);
           setFocusMode(resolved);
-          safeLocalStorageSet('focusMode', resolved);
+          if (shouldPersistFocusMode(resolved)) {
+            safeLocalStorageSet('focusMode', resolved);
+          }
+          setSfcExactMatch(resolved === 'agentSFC');
         },
         setNotFound,
         setDocumentId,
@@ -884,7 +912,14 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
 
     try {
       const fm = focusModeRef.current;
-      const stableAgentId = `sfc-chat-agent-${chatId}`;
+      const stableAgentId =
+        fm === SFC_DOCUMENT_FOCUS_MODE
+          ? `sfc-doc-chat-agent-${chatId}`
+          : `sfc-chat-agent-${chatId}`;
+      const boundDocumentId =
+        fm === SFC_DOCUMENT_FOCUS_MODE
+          ? SFC_DOCUMENT_ID
+          : documentIdRef.current ?? undefined;
 
       const res = await fetch('/itms/ai/api/chat', {
         method: 'POST',
@@ -901,7 +936,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
           optimizationMode: optimizationModeRef.current,
           sfcExactMatch: sfcExactMatchRef.current,
           sfcTrainingRelated: sfcTrainingRelatedRef.current,
-          documentId: documentIdRef.current ?? undefined,
+          documentId: boundDocumentId,
           history: rewriteMode
             ? chatHistoryRef.current.slice(
                 0,

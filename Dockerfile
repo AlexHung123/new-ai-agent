@@ -17,8 +17,8 @@ COPY drizzle ./drizzle
 COPY prisma ./prisma
 
 RUN mkdir -p /home/aiagent/data
-RUN mkdir -p /home/aiagent/data/prompts
 COPY data/documents ./data/documents
+COPY data/prompts ./data/prompts
 
 RUN npx prisma generate
 RUN npm run build
@@ -35,8 +35,11 @@ COPY --from=builder /home/aiagent/public ./public
 COPY --from=builder /home/aiagent/.next/static ./public/_next/static
 COPY --from=builder /home/aiagent/.next/standalone ./
 COPY --from=builder /home/aiagent/node_modules/@firecrawl ./node_modules/@firecrawl
+# Native addons are serverExternalPackages; standalone tracing often drops the .node files.
+COPY --from=builder /home/aiagent/node_modules/better-sqlite3 ./node_modules/better-sqlite3
+COPY --from=builder /home/aiagent/node_modules/bindings ./node_modules/bindings
+COPY --from=builder /home/aiagent/node_modules/file-uri-to-path ./node_modules/file-uri-to-path
 COPY --from=builder /home/aiagent/data ./data
-COPY --from=builder /home/aiagent/data/prompts ./data/prompts
 COPY --from=builder /home/aiagent/src/generated/prisma ./src/generated/prisma
 COPY drizzle ./drizzle
 COPY prisma ./prisma

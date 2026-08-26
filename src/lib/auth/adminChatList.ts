@@ -2,6 +2,7 @@ export type AdminChatListItem = {
   id: string;
   title: string;
   userId: string;
+  dpId?: string;
   focusMode: string;
   createdAt: string;
 };

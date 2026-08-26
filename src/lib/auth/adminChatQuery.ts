@@ -55,6 +55,7 @@ export function matchesAdminChatQuery(
   const haystacks = [
     item.title,
     item.userId,
+    item.dpId ?? '',
     item.focusMode,
     agentTitleByFocusMode[item.focusMode] ?? '',
   ];

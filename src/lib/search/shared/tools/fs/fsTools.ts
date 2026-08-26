@@ -475,12 +475,7 @@ export function createAgentFsTools(opts: {
       const truncated = lineTruncated || fitted.byteTruncated;
       const nextFromLine = truncated ? toLine + 1 : undefined;
       const rangeLabel = `lines=${fromLine}-${toLine}/${totalLines}`;
-      const truncLabel = truncated
-        ? ` (truncated; next fromLine=${nextFromLine})`
-        : '';
-      const header = [`fs_read path=${resolved.rel} ${rangeLabel}${truncLabel}`, ''].join(
-        '\n',
-      );
+      const header = [`fs_read path=${resolved.rel} ${rangeLabel}`, ''].join('\n');
       const body = fitted.body;
       return textResult(header + body, {
         ok: true,

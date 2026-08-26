@@ -30,6 +30,14 @@ function textFromMessage(message: unknown): string {
     .join('');
 }
 
+function isAssistantMessage(message: unknown): boolean {
+  return (
+    !!message &&
+    typeof message === 'object' &&
+    (message as { role?: unknown }).role === 'assistant'
+  );
+}
+
 export async function completePiAgent(
   agent: PooledAgent,
   input: string,
@@ -50,8 +58,15 @@ export async function completePiAgent(
   const unsubscribe = agent.subscribe((event) => {
     if (event?.type === 'message_update') {
       text += textFromEvent(event);
-    } else if (event?.type === 'message_end' && !text) {
-      text = textFromMessage(event.message);
+      return;
+    }
+    // agent-loop emits message_end for the user prompt first. Ignore it.
+    // The last assistant message is authoritative (covers non-streaming APIs).
+    if (event?.type === 'message_end' && isAssistantMessage(event.message)) {
+      const fromMsg = textFromMessage(event.message);
+      if (fromMsg) {
+        text = fromMsg;
+      }
     }
   });
 

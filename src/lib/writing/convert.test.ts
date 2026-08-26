@@ -2,30 +2,21 @@ import { describe, expect, it } from 'vitest';
 import { convertAttachment, convertErrorMessage } from './convert';
 
 describe('convertAttachment', () => {
-  it('passes through utf8 text files', async () => {
-    const result = await convertAttachment(
-      Buffer.from('# Hello\n\nworld'),
-      'notes.md',
-    );
-    expect(result).toEqual({
-      ok: true,
-      markdown: '# Hello\n\nworld',
-      format: 'md',
-    });
-  });
-
-  it('rejects an empty text file', async () => {
-    const result = await convertAttachment(Buffer.from('   \n'), 'notes.txt');
-    expect(result.ok).toBe(false);
-  });
-
-  it('stubs images as markdown without calling anydoc', async () => {
-    const result = await convertAttachment(Buffer.from([0xff, 0xd8, 0xff]), 'photo.png');
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.format).toBe('png');
-      expect(result.markdown).toMatch(/image file/i);
+  it('rejects markdown, text, and images as unsupported upload types', async () => {
+    const md = await convertAttachment(Buffer.from('# Hello\n\nworld'), 'notes.md');
+    expect(md.ok).toBe(false);
+    if (!md.ok) {
+      expect(md.error).toMatch(/Word, PowerPoint, Excel, OpenDocument, RTF, EPUB, CSV, or PDF/i);
     }
+
+    const txt = await convertAttachment(Buffer.from('hello'), 'notes.txt');
+    expect(txt.ok).toBe(false);
+
+    const png = await convertAttachment(
+      Buffer.from([0xff, 0xd8, 0xff]),
+      'photo.png',
+    );
+    expect(png.ok).toBe(false);
   });
 
   it('rejects archives before calling anydoc', async () => {

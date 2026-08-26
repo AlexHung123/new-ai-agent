@@ -1,10 +1,14 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  DEFAULT_MAX_REF_AUDIO_BYTES,
+  DEFAULT_RESPONSE_FORMAT,
+  DEFAULT_TTS_BASE_URL,
+  DEFAULT_TTS_MAX_TOKENS,
   buildVoxcpmSpeechBody,
   encodeAudioDataUri,
-  getTtsConfig,
   parseSpeechFields,
   parseSpeechFormData,
+  resolveTtsConfig,
   synthesizeSpeech,
 } from './speechRequest';
 
@@ -18,44 +22,54 @@ describe('encodeAudioDataUri', () => {
   });
 });
 
-describe('getTtsConfig', () => {
-  const originalUrl = process.env.TTS_BASE_URL;
+describe('resolveTtsConfig', () => {
   const originalModel = process.env.TTS_MODEL;
-  const originalTokens = process.env.TTS_MAX_TOKENS;
 
   afterEach(() => {
-    if (originalUrl === undefined) delete process.env.TTS_BASE_URL;
-    else process.env.TTS_BASE_URL = originalUrl;
     if (originalModel === undefined) delete process.env.TTS_MODEL;
     else process.env.TTS_MODEL = originalModel;
-    if (originalTokens === undefined) delete process.env.TTS_MAX_TOKENS;
-    else process.env.TTS_MAX_TOKENS = originalTokens;
   });
 
-  it('defaults to the VoxCPM2 server on 8020', () => {
-    delete process.env.TTS_BASE_URL;
+  it('falls back to config.json defaults when tts settings are omitted', () => {
     delete process.env.TTS_MODEL;
-    delete process.env.TTS_MAX_TOKENS;
 
-    expect(getTtsConfig({})).toEqual({
-      baseUrl: 'http://192.168.1.56:8020',
+    expect(resolveTtsConfig(undefined, {})).toEqual({
+      baseUrl: DEFAULT_TTS_BASE_URL,
       model: 'mlx-community/VoxCPM2-4bit',
-      maxTokens: 2000,
+      maxTokens: DEFAULT_TTS_MAX_TOKENS,
+      responseFormat: DEFAULT_RESPONSE_FORMAT,
+      maxRefAudioBytes: DEFAULT_MAX_REF_AUDIO_BYTES,
     });
+    expect(DEFAULT_TTS_BASE_URL).toBe('http://192.168.1.56:8020/voice');
+    expect(DEFAULT_TTS_MAX_TOKENS).toBe(2000);
+    expect(DEFAULT_RESPONSE_FORMAT).toBe('wav');
+    expect(DEFAULT_MAX_REF_AUDIO_BYTES).toBe(10 * 1024 * 1024);
   });
 
-  it('reads override env values', () => {
+  it('reads tts settings from config.json values', () => {
     expect(
-      getTtsConfig({
-        TTS_BASE_URL: 'http://tts.local:9000/',
-        TTS_MODEL: 'custom-model',
-        TTS_MAX_TOKENS: '512',
-      }),
+      resolveTtsConfig(
+        {
+          baseUrl: 'http://tts.local:9000/',
+          maxTokens: 512,
+          responseFormat: 'mp3',
+          maxRefAudioBytes: 2048,
+        },
+        {},
+      ),
     ).toEqual({
       baseUrl: 'http://tts.local:9000',
-      model: 'custom-model',
+      model: 'mlx-community/VoxCPM2-4bit',
       maxTokens: 512,
+      responseFormat: 'mp3',
+      maxRefAudioBytes: 2048,
     });
+  });
+
+  it('still lets TTS_MODEL env override the default checkpoint', () => {
+    expect(resolveTtsConfig({}, { TTS_MODEL: 'custom-model' }).model).toBe(
+      'custom-model',
+    );
   });
 });
 
@@ -125,6 +139,20 @@ describe('parseSpeechFields', () => {
     expect(result.status).toBe(400);
     expect(result.error).toMatch(/model/i);
   });
+
+  it('rejects ref_audio larger than the configured byte limit', () => {
+    const result = parseSpeechFields(
+      {
+        input: '你好',
+        file: { bytes: wavBytes, mimeType: 'audio/wav', name: 'ref.wav' },
+      },
+      { maxRefAudioBytes: 4 },
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.status).toBe(400);
+    expect(result.error).toMatch(/smaller/i);
+  });
 });
 
 describe('parseSpeechFormData', () => {
@@ -176,9 +204,11 @@ describe('buildVoxcpmSpeechBody', () => {
 
     expect(
       buildVoxcpmSpeechBody(parsed.data, {
-        baseUrl: 'http://192.168.1.56:8020',
+        baseUrl: 'http://192.168.1.56:8020/voice',
         model: 'mlx-community/VoxCPM2-4bit',
         maxTokens: 2000,
+        responseFormat: 'wav',
+        maxRefAudioBytes: 10 * 1024 * 1024,
       }),
     ).toEqual({
       model: 'mlx-community/VoxCPM2-4bit',
@@ -201,15 +231,17 @@ describe('buildVoxcpmSpeechBody', () => {
 
     expect(
       buildVoxcpmSpeechBody(parsed.data, {
-        baseUrl: 'http://192.168.1.56:8020',
+        baseUrl: 'http://192.168.1.56:8020/voice',
         model: 'mlx-community/VoxCPM2-4bit',
         maxTokens: 2000,
+        responseFormat: 'mp3',
+        maxRefAudioBytes: 10 * 1024 * 1024,
       }),
     ).toEqual({
       model: 'mlx-community/VoxCPM2-4bit',
       input: '你好，歡迎使用粵語語音合成。',
       ref_audio: encodeAudioDataUri(wavBytes, 'audio/wav'),
-      response_format: 'wav',
+      response_format: 'mp3',
       max_tokens: 2000,
     });
   });
@@ -228,8 +260,8 @@ describe('synthesizeSpeech', () => {
         refAudioMimeType: 'audio/wav',
       },
       {
-        env: {
-          TTS_BASE_URL: 'http://192.168.1.56:8020',
+        tts: {
+          baseUrl: 'http://192.168.1.56:8020/voice',
         },
         fetchImpl: async (url, init) => {
           calls.push({ url: String(url), init: init ?? {} });
@@ -246,7 +278,7 @@ describe('synthesizeSpeech', () => {
     expect(result.contentType).toBe('audio/wav');
     expect(result.audio).toEqual(audio);
     expect(calls).toHaveLength(1);
-    expect(calls[0].url).toBe('http://192.168.1.56:8020/v1/audio/speech');
+    expect(calls[0].url).toBe('http://192.168.1.56:8020/voice/v1/audio/speech');
     expect(calls[0].init.method).toBe('POST');
     expect(calls[0].init.headers).toMatchObject({
       'Content-Type': 'application/json',
@@ -271,8 +303,10 @@ describe('synthesizeSpeech', () => {
         model: 'OpenMOSS-Team/MOSS-TTS-v1.5',
       },
       {
+        tts: {
+          baseUrl: 'http://192.168.1.56:8020/voice',
+        },
         env: {
-          TTS_BASE_URL: 'http://192.168.1.56:8020',
           TTS_MODEL: 'mlx-community/VoxCPM2-4bit',
         },
         fetchImpl: async (url, init) => {

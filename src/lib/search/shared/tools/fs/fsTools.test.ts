@@ -165,6 +165,8 @@ describe('createAgentFsTools', () => {
     expect(def.details.nextFromLine).toBe(11);
     expect(def.content[0]!.text).toMatch(/ 1\|line-1/);
     expect(def.content[0]!.text).not.toMatch(/line-11/);
+    expect(def.content[0]!.text).not.toMatch(/truncated/i);
+    expect(def.content[0]!.text).not.toMatch(/next fromLine=/i);
 
     const ranged = await runWithWritingTurn(writing, () =>
       read.execute('1', {
