@@ -1,12 +1,7 @@
 import { Edit, Share, FileText, Plus } from 'lucide-react';
 import { Message } from './ChatWindow';
-import { useEffect, useState, Fragment } from 'react';
-import {
-  Popover,
-  PopoverButton,
-  PopoverPanel,
-  Transition,
-} from '@headlessui/react';
+import { useEffect, useState } from 'react';
+import { Popover, PopoverButton, PopoverPanel } from '@headlessui/react';
 import jsPDF from 'jspdf';
 import { useChat, Section } from '@/lib/hooks/useChat';
 import { isSfcFocusMode } from '@/lib/agents';
@@ -234,47 +229,36 @@ const Navbar = () => {
                     className="text-black/60 dark:text-white/60"
                   />
                 </PopoverButton>
-                <Transition
-                  as={Fragment}
-                  enter="transition ease-out duration-200"
-                  enterFrom="opacity-0 translate-y-1"
-                  enterTo="opacity-100 translate-y-0"
-                  leave="transition ease-in duration-150"
-                  leaveFrom="opacity-100 translate-y-0"
-                  leaveTo="opacity-0 translate-y-1"
+                <PopoverPanel
+                  transition
+                  className="absolute right-0 z-50 mt-2 w-64 origin-top-right rounded-2xl border border-light-200 bg-light-primary shadow-xl shadow-black/10 transition duration-200 ease-out data-[closed]:translate-y-1 data-[closed]:opacity-0 dark:border-dark-200 dark:bg-dark-primary dark:shadow-black/30"
                 >
-                  (
-                  <PopoverPanel className="absolute right-0 mt-2 w-64 origin-top-right rounded-2xl bg-light-primary dark:bg-dark-primary border border-light-200 dark:border-dark-200 shadow-xl shadow-black/10 dark:shadow-black/30 z-50">
-                    <div className="p-3">
-                      <div className="mb-2">
-                        <p className="text-xs font-medium text-black/40 dark:text-white/40 uppercase tracking-wide">
-                          Export Chat
-                        </p>
-                      </div>
-                      <div className="space-y-1">
-                        <button
-                          className="w-full flex items-center gap-3 px-3 py-2 text-left rounded-xl hover:bg-light-secondary dark:hover:bg-dark-secondary transition-colors duration-200"
-                          onClick={() =>
-                            exportAsMarkdown(sections, title || '')
-                          }
-                        >
-                          <FileText size={16} className="text-[#24A0ED]" />
-                          {
-                            <div>
-                              <p className="text-sm font-medium text-black dark:text-white">
-                                Markdown
-                              </p>
-                              <p className="text-xs text-black/50 dark:text-white/50">
-                                .md format
-                              </p>
-                            </div>
-                          }
-                        </button>
-                      </div>
+                  <div className="p-3">
+                    <div className="mb-2">
+                      <p className="text-xs font-medium uppercase tracking-wide text-black/40 dark:text-white/40">
+                        Export Chat
+                      </p>
                     </div>
-                  </PopoverPanel>
-                  )
-                </Transition>
+                    <div className="space-y-1">
+                      <button
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors duration-200 hover:bg-light-secondary dark:hover:bg-dark-secondary"
+                        onClick={() =>
+                          exportAsMarkdown(sections, title || '')
+                        }
+                      >
+                        <FileText size={16} className="text-[#24A0ED]" />
+                        <div>
+                          <p className="text-sm font-medium text-black dark:text-white">
+                            Markdown
+                          </p>
+                          <p className="text-xs text-black/50 dark:text-white/50">
+                            .md format
+                          </p>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                </PopoverPanel>
               </Popover>
             )}
             <button

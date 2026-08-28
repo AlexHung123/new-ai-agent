@@ -7,6 +7,7 @@ import eventEmitter from 'events';
 import { MetaSearchAgentType } from './metaSearchAgent';
 import { streamAgentProgressToEmitter } from '../utils/agentStream';
 import { getSharedAgentContext } from './shared/agent/getSharedAgentContext';
+import { DOCUMENT_AGENT_EMPTY_REPLY } from './shared/prompts/documentAgentSystemPrompt';
 import { buildDocumentUserPrompt } from './shared/prompts/documentTurnPrefix';
 import { bindTurnFsTools } from './shared/runtime/bindTurnFsTools';
 import { getDocumentTurnContext } from './shared/runtime/documentTurnContext';
@@ -80,6 +81,7 @@ export default class DocumentAgent implements MetaSearchAgentType {
             emitter,
             signal,
             safeJson,
+            emptyResponseFallback: DOCUMENT_AGENT_EMPTY_REPLY,
           });
 
           if (signal?.aborted) {

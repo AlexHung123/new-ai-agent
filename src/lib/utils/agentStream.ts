@@ -13,6 +13,12 @@ interface StreamAgentProgressOptions {
   onTextChunk?: (delta: string) => void;
   /** When true, skip emitting tool_execution_start as tool_execution. */
   skipToolStartEvents?: boolean;
+  /**
+   * If the run ends with no text_delta (e.g. aborted on the turn cap after
+   * tools only), emit the disclaimer plus this reply so the UI still has a
+   * Result. Skipped when the user abort signal is already aborted.
+   */
+  emptyResponseFallback?: string;
 }
 
 export interface StreamAgentProgressResult {
@@ -87,6 +93,7 @@ export function streamAgentProgressToEmitter(
     finishedMessage = 'SFC Kode Agent execution finished',
     onTextChunk,
     skipToolStartEvents = false,
+    emptyResponseFallback,
   } = options;
 
   let hasEmittedWarning = false;
@@ -103,6 +110,16 @@ export function streamAgentProgressToEmitter(
       settled = true;
       unsubscribe();
       signal?.removeEventListener('abort', onAbort);
+
+      if (
+        !hasTextResponse &&
+        emptyResponseFallback &&
+        !signal?.aborted
+      ) {
+        emitJson(emitter, { type: 'response', data: DISCLAIMER });
+        emitJson(emitter, { type: 'response', data: emptyResponseFallback });
+        hasTextResponse = true;
+      }
 
       if (collectedSources.length > 0) {
         emitJson(emitter, {

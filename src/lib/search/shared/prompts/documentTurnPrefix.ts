@@ -13,6 +13,10 @@ const AGENTS_WRAP = `Follow language, citation, and do-not-invent rules only.
 You are ask-only Q&A, not a document maintainer. Ignore create/edit/write workflows
 and "orient before any write" checklists (SCHEMA.md, log.md).
 Do not fs_read AGENTS.md just to reload it — it is already below.
+AGENTS.md is schema, not the policy text. Do not answer from it.
+Call fs_grep and/or fs_read wiki/index.md before answering any question.
+After a few searches, always write a user-visible answer. Do not keep grepping
+formatting variants. Zero matches means 「Based on the provided document, I could not find any information regarding your question.」.
 Never use the word "wiki" (any capitalization) or 「維基」 in user-visible answers,
 even if AGENTS.md or page text uses those words. Call this the bound document.`;
 
@@ -32,12 +36,7 @@ export function buildDocumentTurnPrefix(opts?: {
       agents +
       (opts?.agentsMdTruncated ? '\n…(truncated)\n' : '\n');
   }
-  return (
-    `[Document]\n` +
-    (name ? `Title: ${name}\n` : '') +
-    agentsBlock +
-    `\n`
-  );
+  return `[Document]\n` + (name ? `Title: ${name}\n` : '') + agentsBlock + `\n`;
 }
 
 /** 绑定文档时注入 AGENTS.md；未绑定则给出明确标记。 */
