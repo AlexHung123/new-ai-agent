@@ -13,6 +13,7 @@ import { MAX_WRITING_PART_BYTES } from '@/lib/writing/types';
 import {
   ensurePageMarker,
   extractPdfPages,
+  formatOutlineMarkdown,
   formatPageMarkdown,
   type PdfExtractOk,
   type PdfExtractResult,
@@ -104,6 +105,11 @@ function writeWorkspaceIndex(
     paged
       ? '- Page markers: each file starts with `<!-- page: N -->`. Cite hits as `p. N` matching that marker. Do not invent page numbers.'
       : '- Page markers were not extracted. Do not invent page numbers unless the user quoted a page.',
+    ...(files.some((file) => file.name === 'outline.md')
+      ? [
+          '- `outline.md` lists PDF bookmarks (section title and page). Read it first when the question names a section.',
+        ]
+      : []),
     '',
     'This folder is the extracted text of one PDF.',
     'Prefer fs_grep to locate a section, then fs_read around the hit (path:fromLine:maxLines).',
@@ -174,6 +180,13 @@ function writeExtractedFiles(
   let parts = 0;
 
   if (extracted.paged) {
+    const outlineMd = formatOutlineMarkdown(extracted.outline || []);
+    if (outlineMd.trim()) {
+      writeFileSync(join(dir, 'outline.md'), outlineMd, 'utf8');
+      files.push({ name: 'outline.md', label: 'PDF bookmarks' });
+      parts += 1;
+      charCount += outlineMd.length;
+    }
     for (const page of extracted.pages) {
       const markdown = formatPageMarkdown(page.page, page.text);
       charCount += page.text.length;

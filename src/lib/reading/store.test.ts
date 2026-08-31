@@ -84,10 +84,17 @@ describe('reading attachment store', () => {
           { page: 1, text: 'Hello' },
           { page: 2, text: 'World' },
         ],
+        outline: [
+          {
+            title: 'Intro',
+            page: 1,
+            items: [],
+          },
+        ],
       }),
     });
     expect(item.status).toBe('ready');
-    expect(item.parts).toBe(2);
+    expect(item.parts).toBe(3);
     const root = readingWorkspaceAbs(userId, item.fileId);
     const page1 = readFileSync(join(root, 'page-01.md'), 'utf8');
     const page2 = readFileSync(join(root, 'page-02.md'), 'utf8');
@@ -95,6 +102,8 @@ describe('reading attachment store', () => {
     expect(page1).toContain('Hello');
     expect(page2).toContain('<!-- page: 2 -->');
     expect(page2).toContain('World');
+    const outline = readFileSync(join(root, 'outline.md'), 'utf8');
+    expect(outline).toContain('Intro — p. 1');
     expect(readFileSync(join(root, 'INDEX.md'), 'utf8')).toContain(
       'Cite hits as `p. N`',
     );

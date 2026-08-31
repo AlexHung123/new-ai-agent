@@ -1,5 +1,14 @@
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { type OutlineEntry } from './outline';
+import {
+  layoutItemsFromTextContent,
+  readingOrderText,
+  stripRepeatedBands,
+} from './readingOrder';
+
+export type { OutlineEntry } from './outline';
+export { formatOutlineMarkdown } from './outline';
 
 export type ExtractedPdfPage = {
   page: number;
@@ -11,6 +20,7 @@ export type PdfExtractOk = {
   paged: boolean;
   pageCount: number;
   pages: ExtractedPdfPage[];
+  outline?: OutlineEntry[];
 };
 
 export type PdfExtractFail = {
@@ -35,48 +45,26 @@ export function ensurePageMarker(markdown: string, page: number): string {
   return `${marker}\n\n${markdown.trimStart()}`;
 }
 
-type TextContentItem = {
-  str?: string;
-  transform?: number[];
-  hasEOL?: boolean;
-};
-
-/** Rebuild page text from pdf.js getTextContent items. */
-export function textContentToString(items: readonly unknown[]): string {
-  let line = '';
-  const lines: string[] = [];
-  let lastY: number | null = null;
-
-  const flush = () => {
-    const trimmed = line.trimEnd();
-    if (trimmed) lines.push(trimmed);
-    line = '';
-    lastY = null;
-  };
-
-  for (const raw of items) {
-    if (!raw || typeof raw !== 'object') continue;
-    const item = raw as TextContentItem;
-    if (typeof item.str !== 'string') continue;
-    const y =
-      Array.isArray(item.transform) && typeof item.transform[5] === 'number'
-        ? item.transform[5]
-        : null;
-    if (lastY != null && y != null && Math.abs(y - lastY) > 3) {
-      flush();
+/** Rebuild page text from pdf.js getTextContent items (top-to-bottom, columns). */
+export function textContentToString(
+  items: readonly unknown[],
+  page?: { width: number; height: number },
+): string {
+  let width = page?.width ?? 0;
+  let height = page?.height ?? 0;
+  if (!width || !height) {
+    for (const raw of items) {
+      if (!raw || typeof raw !== 'object') continue;
+      const item = raw as { transform?: number[]; width?: number };
+      if (!Array.isArray(item.transform) || item.transform.length < 6) continue;
+      width = Math.max(width, item.transform[4]! + (item.width || 0));
+      height = Math.max(height, item.transform[5]!);
     }
-    if (line && !line.endsWith(' ') && item.str && !item.str.startsWith(' ')) {
-      line += ' ';
-    }
-    line += item.str;
-    if (item.hasEOL) {
-      flush();
-      continue;
-    }
-    if (y != null) lastY = y;
+    width = Math.max(width, 1);
+    height = Math.max(height, 1);
   }
-  flush();
-  return lines.join('\n').trim();
+  const layout = layoutItemsFromTextContent(items, { width, height });
+  return readingOrderText(layout, width);
 }
 
 function ensurePdfjsDomPolyfills() {
@@ -116,6 +104,72 @@ function pdfjsDirUrl(...parts: string[]): string {
   return href.endsWith('/') ? href : `${href}/`;
 }
 
+type OutlinePdf = {
+  getOutline?: () => Promise<
+    | Array<{
+        title?: string;
+        dest?: unknown;
+        items?: unknown[];
+      }>
+    | null
+  >;
+  getDestination?: (name: string) => Promise<unknown>;
+  getPageIndex?: (ref: unknown) => Promise<number>;
+};
+
+async function destToPage(
+  pdf: OutlinePdf,
+  dest: unknown,
+): Promise<number | null> {
+  if (!dest || !pdf.getPageIndex) return null;
+  try {
+    let explicit = dest;
+    if (typeof dest === 'string' && pdf.getDestination) {
+      explicit = await pdf.getDestination(dest);
+    }
+    if (!Array.isArray(explicit) || explicit[0] == null) return null;
+    const index = await pdf.getPageIndex(explicit[0]);
+    if (!Number.isFinite(index) || index < 0) return null;
+    return Math.floor(index) + 1;
+  } catch {
+    return null;
+  }
+}
+
+async function walkOutline(
+  pdf: OutlinePdf,
+  nodes: unknown[] | undefined,
+): Promise<OutlineEntry[]> {
+  if (!Array.isArray(nodes) || nodes.length === 0) return [];
+  const out: OutlineEntry[] = [];
+  for (const raw of nodes) {
+    if (!raw || typeof raw !== 'object') continue;
+    const node = raw as {
+      title?: string;
+      dest?: unknown;
+      items?: unknown[];
+    };
+    const title = String(node.title || '').replace(/\s+/g, ' ').trim();
+    if (!title && (!node.items || node.items.length === 0)) continue;
+    out.push({
+      title: title || 'Untitled',
+      page: await destToPage(pdf, node.dest),
+      items: await walkOutline(pdf, node.items),
+    });
+  }
+  return out;
+}
+
+async function loadOutline(pdf: OutlinePdf): Promise<OutlineEntry[]> {
+  if (!pdf.getOutline) return [];
+  try {
+    const raw = await pdf.getOutline();
+    return walkOutline(pdf, raw || []);
+  } catch {
+    return [];
+  }
+}
+
 export async function extractPdfPages(
   bytes: Uint8Array,
 ): Promise<PdfExtractResult> {
@@ -125,22 +179,38 @@ export async function extractPdfPages(
 
   try {
     ensurePdfjsDomPolyfills();
+    type PdfDoc = {
+      numPages: number;
+      getPage: (n: number) => Promise<{
+        getViewport: (opts: { scale: number }) => {
+          width: number;
+          height: number;
+          convertToViewportPoint: (x: number, y: number) => [number, number];
+        };
+        getTextContent: (opts?: {
+          includeMarkedContent?: boolean;
+        }) => Promise<{ items: unknown[] }>;
+        cleanup: () => void;
+      }>;
+      getOutline?: () => Promise<
+        | Array<{
+            title?: string;
+            dest?: unknown;
+            items?: unknown[];
+          }>
+        | null
+      >;
+      getDestination?: (name: string) => Promise<unknown>;
+      getPageIndex?: (ref: unknown) => Promise<number>;
+      destroy: () => Promise<void>;
+    };
     const loaded = (await import(
       pdfjsFileUrl('legacy', 'build', 'pdf.mjs')
     )) as {
       default?: unknown;
       GlobalWorkerOptions?: { workerSrc: string };
       getDocument?: (opts: Record<string, unknown>) => {
-        promise: Promise<{
-          numPages: number;
-          getPage: (n: number) => Promise<{
-            getTextContent: (opts?: {
-              includeMarkedContent?: boolean;
-            }) => Promise<{ items: unknown[] }>;
-            cleanup: () => void;
-          }>;
-          destroy: () => Promise<void>;
-        }>;
+        promise: Promise<PdfDoc>;
       };
     };
     const pdfjs = (
@@ -148,16 +218,7 @@ export async function extractPdfPages(
     ) as {
       GlobalWorkerOptions: { workerSrc: string };
       getDocument: (opts: Record<string, unknown>) => {
-        promise: Promise<{
-          numPages: number;
-          getPage: (n: number) => Promise<{
-            getTextContent: (opts?: {
-              includeMarkedContent?: boolean;
-            }) => Promise<{ items: unknown[] }>;
-            cleanup: () => void;
-          }>;
-          destroy: () => Promise<void>;
-        }>;
+        promise: Promise<PdfDoc>;
       };
     };
     pdfjs.GlobalWorkerOptions.workerSrc = pdfjsFileUrl(
@@ -187,25 +248,44 @@ export async function extractPdfPages(
       for (let page = 1; page <= pageCount; page++) {
         const pdfPage = await pdf.getPage(page);
         try {
+          const viewport = pdfPage.getViewport({ scale: 1 });
           const content = await pdfPage.getTextContent({
             includeMarkedContent: false,
           });
+          const layout = layoutItemsFromTextContent(content.items, {
+            width: viewport.width,
+            height: viewport.height,
+            convertToViewportPoint: (x, y) =>
+              viewport.convertToViewportPoint(x, y),
+          });
           pages.push({
             page,
-            text: textContentToString(content.items),
+            text: readingOrderText(layout, viewport.width),
           });
         } finally {
           pdfPage.cleanup();
         }
       }
-      const hasText = pages.some((item) => item.text.trim());
+      const stripped = stripRepeatedBands(pages.map((item) => item.text));
+      const cleaned = pages.map((item, i) => ({
+        ...item,
+        text: stripped[i] || '',
+      }));
+      const hasText = cleaned.some((item) => item.text.trim());
       if (!hasText) {
         return {
           ok: false,
           error: 'Could not extract text from this file.',
         };
       }
-      return { ok: true, paged: true, pageCount, pages };
+      const outline = await loadOutline(pdf);
+      return {
+        ok: true,
+        paged: true,
+        pageCount,
+        pages: cleaned,
+        outline: outline.length > 0 ? outline : undefined,
+      };
     } finally {
       await pdf.destroy();
     }

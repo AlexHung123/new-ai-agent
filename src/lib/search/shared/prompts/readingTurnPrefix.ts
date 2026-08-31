@@ -46,7 +46,8 @@ export function buildReadingUserPrompt(
     statusLine +
     `Do not fs_read INDEX.md just to reload it.\n` +
     `Prefer fs_grep, then fs_read around the hit.\n` +
-    `If you see \`<!-- page: N -->\`, cite that hit as p. N.\n\n` +
+    `If you see \`<!-- page: N -->\`, cite that hit as p. N.\n` +
+    `If outline.md exists, use it to jump to a section before grepping every page.\n\n` +
     (index
       ? index.content + (index.truncated ? '\n…(truncated)\n' : '\n')
       : '') +

@@ -34,5 +34,6 @@ describe('buildReadingUserPrompt', () => {
     expect(prompt).toContain('part-01.md');
     expect(prompt).toContain('[User question]\nSummarize this');
     expect(prompt).toContain('<!-- page: N -->');
+    expect(prompt).toContain('outline.md');
   });
 });

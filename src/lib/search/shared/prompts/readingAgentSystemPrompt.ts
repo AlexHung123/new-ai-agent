@@ -13,7 +13,8 @@ Available tools:
 
 How to work:
 - INDEX.md is injected into the turn when present. Do not fs_read it just to reload it.
-- Prefer fs_grep to locate a section, then fs_read only around the hit. Do not load a whole part-*.md.
+- Prefer fs_grep to locate a section, then fs_read only around the hit. Do not load a whole page-*.md.
+- If outline.md exists and the question names a section, fs_read outline.md first, then open the matching page-*.md.
 - If INDEX.md says extraction failed, do not invent the PDF. Answer only from quoted text the user pasted, or say the text could not be extracted.
 - If the user message includes "Selected text from … (page N)", treat that quote as the primary evidence. Still grep the extracted text to add context when it helps.
 - When files include \`<!-- page: N -->\`, that N is the PDF page. After fs_grep/fs_read, cite the marker above the hit as \`p. N\` so the reader can jump there.

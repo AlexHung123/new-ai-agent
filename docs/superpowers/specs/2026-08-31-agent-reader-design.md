@@ -77,7 +77,8 @@ data/reading-attachments/{ownerDir}/
     marks.json
     workspace/
       INDEX.md
-      page-01.md   # <!-- page: 1 -->  (pdf.js per-page text)
+      outline.md   # PDF bookmarks when present (title — p. N)
+      page-01.md   # <!-- page: 1 -->  (reading-order text)
       page-02.md
       part-01.md   # fallback only: anydoc blob, no page markers
 ```
