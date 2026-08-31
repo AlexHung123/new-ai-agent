@@ -77,8 +77,12 @@ data/reading-attachments/{ownerDir}/
     marks.json
     workspace/
       INDEX.md
-      part-01.md
+      page-01.md   # <!-- page: 1 -->  (pdf.js per-page text)
+      page-02.md
+      part-01.md   # fallback only: anydoc blob, no page markers
 ```
+
+Upload extracts with pdf.js `getTextContent` per page and stamps `<!-- page: N -->`. Empty pages are kept so numbers stay aligned. If pdf.js yields no text, fall back to `@firecrawl/anydoc` as unpaged Markdown and tell the model not to invent page numbers.
 
 `READING_FILES_ROOT` overrides the root (tests).
 

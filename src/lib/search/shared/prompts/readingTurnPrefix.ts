@@ -45,7 +45,8 @@ export function buildReadingUserPrompt(
     `Title: ${ctx.title}\n` +
     statusLine +
     `Do not fs_read INDEX.md just to reload it.\n` +
-    `Prefer fs_grep, then fs_read around the hit.\n\n` +
+    `Prefer fs_grep, then fs_read around the hit.\n` +
+    `If you see \`<!-- page: N -->\`, cite that hit as p. N.\n\n` +
     (index
       ? index.content + (index.truncated ? '\n…(truncated)\n' : '\n')
       : '') +

@@ -30,6 +30,8 @@ describe('reading attachment store', () => {
   });
 
   const userId = 'user-42';
+  const noPages = async () =>
+    ({ ok: false, error: 'no pages' }) as const;
 
   it('rejects non-PDF uploads', async () => {
     await expect(
@@ -52,6 +54,7 @@ describe('reading attachment store', () => {
         markdown: '# Title\n\nHello paper.',
         format: 'pdf',
       }),
+      extractPages: noPages,
     });
     expect(item.status).toBe('ready');
     expect(item.parts).toBe(1);
@@ -64,7 +67,37 @@ describe('reading attachment store', () => {
       'utf8',
     );
     expect(index).toContain('paper.pdf');
+    expect(index).toContain('Page markers were not extracted');
     expect(readMarks(userId, item.fileId)).toEqual([]);
+  });
+
+  it('writes one markdown file per PDF page with page markers', async () => {
+    const item = await addReadingAttachment({
+      userId,
+      filename: 'paper.pdf',
+      bytes: Buffer.from('%PDF-fake'),
+      extractPages: async () => ({
+        ok: true,
+        paged: true,
+        pageCount: 2,
+        pages: [
+          { page: 1, text: 'Hello' },
+          { page: 2, text: 'World' },
+        ],
+      }),
+    });
+    expect(item.status).toBe('ready');
+    expect(item.parts).toBe(2);
+    const root = readingWorkspaceAbs(userId, item.fileId);
+    const page1 = readFileSync(join(root, 'page-01.md'), 'utf8');
+    const page2 = readFileSync(join(root, 'page-02.md'), 'utf8');
+    expect(page1).toContain('<!-- page: 1 -->');
+    expect(page1).toContain('Hello');
+    expect(page2).toContain('<!-- page: 2 -->');
+    expect(page2).toContain('World');
+    expect(readFileSync(join(root, 'INDEX.md'), 'utf8')).toContain(
+      'Cite hits as `p. N`',
+    );
   });
 
   it('keeps the original PDF when extraction fails', async () => {
@@ -76,6 +109,7 @@ describe('reading attachment store', () => {
         ok: false,
         error: 'Could not extract text from this file.',
       }),
+      extractPages: noPages,
     });
     expect(item.status).toBe('failed');
     expect(listReadingAttachments(userId)).toHaveLength(1);
@@ -87,6 +121,7 @@ describe('reading attachment store', () => {
       filename: 'paper.pdf',
       bytes: Buffer.from('%PDF-fake'),
       convert: async () => ({ ok: true, markdown: 'hi', format: 'pdf' }),
+      extractPages: noPages,
     });
     const mark = addReaderMark(userId, item.fileId, {
       kind: 'highlight',
@@ -103,6 +138,7 @@ describe('reading attachment store', () => {
       filename: 'paper.pdf',
       bytes: Buffer.from('%PDF-fake'),
       convert: async () => ({ ok: true, markdown: 'hi', format: 'pdf' }),
+      extractPages: noPages,
     });
     expect(removeReadingAttachment(userId, item.fileId)).toBe(true);
     expect(listReadingAttachments(userId)).toEqual([]);

@@ -17,6 +17,7 @@ const nextConfig = {
     '@earendil-works/pi-ai',
     'better-sqlite3',
     '@firecrawl/anydoc',
+    'pdfjs-dist',
   ],
   webpack: (config) => {
     config.resolve.alias.canvas = false;

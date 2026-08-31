@@ -11,6 +11,13 @@ import { convertAttachment } from '@/lib/writing/convert';
 import { splitMarkdownParts } from '@/lib/writing/splitMarkdown';
 import { MAX_WRITING_PART_BYTES } from '@/lib/writing/types';
 import {
+  ensurePageMarker,
+  extractPdfPages,
+  formatPageMarkdown,
+  type PdfExtractOk,
+  type PdfExtractResult,
+} from './extractPdfPages';
+import {
   readingFileDir,
   readingManifestAbs,
   readingMarksAbs,
@@ -63,12 +70,28 @@ function writeManifest(userId: string, manifest: Manifest) {
   writeFileSync(abs, JSON.stringify(manifest, null, 2), 'utf8');
 }
 
-function partName(index: number, total: number): string {
+function pageFileName(
+  page: number,
+  pageCount: number,
+  part?: number,
+  partCount?: number,
+): string {
+  const width = pageCount >= 100 ? 3 : 2;
+  const base = `page-${String(page).padStart(width, '0')}`;
+  if (!partCount || partCount <= 1) return `${base}.md`;
+  return `${base}-${String(part).padStart(2, '0')}.md`;
+}
+
+function unpagedPartName(index: number, total: number): string {
   const width = total >= 100 ? 3 : 2;
   return `part-${String(index).padStart(width, '0')}.md`;
 }
 
-function writeWorkspaceIndex(item: ReadingAttachment, partFiles: string[]) {
+function writeWorkspaceIndex(
+  item: ReadingAttachment,
+  files: Array<{ name: string; label: string }>,
+  paged: boolean,
+) {
   const dir = readingWorkspaceAbs(item.userId, item.fileId);
   mkdirSync(dir, { recursive: true });
   const lines = [
@@ -77,15 +100,20 @@ function writeWorkspaceIndex(item: ReadingAttachment, partFiles: string[]) {
     `- Original name: ${item.name}`,
     `- Format: pdf`,
     `- Characters: ${item.charCount}`,
-    `- Parts: ${item.parts}`,
+    `- Files: ${item.parts}`,
+    paged
+      ? '- Page markers: each file starts with `<!-- page: N -->`. Cite hits as `p. N` matching that marker. Do not invent page numbers.'
+      : '- Page markers were not extracted. Do not invent page numbers unless the user quoted a page.',
     '',
     'This folder is the extracted text of one PDF.',
     'Prefer fs_grep to locate a section, then fs_read around the hit (path:fromLine:maxLines).',
     'Do not invent wording that is not in these files.',
     '',
+    '## Files',
+    '',
   ];
-  for (const name of partFiles) {
-    lines.push(`- ${name}`);
+  for (const file of files) {
+    lines.push(`- \`${file.name}\` — ${file.label}`);
   }
   lines.push('');
   writeFileSync(join(dir, 'INDEX.md'), lines.join('\n'), 'utf8');
@@ -114,6 +142,87 @@ export function getReadingAttachment(
   return listReadingAttachments(userId).find((file) => file.fileId === id) ?? null;
 }
 
+async function resolveExtractedPdf(opts: {
+  bytes: Uint8Array;
+  filename: string;
+  convert: typeof convertAttachment;
+  extractPages?: (bytes: Uint8Array) => Promise<PdfExtractResult>;
+}): Promise<PdfExtractResult> {
+  const extract = opts.extractPages ?? extractPdfPages;
+  const paged = await extract(opts.bytes);
+  if (paged.ok) return paged;
+  const converted = await opts.convert(opts.bytes, opts.filename);
+  if (converted.ok) {
+    return {
+      ok: true,
+      paged: false,
+      pageCount: 1,
+      pages: [{ page: 1, text: converted.markdown }],
+    };
+  }
+  return { ok: false, error: converted.error || paged.error };
+}
+
+function writeExtractedFiles(
+  item: ReadingAttachment,
+  extracted: PdfExtractOk,
+): { parts: number; charCount: number } {
+  const dir = readingWorkspaceAbs(item.userId, item.fileId);
+  mkdirSync(dir, { recursive: true });
+  const files: Array<{ name: string; label: string }> = [];
+  let charCount = 0;
+  let parts = 0;
+
+  if (extracted.paged) {
+    for (const page of extracted.pages) {
+      const markdown = formatPageMarkdown(page.page, page.text);
+      charCount += page.text.length;
+      const chunks = splitMarkdownParts(markdown, MAX_WRITING_PART_BYTES);
+      const partCount = Math.max(1, chunks.length);
+      chunks.forEach((chunk, i) => {
+        const name = pageFileName(
+          page.page,
+          extracted.pageCount,
+          i + 1,
+          partCount,
+        );
+        writeFileSync(
+          join(dir, name),
+          ensurePageMarker(chunk, page.page),
+          'utf8',
+        );
+        files.push({
+          name,
+          label:
+            partCount > 1
+              ? `page ${page.page} (part ${i + 1}/${partCount})`
+              : `page ${page.page}`,
+        });
+        parts += 1;
+      });
+    }
+  } else {
+    const markdown = extracted.pages[0]?.text || '';
+    charCount = markdown.length;
+    const chunks = splitMarkdownParts(markdown, MAX_WRITING_PART_BYTES);
+    const partCount = Math.max(1, chunks.length);
+    chunks.forEach((chunk, i) => {
+      const name = unpagedPartName(i + 1, partCount);
+      writeFileSync(join(dir, name), chunk, 'utf8');
+      files.push({
+        name,
+        label: partCount > 1 ? `part ${i + 1}/${partCount}` : 'extracted text',
+      });
+      parts += 1;
+    });
+  }
+
+  item.parts = parts;
+  item.charCount = charCount;
+  writeWorkspaceIndex(item, files, extracted.paged);
+  return { parts, charCount };
+}
+
 export async function addReadingAttachment(opts: {
   userId: string;
   filename: string;
@@ -121,6 +230,7 @@ export async function addReadingAttachment(opts: {
   mimeType?: string;
   fileId?: string;
   convert?: typeof convertAttachment;
+  extractPages?: (bytes: Uint8Array) => Promise<PdfExtractResult>;
 }): Promise<ReadingAttachment> {
   const userId = opts.userId.trim();
   if (!userId) {
@@ -147,39 +257,35 @@ export async function addReadingAttachment(opts: {
     '',
   );
   const convert = opts.convert ?? convertAttachment;
-  const converted = await convert(opts.bytes, filename);
+  const extracted = await resolveExtractedPdf({
+    bytes: opts.bytes,
+    filename,
+    convert,
+    extractPages: opts.extractPages,
+  });
 
   const item: ReadingAttachment = {
     fileId,
     userId,
     name: filename,
-    status: converted.ok ? 'ready' : 'failed',
+    status: extracted.ok ? 'ready' : 'failed',
     relDir: fileId,
     parts: 0,
-    charCount: converted.ok ? converted.markdown.length : 0,
-    format: converted.ok ? converted.format : 'pdf',
+    charCount: extracted.ok
+      ? extracted.pages.reduce((sum, page) => sum + page.text.length, 0)
+      : 0,
+    format: 'pdf',
     mimeType: opts.mimeType || 'application/pdf',
     sizeBytes: opts.bytes.byteLength,
-    error: converted.ok ? undefined : converted.error,
+    error: extracted.ok ? undefined : extracted.error,
     createdAt: new Date().toISOString(),
   };
 
   mkdirSync(readingFileDir(userId, fileId), { recursive: true });
   writeFileSync(readingOriginalAbs(userId, fileId), Buffer.from(opts.bytes));
 
-  if (converted.ok) {
-    const parts = splitMarkdownParts(converted.markdown, MAX_WRITING_PART_BYTES);
-    item.parts = Math.max(1, parts.length);
-    const dir = readingWorkspaceAbs(userId, fileId);
-    mkdirSync(dir, { recursive: true });
-    const partFiles: string[] = [];
-    parts.forEach((body, i) => {
-      const name = partName(i + 1, parts.length);
-      partFiles.push(name);
-      const header = `<!-- ${filename} part ${i + 1}/${parts.length} -->\n\n`;
-      writeFileSync(join(dir, name), header + body, 'utf8');
-    });
-    writeWorkspaceIndex(item, partFiles);
+  if (extracted.ok) {
+    writeExtractedFiles(item, extracted);
   } else {
     writeFailedIndex(item);
   }
