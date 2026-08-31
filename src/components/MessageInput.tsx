@@ -11,6 +11,7 @@ import {
   WritingAtMenu,
   WritingToolbarButtons,
 } from './WritingComposerTools';
+import ReaderSelectionChip from './ReaderSelectionChip';
 
 const SendArrow = () => (
   <span className="send-btn-icon" aria-hidden>
@@ -35,6 +36,7 @@ const MessageInput = memo(function MessageInput() {
     sfcExactMatch,
     documentId,
     writingFiles,
+    readerSelection,
   } = useChat();
 
   const [message, setMessage] = useState('');
@@ -58,15 +60,22 @@ const MessageInput = memo(function MessageInput() {
 
   const submit = useCallback(() => {
     if (loading) return;
-    if (focusMode === 'agentDocument' && !documentId) return;
+    if (
+      (focusMode === 'agentDocument' || focusMode === 'agentReader') &&
+      !documentId
+    ) {
+      return;
+    }
 
     const content = message.trim();
-    if (!content) return;
+    const hasSelection =
+      focusMode === 'agentReader' && Boolean(readerSelection?.quote.trim());
+    if (!content && !hasSelection) return;
 
     sendMessage(content);
     setMessage('');
     inputRef.current?.focus();
-  }, [loading, message, sendMessage, focusMode, documentId]);
+  }, [loading, message, sendMessage, focusMode, documentId, readerSelection]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -116,10 +125,16 @@ const MessageInput = memo(function MessageInput() {
     [loading, stop, submit],
   );
 
-  const documentBlocked = focusMode === 'agentDocument' && !documentId;
+  const documentBlocked =
+    (focusMode === 'agentDocument' || focusMode === 'agentReader') &&
+    !documentId;
   const uploading = writingFiles.some((file) => file.status === 'uploading');
+  const hasReaderSelection =
+    focusMode === 'agentReader' && Boolean(readerSelection?.quote.trim());
   const canSend =
-    message.trim().length > 0 && !documentBlocked && !uploading;
+    (message.trim().length > 0 || hasReaderSelection) &&
+    !documentBlocked &&
+    !uploading;
   const disabled = loading ? false : !canSend;
 
   return (
@@ -131,6 +146,7 @@ const MessageInput = memo(function MessageInput() {
           onSelect={writing.onSelect}
         />
       ) : null}
+      <ReaderSelectionChip />
       <TextareaAutosize
         ref={inputRef}
         value={message}

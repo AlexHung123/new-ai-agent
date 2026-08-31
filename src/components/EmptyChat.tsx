@@ -4,6 +4,7 @@ import { useChat } from '@/lib/hooks/useChat';
 import { SFC_DOCUMENT_FOCUS_MODE, SFC_REPLY_FOCUS_MODE } from '@/lib/agents';
 import AgentCard from './AgentCard';
 import DocumentPicker from './DocumentPicker';
+import ReaderPicker from './ReaderPicker';
 import WritingFileBrowser from './WritingFileBrowser';
 import { motion } from 'framer-motion';
 
@@ -20,10 +21,12 @@ const EmptyChat = () => {
     agentWriting:
       'Your assistant for drafting, rewriting, and polishing text',
     agentDocument: 'Ask about a selected policy document',
+    agentReader: 'Read a PDF and ask about selected passages',
   };
 
   const selectedDocument = documentItems.find((item) => item.id === documentId);
   const needsDocumentPick = focusMode === 'agentDocument' && !documentId;
+  const needsReaderPick = focusMode === 'agentReader' && !documentId;
   const heading = selectedDocument
     ? selectedDocument.title
     : focusDescriptions[focusMode] || 'Research begins here.';
@@ -53,7 +56,13 @@ const EmptyChat = () => {
         <div className="welcome-wiki">
           <h2>{heading}</h2>
           {subheading ? <p>{subheading}</p> : null}
-          {needsDocumentPick ? <DocumentPicker /> : <EmptyChatMessageInput />}
+          {needsDocumentPick ? (
+            <DocumentPicker />
+          ) : needsReaderPick ? (
+            <ReaderPicker />
+          ) : (
+            <EmptyChatMessageInput />
+          )}
         </div>
       </div>
     </div>

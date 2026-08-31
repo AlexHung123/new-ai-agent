@@ -10,6 +10,14 @@ describe('resolveBoundDocument', () => {
       chatExists: false,
     });
     expect(r).toEqual({ status: 'none' });
+    expect(
+      resolveBoundDocument({
+        focusMode: 'agentReader',
+        existingDocumentId: 'file-a',
+        bodyDocumentId: 'file-a',
+        chatExists: true,
+      }),
+    ).toEqual({ status: 'none' });
   });
 
   it('always binds Agent SFC Document Q&A to the sfc catalog slot', () => {

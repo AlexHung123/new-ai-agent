@@ -18,6 +18,7 @@ describe('focusModes', () => {
       'newSurveyAgent',
       'agentWriting',
       'agentDocument',
+      'agentReader',
       'agentVoice',
     ]);
     expect(focusModes.some((mode) => mode.key === 'agentGuide')).toBe(false);
@@ -30,6 +31,13 @@ describe('focusModes', () => {
     const writingAgent = focusModes.find((mode) => mode.key === 'agentWriting');
     expect(documentAgent?.image).toBe('/itms/ai/agent-document.png');
     expect(documentAgent?.image).not.toBe(writingAgent?.image);
+  });
+
+  it('exposes Agent Reader as a PDF reading chat agent', () => {
+    const reader = focusModes.find((mode) => mode.key === 'agentReader');
+    expect(reader?.image).toBe('/itms/ai/agent-reader.png');
+    expect(reader?.permissionCode).toBe('chatReaderAgent:execute');
+    expect(reader?.kind).not.toBe('tool');
   });
 
   it('opens Agent Voice as a TTS tool with the voice illustration', () => {
@@ -51,6 +59,7 @@ describe('resolveFocusMode', () => {
     expect(resolveFocusMode('newSurveyAgent')).toBe('newSurveyAgent');
     expect(resolveFocusMode('agentWriting')).toBe('agentWriting');
     expect(resolveFocusMode('agentDocument')).toBe('agentDocument');
+    expect(resolveFocusMode('agentReader')).toBe('agentReader');
   });
 
   it('maps internal SFC modes to the Agent SFC card', () => {
@@ -88,6 +97,7 @@ describe('resolveFocusMode', () => {
   it('does not persist tool agents as the next new-chat focus mode', () => {
     expect(shouldPersistFocusMode('agentVoice')).toBe(false);
     expect(shouldPersistFocusMode('agentWriting')).toBe(true);
+    expect(shouldPersistFocusMode('agentReader')).toBe(true);
     expect(shouldPersistFocusMode('agentSFC')).toBe(true);
   });
 });

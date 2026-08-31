@@ -13,6 +13,9 @@ import EmptyChat from './EmptyChat';
 import Loader from './ui/Loader';
 import SettingsButtonMobile from './Settings/SettingsButtonMobile';
 import MessageTimeline from './MessageTimeline';
+import ReaderPane from './ReaderPane';
+import ReaderSuggestions from './ReaderSuggestions';
+import EmptyChatMessageInput from './EmptyChatMessageInput';
 import { useChat } from '@/lib/hooks/useChat';
 
 export interface BaseMessage {
@@ -57,7 +60,9 @@ export interface File {
 }
 
 const ChatWindow = () => {
-  const { hasError, isReady, notFound, messages } = useChat();
+  const { hasError, isReady, notFound, messages, focusMode, documentId } =
+    useChat();
+  const readerBound = focusMode === 'agentReader' && Boolean(documentId);
 
   if (hasError) {
     return (
@@ -100,6 +105,24 @@ const ChatWindow = () => {
 
   if (notFound) {
     return <NextError statusCode={404} />;
+  }
+
+  if (readerBound) {
+    return (
+      <div className="reader-shell">
+        <ReaderPane />
+        <div className="reader-chat">
+          {messages.length > 0 ? (
+            <Chat embedded />
+          ) : (
+            <div className="reader-chat-empty">
+              <ReaderSuggestions />
+              <EmptyChatMessageInput />
+            </div>
+          )}
+        </div>
+      </div>
+    );
   }
 
   return (

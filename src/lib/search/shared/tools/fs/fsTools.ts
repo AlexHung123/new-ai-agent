@@ -19,6 +19,7 @@ import {
   shouldIgnoreDirName,
 } from './fsPath';
 import { getWritingTurnContext } from '../../runtime/writingTurnContext';
+import { getReadingTurnContext } from '../../runtime/readingTurnContext';
 import {
   mergeFsReadRange,
   parseFsReadLocator,
@@ -365,7 +366,9 @@ export function createAgentFsTools(opts: {
           message: 'path required',
         });
       }
-      const writingPeek = Boolean(getWritingTurnContext());
+      const writingPeek = Boolean(
+        getWritingTurnContext() || getReadingTurnContext(),
+      );
       const locator = writingPeek
         ? parseFsReadLocator(pathArg)
         : { path: pathArg };

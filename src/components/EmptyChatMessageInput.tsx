@@ -11,6 +11,7 @@ import {
   WritingAtMenu,
   WritingToolbarButtons,
 } from './WritingComposerTools';
+import ReaderSelectionChip from './ReaderSelectionChip';
 
 const SendArrow = () => (
   <span className="send-btn-icon" aria-hidden>
@@ -27,8 +28,14 @@ const SendArrow = () => (
 );
 
 const EmptyChatMessageInput = () => {
-  const { sendMessage, focusMode, sfcExactMatch, documentId, writingFiles } =
-    useChat();
+  const {
+    sendMessage,
+    focusMode,
+    sfcExactMatch,
+    documentId,
+    writingFiles,
+    readerSelection,
+  } = useChat();
   const [message, setMessage] = useState('');
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const writing = useWritingMention({
@@ -39,7 +46,9 @@ const EmptyChatMessageInput = () => {
 
   const currentAgent = findDisplayFocusMode(focusMode);
   let placeholder = currentAgent?.placeholder || 'Ask a question…';
-  const documentBlocked = focusMode === 'agentDocument' && !documentId;
+  const documentBlocked =
+    (focusMode === 'agentDocument' || focusMode === 'agentReader') &&
+    !documentId;
 
   if (focusMode === 'agentSFC' && sfcExactMatch) {
     placeholder = 'Search exact wording ...';
@@ -71,8 +80,12 @@ const EmptyChatMessageInput = () => {
   }, []);
 
   const uploading = writingFiles.some((file) => file.status === 'uploading');
+  const hasReaderSelection =
+    focusMode === 'agentReader' && Boolean(readerSelection?.quote.trim());
   const canSend =
-    message.trim().length > 0 && !documentBlocked && !uploading;
+    (message.trim().length > 0 || hasReaderSelection) &&
+    !documentBlocked &&
+    !uploading;
 
   const submit = () => {
     if (!canSend) return;
@@ -95,6 +108,7 @@ const EmptyChatMessageInput = () => {
           onSelect={writing.onSelect}
         />
       ) : null}
+      <ReaderSelectionChip />
       <TextareaAutosize
         ref={inputRef}
         value={message}

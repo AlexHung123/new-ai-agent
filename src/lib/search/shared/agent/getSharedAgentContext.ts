@@ -8,7 +8,9 @@ import { RAG_SURVEY_SYSTEM_PROMPT } from '../prompts/ragSurveySystemPrompt';
 import { RAG_SURVEY_CHAT_SYSTEM_PROMPT } from '../prompts/ragSurveyChatSystemPrompt';
 import { WRITING_AGENT_SYSTEM_PROMPT } from '../prompts/writingAgentSystemPrompt';
 import { DOCUMENT_AGENT_SYSTEM_PROMPT } from '../prompts/documentAgentSystemPrompt';
+import { READING_AGENT_SYSTEM_PROMPT } from '../prompts/readingAgentSystemPrompt';
 import { getDocumentTurnContext } from '../runtime/documentTurnContext';
+import { getReadingTurnContext } from '../runtime/readingTurnContext';
 import { getWritingTurnContext } from '../runtime/writingTurnContext';
 import { createAgentFsTools } from '../tools/fs/fsTools';
 import { createPiRuntime } from '../runtime/createPiRuntime';
@@ -34,7 +36,9 @@ function initSharedAgentDependencies() {
   const fsTools = createAgentFsTools({
     isAdmin: true,
     getProjectRootAbs: () =>
-      getWritingTurnContext()?.rootAbs ?? getDocumentTurnContext()?.rootAbs,
+      getWritingTurnContext()?.rootAbs ??
+      getReadingTurnContext()?.rootAbs ??
+      getDocumentTurnContext()?.rootAbs,
   });
 
   const tools: Record<string, NamedTool> = {
@@ -77,6 +81,11 @@ function initSharedAgentDependencies() {
     'document-agent-template': {
       id: 'document-agent-template',
       systemPrompt: DOCUMENT_AGENT_SYSTEM_PROMPT,
+      tools: ['fs_ls', 'fs_read', 'fs_grep', 'fs_find'],
+    },
+    'reader-agent-template': {
+      id: 'reader-agent-template',
+      systemPrompt: READING_AGENT_SYSTEM_PROMPT,
       tools: ['fs_ls', 'fs_read', 'fs_grep', 'fs_find'],
     },
   };

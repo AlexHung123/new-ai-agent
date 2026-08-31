@@ -9,7 +9,7 @@ import { findDisplayFocusMode } from '@/lib/agents';
 import WritingFileBrowser from './WritingFileBrowser';
 import Link from 'next/link';
 
-const Chat = () => {
+const Chat = ({ embedded = false }: { embedded?: boolean }) => {
   const {
     sections,
     chatTurns,
@@ -72,8 +72,8 @@ const Chat = () => {
   }, [loading]);
 
   return (
-    <div className="wiki-chat">
-      {focusMode === 'agentWriting' ? (
+    <div className={`wiki-chat${embedded ? ' wiki-chat-embedded' : ''}`}>
+      {!embedded && focusMode === 'agentWriting' ? (
         <div className="writing-file-browser-chat">
           <WritingFileBrowser />
         </div>
@@ -98,10 +98,12 @@ const Chat = () => {
         )}
         <div ref={messageEnd} className="h-0" />
       </div>
-      {dock.width > 0 && (
+      {(embedded || dock.width > 0) && (
         <div
-          className="wiki-chat-composer-dock"
-          style={{ width: dock.width, left: dock.left }}
+          className={`wiki-chat-composer-dock${embedded ? ' wiki-chat-composer-dock-embedded' : ''}`}
+          style={
+            embedded ? undefined : { width: dock.width, left: dock.left }
+          }
         >
           {isToolChat ? (
             <div className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-black/70 dark:border-white/10 dark:bg-gray-950 dark:text-white/70">

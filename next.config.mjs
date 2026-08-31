@@ -11,12 +11,17 @@ const nextConfig = {
       },
     ],
   },
+  transpilePackages: ['react-pdf', 'pdfjs-dist'],
   serverExternalPackages: [
     '@earendil-works/pi-agent-core',
     '@earendil-works/pi-ai',
     'better-sqlite3',
     '@firecrawl/anydoc',
   ],
+  webpack: (config) => {
+    config.resolve.alias.canvas = false;
+    return config;
+  },
 };
 
 export default nextConfig;

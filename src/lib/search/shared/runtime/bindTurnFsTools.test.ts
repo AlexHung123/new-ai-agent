@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { bindTurnFsTools } from './bindTurnFsTools';
 import { getWritingTurnContext } from './writingTurnContext';
 import { getDocumentTurnContext } from './documentTurnContext';
+import { getReadingTurnContext } from './readingTurnContext';
 import type { PooledAgent } from '../agent/piAgentSessionManager';
 
 function fakeAgent(tools: PooledAgent['state']['tools']): PooledAgent {
@@ -109,5 +110,33 @@ describe('bindTurnFsTools', () => {
     expect(
       (docAgent.state.tools[0] as { description?: string }).description,
     ).toBe('base read');
+  });
+
+  it('re-enters reading context during fs_grep', async () => {
+    let seen: string | undefined;
+    const agent = fakeAgent([
+      {
+        name: 'fs_grep',
+        execute: async () => {
+          seen = getReadingTurnContext()?.rootAbs;
+          return { ok: true };
+        },
+      } as PooledAgent['state']['tools'][number],
+    ]);
+
+    bindTurnFsTools(agent, {
+      reading: {
+        userId: 'u1',
+        fileId: 'f1',
+        title: 'paper.pdf',
+        rootAbs: '/tmp/reading-root',
+        status: 'ready',
+      },
+    });
+    const wrapped = agent.state.tools[0] as {
+      execute: () => Promise<unknown>;
+    };
+    await wrapped.execute();
+    expect(seen).toBe('/tmp/reading-root');
   });
 });

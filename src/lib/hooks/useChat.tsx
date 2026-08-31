@@ -49,6 +49,13 @@ import {
   writingUnsupportedTypeMessage,
   type WritingAttachmentView,
 } from '../writing/types';
+import { formatReaderUserMessage } from '../reading/selectionPrompt';
+import {
+  isPdfFilename,
+  readingUnsupportedTypeMessage,
+  type ReaderSelection,
+  type ReadingAttachmentView,
+} from '../reading/types';
 
 export type Section = {
   userMessage: UserMessage;
@@ -105,6 +112,14 @@ type ChatContext = {
   refreshWritingFiles: () => Promise<void>;
   uploadWritingFile: (file: File) => Promise<void>;
   removeWritingFile: (fileId: string) => Promise<void>;
+  readingFiles: ReadingAttachmentView[];
+  refreshReadingFiles: () => Promise<void>;
+  uploadReadingFile: (file: File) => Promise<void>;
+  removeReadingFile: (fileId: string) => Promise<void>;
+  readerSelection: ReaderSelection | null;
+  setReaderSelection: (selection: ReaderSelection | null) => void;
+  readerPage: number;
+  setReaderPage: (page: number) => void;
   mentionRequest: string | null;
   requestMention: (name: string) => void;
   clearMentionRequest: () => void;
@@ -151,6 +166,14 @@ export const chatContext = createContext<ChatContext>({
   refreshWritingFiles: async () => {},
   uploadWritingFile: async () => {},
   removeWritingFile: async () => {},
+  readingFiles: [],
+  refreshReadingFiles: async () => {},
+  uploadReadingFile: async () => {},
+  removeReadingFile: async () => {},
+  readerSelection: null,
+  setReaderSelection: () => {},
+  readerPage: 1,
+  setReaderPage: () => {},
   mentionRequest: null,
   requestMention: () => {},
   clearMentionRequest: () => {},
@@ -386,6 +409,12 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   const [writingFiles, setWritingFiles] = useState<WritingAttachmentView[]>(
     [],
   );
+  const [readingFiles, setReadingFiles] = useState<ReadingAttachmentView[]>(
+    [],
+  );
+  const [readerSelection, setReaderSelectionState] =
+    useState<ReaderSelection | null>(null);
+  const [readerPage, setReaderPageState] = useState(1);
   const [mentionRequest, setMentionRequest] = useState<string | null>(null);
 
   const [isMessagesLoaded, setIsMessagesLoaded] = useState(false);
@@ -403,6 +432,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   const sfcExactMatchRef = useRef(sfcExactMatch);
   const sfcTrainingRelatedRef = useRef(sfcTrainingRelated);
   const documentIdRef = useRef(documentId);
+  const readerSelectionRef = useRef(readerSelection);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -430,7 +460,22 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     documentIdRef.current = documentId;
+    setReaderPageState(1);
   }, [documentId]);
+
+  useEffect(() => {
+    readerSelectionRef.current = readerSelection;
+  }, [readerSelection]);
+
+  const setReaderSelection = useCallback((selection: ReaderSelection | null) => {
+    readerSelectionRef.current = selection;
+    setReaderSelectionState(selection);
+  }, []);
+
+  const setReaderPage = useCallback((next: number) => {
+    const page = Math.max(1, Math.floor(Number(next) || 1));
+    setReaderPageState(page);
+  }, []);
 
   useEffect(() => {
     if (focusMode !== 'agentDocument') return;
@@ -448,6 +493,26 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       cancelled = true;
     };
   }, [focusMode]);
+
+  const refreshReadingFiles = useCallback(async () => {
+    if (focusModeRef.current !== 'agentReader') {
+      setReadingFiles([]);
+      return;
+    }
+    try {
+      const res = await fetch('/itms/ai/api/reading/files', {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) {
+        setReadingFiles([]);
+        return;
+      }
+      const data = await res.json();
+      setReadingFiles(Array.isArray(data.items) ? data.items : []);
+    } catch {
+      setReadingFiles([]);
+    }
+  }, []);
 
   const refreshWritingFiles = useCallback(async () => {
     if (focusModeRef.current !== 'agentWriting') {
@@ -476,6 +541,18 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     }
     void refreshWritingFiles();
   }, [focusMode, userId, refreshWritingFiles]);
+
+  useEffect(() => {
+    if (focusMode !== 'agentReader' || !userId) {
+      if (focusMode !== 'agentReader') {
+        setReadingFiles([]);
+        setReaderSelection(null);
+        setReaderPageState(1);
+      }
+      return;
+    }
+    void refreshReadingFiles();
+  }, [focusMode, userId, refreshReadingFiles, setReaderSelection]);
 
   const uploadWritingFile = useCallback(async (file: File) => {
     if (!isAllowedWritingFilename(file.name)) {
@@ -515,6 +592,64 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       setWritingFiles((prev) => prev.filter((f) => f.fileId !== tempId));
     }
   }, []);
+
+  const uploadReadingFile = useCallback(async (file: File) => {
+    if (!isPdfFilename(file.name)) {
+      toast.error(readingUnsupportedTypeMessage());
+      return;
+    }
+    const tempId = `tmp-${crypto.randomBytes(4).toString('hex')}`;
+    setReadingFiles((prev) => [
+      ...prev,
+      {
+        fileId: tempId,
+        name: file.name,
+        status: 'uploading',
+        sizeBytes: file.size,
+      },
+    ]);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch('/itms/ai/api/reading/files', {
+        method: 'POST',
+        headers: getAuthBearerHeaders(),
+        body: form,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.message || 'Could not upload PDF');
+        setReadingFiles((prev) => prev.filter((f) => f.fileId !== tempId));
+        return;
+      }
+      setReadingFiles((prev) => [
+        ...prev.filter((f) => f.fileId !== tempId),
+        data.item,
+      ]);
+      if (data.item?.fileId) setDocumentId(data.item.fileId);
+    } catch {
+      toast.error('Could not upload PDF');
+      setReadingFiles((prev) => prev.filter((f) => f.fileId !== tempId));
+    }
+  }, []);
+
+  const removeReadingFile = useCallback(async (fileId: string) => {
+    setReadingFiles((list) => list.filter((f) => f.fileId !== fileId));
+    if (documentIdRef.current === fileId) setDocumentId(null);
+    try {
+      const res = await fetch(
+        `/itms/ai/api/reading/files/${encodeURIComponent(fileId)}`,
+        { method: 'DELETE', headers: getAuthHeaders() },
+      );
+      if (!res.ok) {
+        toast.error('Could not delete PDF');
+        void refreshReadingFiles();
+      }
+    } catch {
+      toast.error('Could not delete PDF');
+      void refreshReadingFiles();
+    }
+  }, [refreshReadingFiles]);
 
   const removeWritingFile = useCallback(async (fileId: string) => {
     setWritingFiles((list) => list.filter((f) => f.fileId !== fileId));
@@ -706,12 +841,32 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     messageId,
     rewriteMode = false,
   ) => {
-    if (loading || !message || !userId) return;
+    const hasReaderSelection = Boolean(
+      focusModeRef.current === 'agentReader' &&
+        readerSelectionRef.current?.quote.trim(),
+    );
+    if (loading || !userId) return;
+    if (!String(message || '').trim() && !hasReaderSelection) return;
     if (
-      focusModeRef.current === 'agentDocument' &&
+      (focusModeRef.current === 'agentDocument' ||
+        focusModeRef.current === 'agentReader') &&
       !documentIdRef.current
     ) {
       return;
+    }
+
+    const outgoing =
+      focusModeRef.current === 'agentReader'
+        ? formatReaderUserMessage(message, {
+            ...(readerSelectionRef.current || { quote: '', page: 1 }),
+            fileName:
+              readerSelectionRef.current?.fileName ||
+              readingFiles.find((f) => f.fileId === documentIdRef.current)
+                ?.name,
+          })
+        : message;
+    if (focusModeRef.current === 'agentReader') {
+      setReaderSelection(null);
     }
 
     setLoading(true);
@@ -730,7 +885,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     setMessages((prev) => [
       ...prev,
       {
-        content: message,
+        content: outgoing,
         messageId: userMsgId,
         chatId: chatId!,
         role: 'user',
@@ -862,7 +1017,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         completed = true;
         setChatHistory((prev) => [
           ...prev,
-          ['human', message],
+          ['human', outgoing],
           ['assistant', receivedMessage],
         ]);
 
@@ -929,8 +1084,8 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
           'x-agent-id': stableAgentId,
         },
         body: JSON.stringify({
-          content: message,
-          message: { messageId: userMsgId, chatId: chatId!, content: message },
+          content: outgoing,
+          message: { messageId: userMsgId, chatId: chatId!, content: outgoing },
           chatId: chatId!,
           focusMode: fm,
           optimizationMode: optimizationModeRef.current,
@@ -965,7 +1120,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         ]);
         setChatHistory((prev) => [
           ...prev,
-          ['human', message],
+          ['human', outgoing],
           ['assistant', msg],
         ]);
         completed = true;
@@ -1037,7 +1192,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         }
         setChatHistory((prev) => [
           ...prev,
-          ['human', message],
+          ['human', outgoing],
           ['assistant', content],
         ]);
       }
@@ -1087,6 +1242,14 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       refreshWritingFiles,
       uploadWritingFile,
       removeWritingFile,
+      readingFiles,
+      refreshReadingFiles,
+      uploadReadingFile,
+      removeReadingFile,
+      readerSelection,
+      setReaderSelection,
+      readerPage,
+      setReaderPage,
       mentionRequest,
       requestMention,
       clearMentionRequest,
@@ -1120,6 +1283,14 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       refreshWritingFiles,
       uploadWritingFile,
       removeWritingFile,
+      readingFiles,
+      refreshReadingFiles,
+      uploadReadingFile,
+      removeReadingFile,
+      readerSelection,
+      setReaderSelection,
+      readerPage,
+      setReaderPage,
       mentionRequest,
       requestMention,
       clearMentionRequest,

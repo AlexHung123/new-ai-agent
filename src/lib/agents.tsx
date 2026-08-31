@@ -1,4 +1,5 @@
 import {
+  BookOpen,
   FileText,
   Mic,
   NotepadText,
@@ -60,6 +61,16 @@ export const focusModes: AgentMode[] = [
     permissionCode: 'chatDocumentAgent:execute',
     placeholder: 'Ask about the selected document…',
     followUpPlaceholder: 'Ask a follow-up about this document…',
+  },
+  {
+    key: 'agentReader',
+    title: 'Agent Reader',
+    description: 'Read a PDF and ask about selected passages',
+    icon: BookOpen,
+    image: '/itms/ai/agent-reader.png',
+    permissionCode: 'chatReaderAgent:execute',
+    placeholder: 'Ask about this PDF…',
+    followUpPlaceholder: 'Ask a follow-up about this PDF…',
   },
   {
     key: 'agentVoice',

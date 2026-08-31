@@ -20,10 +20,14 @@ import {
   resolveDocument,
 } from '@/lib/documents/catalog';
 import { resolveBoundDocument } from '@/lib/documents/resolveBoundDocument';
+import { resolveBoundReader } from '@/lib/reading/resolveBoundReader';
+import { readingWorkspaceAbs } from '@/lib/reading/paths';
+import { getReadingAttachment } from '@/lib/reading/store';
 import {
   runWithDocumentTurn,
   type DocumentTurnContext,
 } from '@/lib/search/shared/runtime/documentTurnContext';
+import { runWithReadingTurn } from '@/lib/search/shared/runtime/readingTurnContext';
 import { runWithWritingTurn } from '@/lib/search/shared/runtime/writingTurnContext';
 import { ensureUserWritingWorkspace } from '@/lib/writing/userFiles';
 
@@ -53,6 +57,21 @@ function unavailableDocumentEmitter() {
       JSON.stringify({
         type: 'response',
         data: 'This document is currently unavailable.',
+      }),
+    );
+    emitter.emit('end');
+  });
+  return emitter;
+}
+
+function unavailablePdfEmitter() {
+  const emitter = new eventEmitter();
+  queueMicrotask(() => {
+    emitter.emit(
+      'data',
+      JSON.stringify({
+        type: 'response',
+        data: 'This PDF is currently unavailable.',
       }),
     );
     emitter.emit('end');
@@ -189,6 +208,15 @@ export const POST = async (req: Request) => {
     const existingChat = await db.query.chats.findFirst({
       where: eq(chats.id, message.chatId),
     });
+    const boundReader = resolveBoundReader({
+      focusMode: body.focusMode,
+      chatExists: Boolean(existingChat),
+      existingDocumentId: existingChat?.documentId,
+      bodyDocumentId: body.documentId,
+    });
+    if (boundReader.status === 'error') {
+      return Response.json({ message: boundReader.message }, { status: 400 });
+    }
     const bound = resolveBoundDocument({
       focusMode: body.focusMode,
       chatExists: Boolean(existingChat),
@@ -234,7 +262,30 @@ export const POST = async (req: Request) => {
       );
 
     let stream;
-    if (bound.status === 'ok' && !documentTurn) {
+    if (boundReader.status === 'ok') {
+      const reading = getReadingAttachment(userId, boundReader.fileId);
+      if (!reading) {
+        if (!existingChat) {
+          return Response.json(
+            { message: 'Unknown or unavailable PDF' },
+            { status: 400 },
+          );
+        }
+        stream = unavailablePdfEmitter();
+      } else {
+        stream = await runWithReadingTurn(
+          {
+            userId,
+            fileId: reading.fileId,
+            title: reading.name,
+            rootAbs: readingWorkspaceAbs(userId, reading.fileId),
+            status: reading.status,
+            error: reading.error,
+          },
+          runSearch,
+        );
+      }
+    } else if (bound.status === 'ok' && !documentTurn) {
       stream = unavailableDocumentEmitter();
     } else if (documentTurn) {
       stream = await runWithDocumentTurn(documentTurn, runSearch);
@@ -293,7 +344,11 @@ export const POST = async (req: Request) => {
       humanMessageId,
       body.focusMode,
       userId,
-      bound.status === 'ok' ? bound.documentId : null,
+      boundReader.status === 'ok'
+        ? boundReader.fileId
+        : bound.status === 'ok'
+          ? bound.documentId
+          : null,
     );
 
     return new Response(responseStream.readable, {

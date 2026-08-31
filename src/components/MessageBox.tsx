@@ -9,6 +9,8 @@ import ThinkBox from './ThinkBox';
 import AgentProcessPanel from './AgentProcessPanel';
 import { useChat, Section } from '@/lib/hooks/useChat';
 import { findDisplayFocusMode } from '@/lib/agents';
+import { injectPageCiteMarkup } from '@/lib/reading/pageCitations';
+import { PageCiteButton, PageCiteText } from './PageCiteText';
 
 const ThinkTagProcessor = ({
   children,
@@ -32,8 +34,33 @@ function formatMessageTime(value: Date | string | undefined): string {
   });
 }
 
+const PageCiteOverride = ({
+  page,
+  children,
+}: {
+  page?: string | number;
+  children?: React.ReactNode;
+}) => {
+  const { setReaderPage } = useChat();
+  const n = Number(page);
+  if (!Number.isFinite(n) || n < 1) return <>{children}</>;
+  return (
+    <PageCiteButton page={n} onJump={setReaderPage}>
+      {children}
+    </PageCiteButton>
+  );
+};
+
 const MemoizedMessageContent = memo(
-  ({ content, thinkingEnded }: { content: string; thinkingEnded: boolean }) => {
+  ({
+    content,
+    thinkingEnded,
+    enablePageCites,
+  }: {
+    content: string;
+    thinkingEnded: boolean;
+    enablePageCites?: boolean;
+  }) => {
     const markdownOverrides: MarkdownToJSX.Options = {
       overrides: {
         think: {
@@ -42,22 +69,28 @@ const MemoizedMessageContent = memo(
             thinkingEnded: thinkingEnded,
           },
         },
+        pageref: {
+          component: PageCiteOverride,
+        },
       },
     };
+
+    const rendered = enablePageCites ? injectPageCiteMarkup(content) : content;
 
     return (
       <Markdown
         className="content markdown"
         options={markdownOverrides}
       >
-        {content}
+        {rendered}
       </Markdown>
     );
   },
   (prevProps, nextProps) => {
     return (
       prevProps.content === nextProps.content &&
-      prevProps.thinkingEnded === nextProps.thinkingEnded
+      prevProps.thinkingEnded === nextProps.thinkingEnded &&
+      prevProps.enablePageCites === nextProps.enablePageCites
     );
   },
 );
@@ -79,9 +112,10 @@ const MessageBox = memo(
   }) => {
     const parsedMessage = section.parsedAssistantMessage || '';
     const thinkingEnded = section.thinkingEnded;
-    const { agentProcess, focusMode } = useChat();
+    const { agentProcess, focusMode, setReaderPage } = useChat();
     const timestamp = formatMessageTime(section.userMessage.createdAt);
     const hideRewrite = findDisplayFocusMode(focusMode)?.kind === 'tool';
+    const enablePageCites = focusMode === 'agentReader';
 
     return (
       <div
@@ -91,7 +125,16 @@ const MessageBox = memo(
         <div className="message user">
           <div className="message-user-wrap">
             <div className="message-bubble">
-              <div className="content">{section.userMessage.content}</div>
+              <div className="content">
+                {enablePageCites ? (
+                  <PageCiteText
+                    text={section.userMessage.content}
+                    onJump={setReaderPage}
+                  />
+                ) : (
+                  section.userMessage.content
+                )}
+              </div>
             </div>
             {timestamp ? (
               <time
@@ -121,6 +164,7 @@ const MessageBox = memo(
                   <MemoizedMessageContent
                     content={parsedMessage}
                     thinkingEnded={thinkingEnded}
+                    enablePageCites={enablePageCites}
                   />
 
                   {loading && isLast ? null : (

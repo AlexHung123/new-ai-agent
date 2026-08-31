@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { useSearchParams, useSelectedLayoutSegments } from 'next/navigation';
 import React, { useEffect, useState, type ReactNode } from 'react';
 import Layout from './Layout';
+import { useChat } from '@/lib/hooks/useChat';
 
 const VerticalIconContainer = ({ children }: { children: ReactNode }) => {
   return <div className="flex flex-col items-center w-full">{children}</div>;
@@ -19,6 +20,7 @@ const VerticalIconContainer = ({ children }: { children: ReactNode }) => {
 const Sidebar = ({ children }: { children: React.ReactNode }) => {
   const segments = useSelectedLayoutSegments();
   const searchParams = useSearchParams();
+  const { focusMode } = useChat();
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
@@ -118,7 +120,9 @@ const Sidebar = ({ children }: { children: React.ReactNode }) => {
         ))}
       </div>
 
-      <Layout wide={segments.includes('agents')}>{children}</Layout>
+      <Layout wide={segments.includes('agents') || focusMode === 'agentReader'}>
+        {children}
+      </Layout>
     </div>
   );
 };
