@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
 import { describe, expect, it } from 'vitest';
 import type { PooledAgent } from '../search/shared/agent/piAgentSessionManager';
+import { DOCUMENT_AGENT_EMPTY_REPLY } from '../search/shared/prompts/documentAgentSystemPrompt';
 import { streamAgentProgressToEmitter } from './agentStream';
 
 const DISCLAIMER =
@@ -95,8 +96,7 @@ describe('streamAgentProgressToEmitter', () => {
             chunks: [
               {
                 content: 'chunk',
-                document_link:
-                  '<a href="https://example.com/doc">Year-Q1</a>',
+                document_link: '<a href="https://example.com/doc">Year-Q1</a>',
               },
             ],
           },
@@ -213,6 +213,100 @@ describe('streamAgentProgressToEmitter', () => {
     }
     await done;
     expect(resolved).toBe(true);
+  });
+
+  it('emits emptyResponseFallback when the run has no text_delta', async () => {
+    const agent = createScriptedAgent([{ type: 'agent_end' }]);
+    const emitter = new EventEmitter();
+    const lines = collectLines(emitter);
+
+    const done = streamAgentProgressToEmitter({
+      agent,
+      emitter,
+      safeJson: JSON.stringify,
+      emptyResponseFallback:
+        DOCUMENT_AGENT_EMPTY_REPLY,
+    });
+    await agent.prompt('q');
+    const result = await done;
+
+    expect(result.hasTextResponse).toBe(true);
+    expect(lines).toEqual([
+      { type: 'response', data: DISCLAIMER },
+      {
+        type: 'response',
+        data: DOCUMENT_AGENT_EMPTY_REPLY,
+      },
+      {
+        type: 'progress',
+        data: {
+          status: 'finished',
+          total: 2,
+          current: 2,
+          message: 'SFC Kode Agent execution finished',
+        },
+      },
+    ]);
+  });
+
+  it('does not emit emptyResponseFallback when text was streamed', async () => {
+    const agent = createScriptedAgent([
+      {
+        type: 'message_update',
+        assistantMessageEvent: { type: 'text_delta', delta: 'Found it' },
+      },
+      { type: 'agent_end' },
+    ]);
+    const emitter = new EventEmitter();
+    const lines = collectLines(emitter);
+
+    const done = streamAgentProgressToEmitter({
+      agent,
+      emitter,
+      safeJson: JSON.stringify,
+      emptyResponseFallback:
+        DOCUMENT_AGENT_EMPTY_REPLY,
+    });
+    await agent.prompt('q');
+    const result = await done;
+
+    expect(result.hasTextResponse).toBe(true);
+    expect(lines).toContainEqual({ type: 'response', data: 'Found it' });
+    expect(
+      lines.filter(
+        (l) =>
+          (l as { data?: string }).data ===
+          DOCUMENT_AGENT_EMPTY_REPLY,
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('does not emit emptyResponseFallback when the user aborted', async () => {
+    const agent = createScriptedAgent([{ type: 'agent_end' }]);
+    const emitter = new EventEmitter();
+    const lines = collectLines(emitter);
+    const ac = new AbortController();
+    ac.abort();
+
+    const done = streamAgentProgressToEmitter({
+      agent,
+      emitter,
+      signal: ac.signal,
+      safeJson: JSON.stringify,
+      emptyResponseFallback:
+        DOCUMENT_AGENT_EMPTY_REPLY,
+    });
+    await agent.prompt('q');
+    const result = await done;
+
+    expect(result.hasTextResponse).toBe(false);
+    expect(
+      lines.filter(
+        (l) =>
+          (l as { data?: string }).data ===
+          DOCUMENT_AGENT_EMPTY_REPLY,
+      ),
+    ).toHaveLength(0);
   });
 
   it('emits tool_error when a tool ends with isError', async () => {

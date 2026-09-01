@@ -52,7 +52,7 @@
   "base": {
     "apiKey": "test",
     "baseURL": "http://192.168.1.240:8000/v1",
-    "modelId": "nvidia/Qwen3.6-35B-A3B-NVFP4"
+    "modelId": "deepseek-ai/DeepSeek-V4-Flash-0731"
   },
   "adminUserIds": ["1", "29"],
   "AGENT_FS_MAX_READ_LINES": 0,

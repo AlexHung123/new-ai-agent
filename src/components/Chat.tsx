@@ -41,6 +41,13 @@ const Chat = ({ embedded = false }: { embedded?: boolean }) => {
 
   useEffect(() => {
     const scroll = (behavior: ScrollBehavior = 'auto') => {
+      if (embedded && columnRef.current) {
+        columnRef.current.scrollTo({
+          top: columnRef.current.scrollHeight,
+          behavior,
+        });
+        return;
+      }
       messageEnd.current?.scrollIntoView({ behavior });
     };
 
@@ -48,28 +55,39 @@ const Chat = ({ embedded = false }: { embedded?: boolean }) => {
       document.title = `${chatTurns[0].content.substring(0, 30)} - iTMS`;
     }
 
-    const messageEndBottom =
-      messageEnd.current?.getBoundingClientRect().bottom ?? 0;
-
-    const distanceFromMessageEnd = window.innerHeight - messageEndBottom;
-
-    if (distanceFromMessageEnd >= -100) {
-      scroll('auto');
+    if (embedded) {
+      const list = columnRef.current;
+      if (list && list.scrollHeight - list.scrollTop - list.clientHeight <= 100) {
+        scroll('auto');
+      }
+    } else {
+      const messageEndBottom =
+        messageEnd.current?.getBoundingClientRect().bottom ?? 0;
+      const distanceFromMessageEnd = window.innerHeight - messageEndBottom;
+      if (distanceFromMessageEnd >= -100) {
+        scroll('auto');
+      }
     }
 
     if (chatTurns[chatTurns.length - 1]?.role === 'user') {
       setTimeout(() => scroll('smooth'), 100);
     }
-  }, [chatTurns]);
+  }, [chatTurns, embedded]);
 
   useEffect(() => {
     if (loading) {
-      setTimeout(
-        () => messageEnd.current?.scrollIntoView({ behavior: 'smooth' }),
-        100,
-      );
+      setTimeout(() => {
+        if (embedded && columnRef.current) {
+          columnRef.current.scrollTo({
+            top: columnRef.current.scrollHeight,
+            behavior: 'smooth',
+          });
+          return;
+        }
+        messageEnd.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
     }
-  }, [loading]);
+  }, [loading, embedded]);
 
   return (
     <div className={`wiki-chat${embedded ? ' wiki-chat-embedded' : ''}`}>

@@ -1240,21 +1240,33 @@
   }
 }
 
+main:has(.reader-shell) {
+  height: 100vh;
+  overflow: hidden;
+}
+
+main:has(.reader-shell) > div {
+  height: 100%;
+}
+
 .reader-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
-  gap: 16px;
-  min-height: calc(100vh - 1.5rem);
-  padding-bottom: 8px;
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 1.15fr);
+  gap: 12px;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  padding: 8px 8px 12px 4px;
 }
 
 .reader-pane,
 .reader-chat {
   min-width: 0;
   min-height: 0;
-  height: calc(100vh - 1.5rem);
+  height: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .reader-pane {
@@ -1307,15 +1319,40 @@
   flex: 1;
   overflow: auto;
   display: flex;
-  justify-content: center;
-  padding: 12px;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 6px 12px;
   background: var(--wiki-surface-secondary, #f4f4f5);
   overscroll-behavior: contain;
+}
+
+.reader-pdf-doc {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
 }
 
 .reader-pdf-page {
   position: relative;
   display: inline-block;
+  background: #fff;
+  box-shadow: 0 1px 4px rgb(15 23 42 / 12%);
+}
+
+.reader-pdf-page-indicator {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 2;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--wiki-surface) 88%, transparent);
+  border: 1px solid var(--wiki-border-subtle);
+  font-size: 0.75rem;
+  color: var(--wiki-text-tertiary);
+  pointer-events: none;
 }
 
 .reader-hl {
@@ -1344,37 +1381,6 @@
   text-align: center;
   color: var(--wiki-text-tertiary);
   font-size: 0.85rem;
-}
-
-.reader-pdf-bar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 8px;
-  border-top: 1px solid var(--wiki-border-subtle);
-}
-
-.reader-page-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--wiki-border);
-  border-radius: 8px;
-  background: var(--wiki-surface);
-  cursor: pointer;
-}
-
-.reader-page-btn:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.reader-page-label {
-  font-size: 0.8rem;
-  color: var(--wiki-text-tertiary);
 }
 
 .reader-sel-menu {
@@ -1532,6 +1538,9 @@
 
 .reader-chat-empty {
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -1664,25 +1673,37 @@
 
 .wiki-chat-embedded {
   align-items: stretch;
+  flex: 1;
+  min-height: 0;
   height: 100%;
-  padding: 8px 0 0;
+  overflow: hidden;
+  padding: 8px 4px 0 8px;
 }
 
 .wiki-chat-embedded .message-list {
+  flex: 1;
+  min-height: 0;
   width: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
 }
 
 .wiki-chat-composer-dock-embedded {
-  position: sticky;
+  position: relative;
   left: auto !important;
   width: 100% !important;
-  bottom: 0;
+  bottom: auto;
+  flex: 0 0 auto;
   padding-bottom: 8px;
 }
 
 @media (max-width: 1023px) {
   .reader-shell {
     grid-template-columns: 1fr;
+    height: auto;
+    max-height: none;
+    overflow: visible;
     min-height: auto;
     padding-bottom: calc(12px + var(--mobile-bottom-nav-height));
   }
@@ -1694,9 +1715,12 @@
 
   .reader-pane {
     max-height: 52vh;
+    overflow: hidden;
   }
 
   .reader-chat {
     min-height: 48vh;
+    max-height: calc(48vh + 8rem);
+    overflow: hidden;
   }
 }

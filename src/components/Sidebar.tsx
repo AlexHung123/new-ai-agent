@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { useSearchParams, useSelectedLayoutSegments } from 'next/navigation';
 import React, { useEffect, useState, type ReactNode } from 'react';
 import Layout from './Layout';
+import { layoutKind } from './layoutWidth';
 import { useChat } from '@/lib/hooks/useChat';
 
 const VerticalIconContainer = ({ children }: { children: ReactNode }) => {
@@ -22,6 +23,11 @@ const Sidebar = ({ children }: { children: React.ReactNode }) => {
   const searchParams = useSearchParams();
   const { focusMode } = useChat();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   useEffect(() => {
     initializeAuthToken(searchParams);
@@ -120,7 +126,7 @@ const Sidebar = ({ children }: { children: React.ReactNode }) => {
         ))}
       </div>
 
-      <Layout wide={segments.includes('agents') || focusMode === 'agentReader'}>
+      <Layout kind={layoutKind(segments, focusMode, hydrated)}>
         {children}
       </Layout>
     </div>

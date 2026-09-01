@@ -1,21 +1,21 @@
+import { layoutContentClassName, type LayoutKind } from './layoutWidth';
+
 const Layout = ({
   children,
-  wide = false,
+  kind = 'narrow',
 }: {
   children: React.ReactNode;
-  wide?: boolean;
+  kind?: LayoutKind;
 }) => {
   return (
-    <main className="lg:pl-20 bg-light-primary dark:bg-dark-primary min-h-screen">
-      <div
-        className={
-          wide
-            ? 'mx-2 max-w-[100rem] md:mx-4 lg:mx-auto'
-            : 'mx-4 max-w-screen-lg lg:mx-auto'
-        }
-      >
-        {children}
-      </div>
+    <main
+      className={
+        kind === 'reader'
+          ? 'lg:pl-[72px] bg-light-primary dark:bg-dark-primary min-h-screen'
+          : 'lg:pl-20 bg-light-primary dark:bg-dark-primary min-h-screen'
+      }
+    >
+      <div className={layoutContentClassName(kind)}>{children}</div>
     </main>
   );
 };

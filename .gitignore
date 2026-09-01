@@ -34,6 +34,9 @@ logs/
 .DS_Store
 Thumbs.db
 
+# Copied from pdfjs-dist when Next.js starts
+public/pdf.min.mjs
+
 # Db
 db.sqlite
 /searxng
