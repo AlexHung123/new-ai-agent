@@ -68,7 +68,7 @@ export const focusModes: AgentMode[] = [
     description: 'Read a PDF and ask about selected passages',
     icon: BookOpen,
     image: '/itms/ai/agent-reader.png',
-    permissionCode: 'chatReaderAgent:execute',
+    permissionCode: 'chatVoiceAgent:execute',
     placeholder: 'Ask about this PDF…',
     followUpPlaceholder: 'Ask a follow-up about this PDF…',
   },
