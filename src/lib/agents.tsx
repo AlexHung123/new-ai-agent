@@ -5,6 +5,7 @@ import {
   UsersRound,
   LucideIcon,
   PenLine,
+  Presentation,
 } from 'lucide-react';
 
 export interface AgentMode {
@@ -52,6 +53,16 @@ export const focusModes: AgentMode[] = [
     followUpPlaceholder: 'Continue editing or ask for another revision...',
   },
   {
+    key: 'agentPpt',
+    title: 'Agent PPT',
+    description: 'Outline, plan, and design a slide deck from uploaded files',
+    icon: Presentation,
+    image: '/itms/ai/agent-ppt.jpg',
+    permissionCode: 'chatGuideAgent:execute',
+    placeholder: 'What is the presentation about? Attach source files if you have them…',
+    followUpPlaceholder: 'Adjust the outline, a page, or the theme…',
+  },
+  {
     key: 'agentDocument',
     title: 'Agent Document',
     description: 'Ask about a selected policy document',
@@ -92,6 +103,12 @@ const SFC_INTERNAL_FOCUS_MODES = new Set<string>([
 
 export function isSfcFocusMode(key: string): boolean {
   return key === DEFAULT_FOCUS_MODE || SFC_INTERNAL_FOCUS_MODES.has(key);
+}
+
+export const PPT_FOCUS_MODE = 'agentPpt';
+
+export function usesWritingLibrary(key: string): boolean {
+  return key === 'agentWriting' || key === PPT_FOCUS_MODE;
 }
 
 export function isChatFocusMode(key: string): boolean {

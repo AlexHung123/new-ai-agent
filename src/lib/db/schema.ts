@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { index, integer, jsonb, pgTable, serial, text } from 'drizzle-orm/pg-core';
+import type { PptDeckState } from '@/lib/ppt/types';
 import { Document } from '@langchain/core/documents';
 
 export const messages = pgTable('messages', {
@@ -39,6 +40,20 @@ export const chats = pgTable('chats', {
     .$type<ChatFile[]>()
     .default(sql`'[]'::jsonb`),
 });
+
+export const pptDecks = pgTable(
+  'ppt_decks',
+  {
+    chatId: text('chatId').primaryKey(),
+    userId: text('userId').notNull(),
+    stage: text('stage').notNull(),
+    deck: jsonb('deck').$type<PptDeckState>().notNull(),
+    updatedAt: text('updatedAt').notNull(),
+  },
+  (table) => ({
+    userIdIdx: index('ppt_decks_userId_idx').on(table.userId),
+  }),
+);
 
 export const userFiles = pgTable(
   'user_files',

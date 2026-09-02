@@ -238,7 +238,10 @@ export const POST = async (req: Request) => {
       stream = unavailableDocumentEmitter();
     } else if (documentTurn) {
       stream = await runWithDocumentTurn(documentTurn, runSearch);
-    } else if (body.focusMode === 'agentWriting') {
+    } else if (
+      body.focusMode === 'agentWriting' ||
+      body.focusMode === 'agentPpt'
+    ) {
       const writing = await ensureUserWritingWorkspace(userId);
       stream = await runWithWritingTurn(
         {

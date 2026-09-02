@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { AtSign, File, Paperclip } from 'lucide-react';
 import { toast } from 'sonner';
+import { usesWritingLibrary } from '@/lib/agents';
 import { useChat } from '@/lib/hooks/useChat';
 import {
   atQueryAtCursor,
@@ -43,7 +44,7 @@ export function useWritingMention(opts: {
   const [menuOpen, setMenuOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const enabled = focusMode === 'agentWriting';
+  const enabled = usesWritingLibrary(focusMode);
   const at = enabled ? atQueryAtCursor(opts.value, cursor) : null;
   const matches = useMemo(
     () =>

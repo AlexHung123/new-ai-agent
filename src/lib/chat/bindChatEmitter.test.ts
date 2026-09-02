@@ -50,6 +50,37 @@ function parseWrites(writes: string[]) {
     .map((line) => JSON.parse(line));
 }
 
+describe('bindChatEmitterToWriter ppt events', () => {
+  it('forwards ppt deck snapshots to the client', async () => {
+    const stream = new EventEmitter();
+    const { writer, writes } = createMockWriter();
+    const ac = new AbortController();
+    bindChatEmitterToWriter({
+      stream,
+      writer,
+      encoder: new TextEncoder(),
+      signal: ac.signal,
+      chatId: 'chat-1',
+      userId: 'user-1',
+      createMessageId: () => 'asst-1',
+      persistAssistant: () => {},
+      persistSources: () => {},
+    });
+    stream.emit(
+      'data',
+      JSON.stringify({
+        type: 'ppt',
+        data: { deck: { stage: 'outline' } },
+      }),
+    );
+    await flush();
+    expect(parseWrites(writes)).toEqual([
+      { type: 'ppt', data: { deck: { stage: 'outline' } } },
+    ]);
+    stream.emit('end');
+  });
+});
+
 describe('bindChatEmitterToWriter abort handling', () => {
   it('does not reject when abort fires after the writer is already closed', async () => {
     const rejections: unknown[] = [];

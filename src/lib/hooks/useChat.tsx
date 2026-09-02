@@ -22,12 +22,15 @@ import { useParams, usePathname, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { getSuggestions } from '../actions';
 import {
+  PPT_FOCUS_MODE,
   SFC_DOCUMENT_FOCUS_MODE,
   SFC_DOCUMENT_ID,
   resolveFocusMode,
   resolveLoadedFocusMode,
   shouldPersistFocusMode,
+  usesWritingLibrary,
 } from '../agents';
+import { emptyPptDeck, type PptDeckState, type PptStage } from '../ppt/types';
 import { assistantContentAfterAbort } from '../chat/abortedReply';
 import {
   applyProcessDone,
@@ -108,6 +111,11 @@ type ChatContext = {
   mentionRequest: string | null;
   requestMention: (name: string) => void;
   clearMentionRequest: () => void;
+  pptDeck: PptDeckState | null;
+  refreshPptDeck: () => Promise<void>;
+  patchPptDeck: (patch: Partial<PptDeckState>) => Promise<void>;
+  advancePptStage: (to: PptStage, extra?: Partial<PptDeckState>) => Promise<void>;
+  downloadPptDeck: (format: 'json' | 'html' | 'pptx') => Promise<void>;
   sendMessage: (
     message: string,
     messageId?: string,
@@ -154,6 +162,11 @@ export const chatContext = createContext<ChatContext>({
   mentionRequest: null,
   requestMention: () => {},
   clearMentionRequest: () => {},
+  pptDeck: null,
+  refreshPptDeck: async () => {},
+  patchPptDeck: async () => {},
+  advancePptStage: async () => {},
+  downloadPptDeck: async () => {},
   stop: () => {},
 });
 
@@ -387,6 +400,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     [],
   );
   const [mentionRequest, setMentionRequest] = useState<string | null>(null);
+  const [pptDeck, setPptDeck] = useState<PptDeckState | null>(null);
 
   const [isMessagesLoaded, setIsMessagesLoaded] = useState(false);
   const [notFound, setNotFound] = useState(false);
@@ -450,7 +464,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   }, [focusMode]);
 
   const refreshWritingFiles = useCallback(async () => {
-    if (focusModeRef.current !== 'agentWriting') {
+    if (!usesWritingLibrary(focusModeRef.current)) {
       setWritingFiles([]);
       return;
     }
@@ -470,12 +484,107 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   useEffect(() => {
-    if (focusMode !== 'agentWriting' || !userId) {
-      if (focusMode !== 'agentWriting') setWritingFiles([]);
+    if (!usesWritingLibrary(focusMode) || !userId) {
+      if (!usesWritingLibrary(focusMode)) setWritingFiles([]);
       return;
     }
     void refreshWritingFiles();
   }, [focusMode, userId, refreshWritingFiles]);
+
+  const refreshPptDeck = useCallback(async () => {
+    if (focusModeRef.current !== PPT_FOCUS_MODE || !chatId) {
+      setPptDeck(null);
+      return;
+    }
+    try {
+      const res = await fetch(
+        `/itms/ai/api/ppt/deck?chatId=${encodeURIComponent(chatId)}`,
+        { headers: getAuthHeaders() },
+      );
+      if (!res.ok) {
+        setPptDeck(emptyPptDeck());
+        return;
+      }
+      const data = await res.json();
+      setPptDeck(data.deck ?? emptyPptDeck());
+    } catch {
+      setPptDeck(emptyPptDeck());
+    }
+  }, [chatId]);
+
+  useEffect(() => {
+    if (focusMode !== PPT_FOCUS_MODE || !chatId || !userId) {
+      if (focusMode !== PPT_FOCUS_MODE) setPptDeck(null);
+      return;
+    }
+    void refreshPptDeck();
+  }, [focusMode, chatId, userId, refreshPptDeck]);
+
+  const patchPptDeck = useCallback(
+    async (patch: Partial<PptDeckState>) => {
+      if (!chatId) return;
+      setPptDeck((prev) => (prev ? { ...prev, ...patch } : prev));
+      try {
+        const res = await fetch('/itms/ai/api/ppt/deck', {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ chatId, ...patch }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          toast.error(data.message || 'Could not update deck');
+          void refreshPptDeck();
+          return;
+        }
+        if (data.deck) setPptDeck(data.deck);
+      } catch {
+        toast.error('Could not update deck');
+        void refreshPptDeck();
+      }
+    },
+    [chatId, refreshPptDeck],
+  );
+
+  const advancePptStage = useCallback(
+    async (to: PptStage, extra?: Partial<PptDeckState>) => {
+      await patchPptDeck({ ...extra, stage: to });
+      const prompts: Record<PptStage, string> = {
+        discover: '继续顾问轮，先读材料再提问。',
+        outline: '需求已确认，请根据 brief 和上传资料生成便利贴大纲。不要进入策划。',
+        plan: '大纲已确认，请逐页提交策划稿。不要进入设计。',
+        design: '策划已确认，请 set_theme，不要改结构或增删卡片。',
+        export: '可以导出了。',
+      };
+      await sendMessageRef.current?.(prompts[to]);
+    },
+    [patchPptDeck],
+  );
+
+  const downloadPptDeck = useCallback(
+    async (format: 'json' | 'html' | 'pptx') => {
+      if (!chatId) return;
+      try {
+        const res = await fetch(
+          `/itms/ai/api/ppt/export?chatId=${encodeURIComponent(chatId)}&format=${format}`,
+          { headers: getAuthHeaders() },
+        );
+        if (!res.ok) {
+          toast.error('Could not export deck');
+          return;
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `deck.${format}`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch {
+        toast.error('Could not export deck');
+      }
+    },
+    [chatId],
+  );
 
   const uploadWritingFile = useCallback(async (file: File) => {
     if (!isAllowedWritingFilename(file.name)) {
@@ -802,6 +911,15 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
 
+      if (data.type === 'ppt') {
+        const rec =
+          data.data && typeof data.data === 'object'
+            ? (data.data as { deck?: PptDeckState })
+            : null;
+        if (rec?.deck) setPptDeck(rec.deck);
+        return;
+      }
+
       if (data.type === 'tool_execution') {
         return;
       }
@@ -915,7 +1033,9 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       const stableAgentId =
         fm === SFC_DOCUMENT_FOCUS_MODE
           ? `sfc-doc-chat-agent-${chatId}`
-          : `sfc-chat-agent-${chatId}`;
+          : fm === PPT_FOCUS_MODE
+            ? `ppt-chat-agent-${chatId}`
+            : `sfc-chat-agent-${chatId}`;
       const boundDocumentId =
         fm === SFC_DOCUMENT_FOCUS_MODE
           ? SFC_DOCUMENT_ID
@@ -1090,6 +1210,11 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       mentionRequest,
       requestMention,
       clearMentionRequest,
+      pptDeck,
+      refreshPptDeck,
+      patchPptDeck,
+      advancePptStage,
+      downloadPptDeck,
       rewrite,
       sendMessage,
       stop,
@@ -1123,6 +1248,11 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       mentionRequest,
       requestMention,
       clearMentionRequest,
+      pptDeck,
+      refreshPptDeck,
+      patchPptDeck,
+      advancePptStage,
+      downloadPptDeck,
       handleSetFocusMode,
       rewrite,
       sendMessage,

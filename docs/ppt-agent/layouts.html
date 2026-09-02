@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PPT Layout Catalog — 10 locked Bento grids</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --ink: #1c1917;
+      --muted: #78716c;
+      --line: #d6d3d1;
+      --card: #e7e5e4;
+      --card-ink: #44403c;
+      --accent: #1e3a5f;
+      --paper: #fafaf9;
+      --gap: 24px;
+      --pad: 48px;
+      --title: 56px;
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--ink); }
+    body {
+      font-family: "Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif;
+      padding: 48px 32px 80px;
+    }
+    header.page {
+      max-width: 1120px;
+      margin: 0 auto 40px;
+    }
+    header.page h1 {
+      font-size: 28px;
+      letter-spacing: -0.03em;
+      margin: 0 0 8px;
+    }
+    header.page p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.6;
+      max-width: 720px;
+    }
+    .meta {
+      margin-top: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .chip {
+      font-size: 12px;
+      padding: 4px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--accent);
+      background: #fff;
+    }
+    .catalog {
+      max-width: 1120px;
+      margin: 0 auto;
+      display: grid;
+      gap: 48px;
+    }
+    article {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 24px 24px 28px;
+    }
+    .spec {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      align-items: flex-start;
+      margin-bottom: 16px;
+    }
+    .spec h2 {
+      margin: 0 0 4px;
+      font-size: 18px;
+    }
+    .spec .id {
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 12px;
+      color: var(--accent);
+    }
+    .spec p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .spec dl {
+      margin: 0;
+      font-size: 12px;
+      color: var(--muted);
+      text-align: right;
+      white-space: nowrap;
+    }
+    .spec dt { color: #a8a29e; }
+    .spec dd { margin: 0 0 6px; color: var(--ink); font-weight: 600; }
+    .stage-wrap {
+      overflow: auto;
+      background: #e7e5e4;
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .stage {
+      width: 1280px;
+      height: 720px;
+      background: var(--paper);
+      border: 1px solid #d6d3d1;
+      position: relative;
+      transform-origin: top left;
+    }
+    .slide {
+      position: absolute;
+      inset: var(--pad);
+      display: grid;
+      gap: var(--gap);
+    }
+    .slide.has-title {
+      grid-template-rows: var(--title) 1fr;
+    }
+    .page-title {
+      display: flex;
+      align-items: center;
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--ink);
+      padding: 0 4px;
+    }
+    .page-title small {
+      margin-left: 12px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--muted);
+    }
+    .grid {
+      display: grid;
+      gap: var(--gap);
+      min-height: 0;
+    }
+    .card {
+      background: var(--card);
+      border: 1.5px dashed #a8a29e;
+      border-radius: var(--radius);
+      padding: 22px 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      color: var(--card-ink);
+      min-width: 0;
+    }
+    .card .role {
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+    .card h3 {
+      margin: 0 0 8px;
+      font-size: 22px;
+      letter-spacing: -0.03em;
+    }
+    .card p {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.45;
+      color: #57534e;
+    }
+    .card.hero { background: #ddd6ce; }
+    .card.stat h3 { font-size: 40px; font-weight: 700; letter-spacing: -0.04em; }
+    .num {
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 13px;
+      color: var(--accent);
+      margin-bottom: 6px;
+    }
+    .cover-card {
+      justify-content: flex-end;
+      padding: 48px 52px 56px;
+    }
+    .cover-card .kicker {
+      font-size: 13px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 16px;
+    }
+    .cover-card h3 { font-size: 48px; line-height: 1.15; max-width: 18ch; }
+    .cover-card p { font-size: 20px; margin-top: 12px; }
+    .cover-meta {
+      display: flex;
+      gap: 24px;
+      margin-top: 36px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .section-card { justify-content: center; padding-left: 64px; }
+    .section-card .num { font-size: 64px; font-weight: 700; color: var(--accent); letter-spacing: -0.06em; }
+    .section-card h3 { font-size: 40px; }
+    .timeline-card { justify-content: flex-start; padding-top: 28px; }
+    .json {
+      margin: 14px 0 0;
+      background: #1c1917;
+      color: #e7e5e4;
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 11px;
+      line-height: 1.5;
+      padding: 12px 14px;
+      border-radius: 10px;
+      overflow-x: auto;
+      white-space: pre;
+    }
+    footer.note {
+      max-width: 1120px;
+      margin: 36px auto 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    @media (max-width: 1360px) {
+      .stage { transform: scale(0.72); }
+      .stage-wrap { height: calc(720px * 0.72 + 32px); }
+    }
+    @media (max-width: 980px) {
+      .stage { transform: scale(0.52); }
+      .stage-wrap { height: calc(720px * 0.52 + 32px); }
+      .spec { flex-direction: column; }
+      .spec dl { text-align: left; display: flex; gap: 16px; flex-wrap: wrap; }
+      .spec dd { margin: 0; }
+    }
+  </style>
+</head>
+<body>
+  <header class="page">
+    <h1>10 套锁定版式 · 策划线框</h1>
+    <p>
+      画布 1280×720，边距 48px，卡片间距 24px。策划阶段只选枚举、填卡片文案；
+      设计阶段套主题，不改坐标。不含 mixed，KPI 用 <code>three_col</code> + <code>role: stat</code>，结尾复用 <code>cover</code>。
+    </p>
+    <div class="meta">
+      <span class="chip">padding 48</span>
+      <span class="chip">gap 24</span>
+      <span class="chip">radius 16</span>
+      <span class="chip">title bar 56</span>
+      <span class="chip">no mixed grid</span>
+    </div>
+  </header>
+
+  <div class="catalog">
+
+    <article>
+      <div class="spec">
+        <div>
+          <div class="id">01 · cover</div>
+          <h2>封面</h2>
+          <p>每套必有。主标题 + 副标题 + 场合信息。结尾页（谢谢 / Q&amp;A）复用此网格，只换文案。</p>
+        </div>
+        <dl>
+          <dt>卡片</dt><dd>1 · hero full</dd>
+          <dt>何时</dt><dd>大纲 cover / close</dd>
+        </dl>
+      </div>
+      <div class="stage-wrap"><div class="stage">
+        <div class="slide">
+          <div class="grid" style="grid-template: 1fr / 1fr">
+            <div class="card hero cover-card">
+              <div class="role">c1 · hero · full</div>
+              <div class="kicker">Internal briefing</div>
+              <h3>主标题放在这里，一句说清主题</h3>
+              <p>副标题：场合、对象或一句话承诺</p>
+              <div class="cover-meta"><span>组织 / 部门</span><span>2026-09</span><span>Confidential</span></div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <div class="json">{ "layout": "cover", "cards": [{ "id": "c1", "role": "hero", "span": "full", "title": "", "body": "" }] }</div>
+    </article>
+
+    <article>
+      <div class="spec">
+        <div>
+          <div class="id">02 · toc</div>
+          <h2>目录</h2>
+          <p>一章一行，编号来自大纲 parts。默认 4 项，允许 3～5。不要在目录页塞正文。</p>
+        </div>
+        <dl>
+          <dt>卡片</dt><dd>4 · step full（随 parts）</dd>
+          <dt>何时</dt><dd>table_of_contents</dd>
+        </dl>
+      </div>
+      <div class="stage-wrap"><div class="stage">
+        <div class="slide has-title">
+          <div class="page-title">目录 <small>Contents</small></div>
+          <div class="grid" style="grid-template: repeat(4, 1fr) / 1fr">
+            <div class="card"><div class="num">01</div><h3>背景与问题</h3><p>为什么现在做</p></div>
+            <div class="card"><div class="num">02</div><h3>方案要点</h3><p>做什么、不做什么</p></div>
+            <div class="card"><div class="num">03</div><h3>路径与节奏</h3><p>怎么落地</p></div>
+            <div class="card"><div class="num">04</div><h3>资源与下一步</h3><p>要什么决策</p></div>
+          </div>
+        </div>
+      </div></div>
+      <div class="json">{ "layout": "toc", "cards": [
+  { "id": "c1", "role": "step", "span": "full", "title": "背景与问题" },
+  { "id": "c2", "role": "step", "span": "full", "title": "方案要点" },
+  { "id": "c3", "role": "step", "span": "full", "title": "路径与节奏" },
+  { "id": "c4", "role": "step", "span": "full", "title": "资源与下一步" }
+] }</div>
+    </article>
+
+    <article>
+      <div class="spec">
+        <div>
+          <div class="id">03 · section</div>
+          <h2>章节页</h2>
+          <p>大号章节序号 + 章标题。每个 part 第一页用，用来换气，不要放论点。</p>
+        </div>
+        <dl>
+          <dt>卡片</dt><dd>1 · hero full</dd>
+          <dt>何时</dt><dd>part 起始</dd>
+        </dl>
+      </div>
+      <div class="stage-wrap"><div class="stage">
+        <div class="slide">
+          <div class="grid" style="grid-template: 1fr / 1fr">
+            <div class="card hero section-card">
+              <div class="role">c1 · hero · full</div>
+              <div class="num">02</div>
+              <h3>方案要点</h3>
+              <p>本章只回答：我们建议做什么</p>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <div class="json">{ "layout": "section", "cards": [{ "id": "c1", "role": "hero", "span": "full", "title": "方案要点", "body": "本章只回答：我们建议做什么" }] }</div>
+    </article>
+
+    <article>
+      <div class="spec">
+        <div>
+          <div class="id">04 · hero</div>
+          <h2>单焦点</h2>
+          <p>一页一句。结论、建议、金句、引用。卡片 role 可改 quote。不要在这页堆三条要点。</p>
+        </div>
+        <dl>
+          <dt>卡片</dt><dd>1 · hero full</dd>
+          <dt>何时</dt><dd>核心观点 / 金句</dd>
+        </dl>
+      </div>
+      <div class="stage-wrap"><div class="stage">
+        <div class="slide has-title">
+          <div class="page-title">核心判断</div>
+          <div class="grid" style="grid-template: 1fr / 1fr">
+            <div class="card hero">
+              <div class="role">c1 · hero · full</div>
+              <h3>先把结构立住，再谈设计。</h3>
+              <p>内容没确认之前，不进入换皮。一页只留这一句，让听众记住。</p>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <div class="json">{ "layout": "hero", "cards": [{ "id": "c1", "role": "hero", "span": "full", "title": "先把结构立住，再谈设计。", "body": "" }] }</div>
+    </article>
+
+    <article>
+      <div class="spec">
+        <div>
+          <div class="id">05 · two_sym</div>
+          <h2>对称双栏</h2>
+          <p>咨询和产品评审里最常见的对比页。两卡权重必须对等；不对等就改 two_asym。</p>
+        </div>
+        <dl>
+          <dt>卡片</dt><dd>2 · body 1/2</dd>
+          <dt>何时</dt><dd>A vs B、现状/目标</dd>
+        </dl>
+      </div>
+      <div class="stage-wrap"><div class="stage">
+        <div class="slide has-title">
+          <div class="page-title">现状与目标</div>
+          <div class="grid" style="grid-template: 1fr / 1fr 1fr">
+            <div class="card"><div class="role">c1 · body · 1/2</div><h3>现在</h3><p>一键套模板，大纲不可改，设计先于内容。</p></div>
+            <div class="card"><div class="role">c2 · body · 1/2</div><h3>目标</h3><p>顾问提问 → 可拖拽大纲 → 锁结构策划 → 主题换皮。</p></div>
+          </div>
+        </div>
+      </div></div>
+      <div class="json">{ "layout": "two_sym", "cards": [
+  { "id": "c1", "role": "body", "span": "1/2", "title": "现在", "body": "" },
+  { "id": "c2", "role": "body", "span": "1/2", "title": "目标", "body": "" }
+] }</div>
+    </article>
+
+    <article>
+      <div class="spec">
+        <div>
+          <div class="id">06 · two_asym</div>
+          <h2>主次双栏</h2>
+          <p>内容页的万金油。左 2/3 讲清楚，右 1/3 放数字、引用或注意事项。右卡默认 role=stat。</p>
+        </div>
+        <dl>
+          <dt>卡片</dt><dd>2 · hero 2/3 + stat 1/3</dd>
+          <dt>何时</dt><dd>正文 + 辅证</dd>
+        </dl>
+      </div>
+      <div class="stage-wrap"><div class="stage">
+        <div class="slide has-title">
+          <div class="page-title">为什么分阶段</div>
+          <div class="grid" style="grid-template: 1fr / 2fr 1fr">
+            <div class="card hero"><div class="role">c1 · hero · 2/3</div><h3>策划锁结构，设计只换皮</h3><p>卡片数量、位置、每卡放什么字，在策划稿里一次性定死。主题只提供色、字号、圆角，模型不再发明坐标。</p></div>
+            <div class="card stat"><div class="role">c2 · stat · 1/3</div><h3>4</h3><p>道工序：调研 / 大纲 / 策划 / 设计</p></div>
+          </div>
+        </div>
+      </div></div>
+      <div class="json">{ "layout": "two_asym", "cards": [
+  { "id": "c1", "role": "hero", "span": "2/3", "title": "", "body": "" },
+  { "id": "c2", "role": "stat", "span": "1/3", "title": "", "body": "" }
+] }</div>
+    </article>
+
+    <article>
+      <div class="spec">
+        <div>
+          <div class="id">07 · three_col</div>
+          <h2>三列</h2>
+          <p>中文商务页的默认形态（三点论述）。三项必须同级。三张 stat 就是 KPI 页，不必再开枚举。</p>
+        </div>
+        <dl>
+          <dt>卡片</dt><dd>3 · body 1/3</dd>
+          <dt>何时</dt><dd>三要点 / 三家 / KPI</dd>
+        </dl>
+      </div>
+      <div class="stage-wrap"><div class="stage">
+        <div class="slide has-title">
+          <div class="page-title">三个原则</div>
+          <div class="grid" style="grid-template: 1fr / 1fr 1fr 1fr">
+            <div class="card"><div class="role">c1 · body · 1/3</div><h3>先问清</h3><p>为谁、目的、页数、风格。最多 5 问。</p></div>
+            <div class="card"><div class="role">c2 · body · 1/3</div><h3>先可贴</h3><p>大纲是便利贴，可拖、可撕、可加页。</p></div>
+            <div class="card"><div class="role">c3 · body · 1/3</div><h3>先锁格</h3><p>策划只定卡片，设计禁止增删卡。</p></div>
+          </div>
+        </div>
+      </div></div>
+      <div class="json">{ "layout": "three_col", "cards": [
+  { "id": "c1", "role": "body", "span": "1/3" },
+  { "id": "c2", "role": "body", "span": "1/3" },
+  { "id": "c3", "role": "body", "span": "1/3" }
+] }</div>
+    </article>
+
+    <article>
+      <div class="spec">
+        <div>
+          <div class="id">08 · quad</div>
+          <h2>四宫格</h2>
+          <p>2×2，矩阵和「四项能力」几乎都用它。SWOT 也走这套，不要单独做交叉线。</p>
+        </div>
+        <dl>
+          <dt>卡片</dt><dd>4 · body 1/2</dd>
+          <dt>何时</dt><dd>矩阵 / 四项举措</dd>
+        </dl>
+      </div>
+      <div class="stage-wrap"><div class="stage">
+        <div class="slide has-title">
+          <div class="page-title">能力拆成四块</div>
+          <div class="grid" style="grid-template: 1fr 1fr / 1fr 1fr">
+            <div class="card"><div class="role">c1 · body · 1/2</div><h3>调研</h3><p>吃上传材料，不问外网。</p></div>
+            <div class="card"><div class="role">c2 · body · 1/2</div><h3>大纲</h3><p>便利贴 JSON，用户改顺序。</p></div>
+            <div class="card"><div class="role">c3 · body · 1/2</div><h3>策划</h3><p>选 layout，填卡片文案。</p></div>
+            <div class="card"><div class="role">c4 · body · 1/2</div><h3>换皮</h3><p>同一 JSON 套 theme_id。</p></div>
+          </div>
+        </div>
+      </div></div>
+      <div class="json">{ "layout": "quad", "cards": [
+  { "id": "c1", "role": "body", "span": "1/2" },
+  { "id": "c2", "role": "body", "span": "1/2" },
+  { "id": "c3", "role": "body", "span": "1/2" },
+  { "id": "c4", "role": "body", "span": "1/2" }
+] }</div>
+    </article>
+
+    <article>
+      <div class="spec">
+        <div>
+          <div class="id">09 · hero_plus_row</div>
+          <h2>上主下辅</h2>
+          <p>苹果发布会和 Bento 最常用的「总-分」。上卡跨三列放结论，下三卡给证据。卡片数锁 4，不要改成 2 或 5。</p>
+        </div>
+        <dl>
+          <dt>卡片</dt><dd>1 hero full + 3 body 1/3</dd>
+          <dt>何时</dt><dd>结论 + 三条支撑</dd>
+        </dl>
+      </div>
+      <div class="stage-wrap"><div class="stage">
+        <div class="slide has-title">
+          <div class="page-title">质量从哪来</div>
+          <div class="grid" style="grid-template: 1.35fr 1fr / 1fr 1fr 1fr">
+            <div class="card hero" style="grid-column: 1 / -1"><div class="role">c1 · hero · full</div><h3>上限来自调研、大纲、策划和主题，不来自模型审美。</h3></div>
+            <div class="card"><div class="role">c2 · body · 1/3</div><h3>材料要真</h3><p>只用上传件和用户确认过的事实。</p></div>
+            <div class="card"><div class="role">c3 · body · 1/3</div><h3>大纲能改</h3><p>哪里不对就撕掉那一页。</p></div>
+            <div class="card"><div class="role">c4 · body · 1/3</div><h3>结构锁死</h3><p>设计禁止增删卡、禁止改 hex。</p></div>
+          </div>
+        </div>
+      </div></div>
+      <div class="json">{ "layout": "hero_plus_row", "cards": [
+  { "id": "c1", "role": "hero", "span": "full" },
+  { "id": "c2", "role": "body", "span": "1/3" },
+  { "id": "c3", "role": "body", "span": "1/3" },
+  { "id": "c4", "role": "body", "span": "1/3" }
+] }</div>
+    </article>
+
+    <article>
+      <div class="spec">
+        <div>
+          <div class="id">10 · timeline</div>
+          <h2>时间线</h2>
+          <p>路线图、实施计划、沿革。默认 4 步；需要 3 或 5 时仍用同一行，渲染器按卡片数均分。有顺序才用，并列请改 three_col / quad。</p>
+        </div>
+        <dl>
+          <dt>卡片</dt><dd>4 · step 1/4</dd>
+          <dt>何时</dt><dd>流程 / 路线图</dd>
+        </dl>
+      </div>
+      <div class="stage-wrap"><div class="stage">
+        <div class="slide has-title">
+          <div class="page-title">四周落地</div>
+          <div class="grid" style="grid-template: 1fr / 1fr 1fr 1fr 1fr">
+            <div class="card timeline-card"><div class="role">c1 · step · 1/4</div><div class="num">W1</div><h3>能聊能贴</h3><p>提问 + 便利贴大纲</p></div>
+            <div class="card timeline-card"><div class="role">c2 · step · 1/4</div><div class="num">W2</div><h3>策划线框</h3><p>每页灰卡片可改字</p></div>
+            <div class="card timeline-card"><div class="role">c3 · step · 1/4</div><div class="num">W3</div><h3>主题导出</h3><p>一套 theme 跑通 10 页</p></div>
+            <div class="card timeline-card"><div class="role">c4 · step · 1/4</div><div class="num">W4</div><h3>加固</h3><p>校验、图、隔天恢复</p></div>
+          </div>
+        </div>
+      </div></div>
+      <div class="json">{ "layout": "timeline", "cards": [
+  { "id": "c1", "role": "step", "span": "1/4" },
+  { "id": "c2", "role": "step", "span": "1/4" },
+  { "id": "c3", "role": "step", "span": "1/4" },
+  { "id": "c4", "role": "step", "span": "1/4" }
+] }</div>
+    </article>
+
+  </div>
+
+  <footer class="note">
+    刻意不做的：mixed 自由网格（Flash 会乱画）、独立 KPI 版式（用 three_col + stat）、独立结尾版式（复用 cover）、独立对比表（两列文案走 two_sym）。
+    规范以 <code>src/lib/ppt/layouts.ts</code> 为准。用浏览器打开本页即可对照线框。
+  </footer>
+</body>
+</html>

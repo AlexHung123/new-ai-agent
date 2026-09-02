@@ -187,6 +187,11 @@ export function bindChatEmitterToWriter(options: BindChatEmitterOptions) {
         type: 'tool_execution',
         data: safeToolData,
       });
+    } else if (parsedData.type === 'ppt') {
+      writeChunk({
+        type: 'ppt',
+        data: parsedData.data,
+      });
     } else if (
       parsedData.type === 'tool_error' ||
       parsedData.type === 'monitor_error'

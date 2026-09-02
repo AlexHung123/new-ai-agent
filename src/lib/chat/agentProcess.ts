@@ -28,6 +28,16 @@ const TOOL_LABELS: Record<string, string> = {
   es_bm25_search: 'Search knowledge',
   guide_search: 'Search guide',
   read_skill: 'Read skill',
+  ask_user: 'Ask questions',
+  commit_brief: 'Save brief',
+  commit_outline: 'Save outline',
+  patch_outline: 'Update outline',
+  commit_page_plan: 'Plan a page',
+  get_page_plan: 'Read page plan',
+  get_deck: 'Read deck',
+  set_theme: 'Set theme',
+  advance_stage: 'Advance stage',
+  export_deck: 'Export deck',
 };
 
 export function friendlyToolName(name: string): string {

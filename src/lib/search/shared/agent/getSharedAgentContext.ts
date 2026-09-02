@@ -7,7 +7,9 @@ import { RAG_BM25_SYSTEM_PROMPT_TRAINING_GUIDE } from '../prompts/ragBm25SystemP
 import { RAG_SURVEY_SYSTEM_PROMPT } from '../prompts/ragSurveySystemPrompt';
 import { RAG_SURVEY_CHAT_SYSTEM_PROMPT } from '../prompts/ragSurveyChatSystemPrompt';
 import { WRITING_AGENT_SYSTEM_PROMPT } from '../prompts/writingAgentSystemPrompt';
+import { PPT_AGENT_SYSTEM_PROMPT } from '../prompts/pptAgentSystemPrompt';
 import { DOCUMENT_AGENT_SYSTEM_PROMPT } from '../prompts/documentAgentSystemPrompt';
+import { createPptTools } from '@/lib/ppt/tools';
 import { getDocumentTurnContext } from '../runtime/documentTurnContext';
 import { getWritingTurnContext } from '../runtime/writingTurnContext';
 import { createAgentFsTools } from '../tools/fs/fsTools';
@@ -36,6 +38,7 @@ function initSharedAgentDependencies() {
     getProjectRootAbs: () =>
       getWritingTurnContext()?.rootAbs ?? getDocumentTurnContext()?.rootAbs,
   });
+  const pptTools = createPptTools();
 
   const tools: Record<string, NamedTool> = {
     [esBm25SearchTool.name]: esBm25SearchTool,
@@ -45,6 +48,9 @@ function initSharedAgentDependencies() {
     tools[tool.name] = tool;
   }
   for (const tool of fsTools) {
+    tools[tool.name] = tool;
+  }
+  for (const tool of pptTools) {
     tools[tool.name] = tool;
   }
 
@@ -73,6 +79,17 @@ function initSharedAgentDependencies() {
       id: 'writing-agent-template',
       systemPrompt: WRITING_AGENT_SYSTEM_PROMPT,
       tools: ['fs_ls', 'fs_read', 'fs_grep', 'fs_find'],
+    },
+    'ppt-agent-template': {
+      id: 'ppt-agent-template',
+      systemPrompt: PPT_AGENT_SYSTEM_PROMPT,
+      tools: [
+        'fs_ls',
+        'fs_read',
+        'fs_grep',
+        'fs_find',
+        ...pptTools.map((tool) => tool.name),
+      ],
     },
     'document-agent-template': {
       id: 'document-agent-template',

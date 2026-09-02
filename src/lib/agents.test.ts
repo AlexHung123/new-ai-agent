@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  PPT_FOCUS_MODE,
   SFC_DOCUMENT_FOCUS_MODE,
   SFC_DOCUMENT_ID,
   SFC_REPLY_FOCUS_MODE,
@@ -9,6 +10,7 @@ import {
   resolveFocusMode,
   resolveLoadedFocusMode,
   shouldPersistFocusMode,
+  usesWritingLibrary,
 } from './agents';
 
 describe('focusModes', () => {
@@ -17,6 +19,7 @@ describe('focusModes', () => {
       'agentSFC',
       'newSurveyAgent',
       'agentWriting',
+      'agentPpt',
       'agentDocument',
       'agentVoice',
     ]);
@@ -50,6 +53,7 @@ describe('resolveFocusMode', () => {
     );
     expect(resolveFocusMode('newSurveyAgent')).toBe('newSurveyAgent');
     expect(resolveFocusMode('agentWriting')).toBe('agentWriting');
+    expect(resolveFocusMode('agentPpt')).toBe('agentPpt');
     expect(resolveFocusMode('agentDocument')).toBe('agentDocument');
   });
 
@@ -77,6 +81,12 @@ describe('resolveFocusMode', () => {
 
   it('does not treat Agent Voice as a chat focus mode', () => {
     expect(resolveFocusMode('agentVoice')).toBe('agentSFC');
+  });
+
+  it('shares the writing file library with Agent PPT', () => {
+    expect(usesWritingLibrary('agentWriting')).toBe(true);
+    expect(usesWritingLibrary(PPT_FOCUS_MODE)).toBe(true);
+    expect(usesWritingLibrary('agentSFC')).toBe(false);
   });
 
   it('keeps Agent Voice when loading an existing history chat', () => {

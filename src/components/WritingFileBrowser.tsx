@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { ChevronRight, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
+import { usesWritingLibrary } from '@/lib/agents';
 import { useChat } from '@/lib/hooks/useChat';
 import {
   MAX_WRITING_FILES,
@@ -27,7 +28,7 @@ const WritingFileBrowser = ({ compact = false }: { compact?: boolean }) => {
   const [filesOpen, setFilesOpen] = useState(true);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  if (focusMode !== 'agentWriting') return null;
+  if (!usesWritingLibrary(focusMode)) return null;
 
   const atLimit = writingFiles.length >= MAX_WRITING_FILES;
 

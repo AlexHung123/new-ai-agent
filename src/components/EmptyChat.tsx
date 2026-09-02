@@ -1,14 +1,30 @@
 import EmptyChatMessageInput from './EmptyChatMessageInput';
 import SettingsButtonMobile from '@/components/Settings/SettingsButtonMobile';
 import { useChat } from '@/lib/hooks/useChat';
-import { SFC_DOCUMENT_FOCUS_MODE, SFC_REPLY_FOCUS_MODE } from '@/lib/agents';
+import {
+  PPT_FOCUS_MODE,
+  SFC_DOCUMENT_FOCUS_MODE,
+  SFC_REPLY_FOCUS_MODE,
+  usesWritingLibrary,
+} from '@/lib/agents';
+import { PptWorkspace } from './ppt/PptWorkspace';
 import AgentCard from './AgentCard';
 import DocumentPicker from './DocumentPicker';
 import WritingFileBrowser from './WritingFileBrowser';
 import { motion } from 'framer-motion';
 
 const EmptyChat = () => {
-  const { focusMode, documentId, documentItems } = useChat();
+  const {
+    focusMode,
+    documentId,
+    documentItems,
+    pptDeck,
+    patchPptDeck,
+    advancePptStage,
+    downloadPptDeck,
+    sendMessage,
+    loading,
+  } = useChat();
 
   const focusDescriptions: Record<string, string> = {
     agentSFC: 'Your assistant for searching SFC questions and replies',
@@ -19,6 +35,8 @@ const EmptyChat = () => {
     newSurveyAgent: 'Your assistant for summarizing survey results',
     agentWriting:
       'Your assistant for drafting, rewriting, and polishing text',
+    agentPpt:
+      'Upload source files, confirm the brief, then outline, plan, and design slides',
     agentDocument: 'Ask about a selected policy document',
   };
 
@@ -40,7 +58,7 @@ const EmptyChat = () => {
         <AgentCard />
       </motion.div>
 
-      {focusMode === 'agentWriting' ? (
+      {usesWritingLibrary(focusMode) ? (
         <div className="writing-file-browser-chat">
           <WritingFileBrowser />
         </div>
@@ -56,6 +74,22 @@ const EmptyChat = () => {
           {needsDocumentPick ? <DocumentPicker /> : <EmptyChatMessageInput />}
         </div>
       </div>
+      {focusMode === PPT_FOCUS_MODE && pptDeck ? (
+        <div className="ppt-empty-workspace">
+          <PptWorkspace
+            deck={pptDeck}
+            busy={loading}
+            onPatch={(patch) => void patchPptDeck(patch)}
+            onAdvance={(to, extra) => void advancePptStage(to, extra)}
+            onDownload={(format) => void downloadPptDeck(format)}
+            onRedoPage={(pageId) =>
+              void sendMessage(
+                `请只重做 ${pageId} 的策划，不要改其他页，也不要进入设计。`,
+              )
+            }
+          />
+        </div>
+      ) : null}
     </div>
   );
 };

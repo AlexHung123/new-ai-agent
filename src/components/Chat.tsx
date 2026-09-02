@@ -5,8 +5,13 @@ import MessageInput from './MessageInput';
 import MessageBox from './MessageBox';
 import MessageBoxLoading from './MessageBoxLoading';
 import { useChat } from '@/lib/hooks/useChat';
-import { findDisplayFocusMode } from '@/lib/agents';
+import {
+  PPT_FOCUS_MODE,
+  findDisplayFocusMode,
+  usesWritingLibrary,
+} from '@/lib/agents';
 import WritingFileBrowser from './WritingFileBrowser';
+import { PptWorkspace } from './ppt/PptWorkspace';
 import Link from 'next/link';
 
 const Chat = () => {
@@ -19,6 +24,11 @@ const Chat = () => {
     rewrite,
     agentProcess,
     focusMode,
+    pptDeck,
+    patchPptDeck,
+    advancePptStage,
+    downloadPptDeck,
+    sendMessage,
   } = useChat();
   const currentAgent = findDisplayFocusMode(focusMode);
   const isToolChat = currentAgent?.kind === 'tool';
@@ -72,8 +82,8 @@ const Chat = () => {
   }, [loading]);
 
   return (
-    <div className="wiki-chat">
-      {focusMode === 'agentWriting' ? (
+    <div className={`wiki-chat${focusMode === PPT_FOCUS_MODE ? ' wiki-chat-ppt' : ''}`}>
+      {usesWritingLibrary(focusMode) ? (
         <div className="writing-file-browser-chat">
           <WritingFileBrowser />
         </div>
@@ -98,6 +108,20 @@ const Chat = () => {
         )}
         <div ref={messageEnd} className="h-0" />
       </div>
+      {focusMode === PPT_FOCUS_MODE && pptDeck ? (
+        <PptWorkspace
+          deck={pptDeck}
+          busy={loading}
+          onPatch={(patch) => void patchPptDeck(patch)}
+          onAdvance={(to, extra) => void advancePptStage(to, extra)}
+          onDownload={(format) => void downloadPptDeck(format)}
+          onRedoPage={(pageId) =>
+            void sendMessage(
+              `请只重做 ${pageId} 的策划，不要改其他页，也不要进入设计。`,
+            )
+          }
+        />
+      ) : null}
       {dock.width > 0 && (
         <div
           className="wiki-chat-composer-dock"

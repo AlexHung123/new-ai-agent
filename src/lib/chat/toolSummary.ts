@@ -287,6 +287,13 @@ export function buildToolEndSummary(
     }
 
     default: {
+      if (
+        details &&
+        typeof details.summary === 'string' &&
+        details.summary.trim()
+      ) {
+        return { summary: clip(details.summary, MAX_SUMMARY_CHARS) };
+      }
       if (errMsg) return { summary: clip(errMsg, MAX_SUMMARY_CHARS) };
       const hits = details ? countHits(details) : undefined;
       if (hits !== undefined) {
