@@ -35,6 +35,12 @@ export type VoiceHistoryInput = {
   refText?: string;
 };
 
+export type TranscriptHistoryInput = {
+  userId: string;
+  filename: string;
+  markdown: string;
+};
+
 export function buildVoiceHistoryRows(input: {
   userId: string;
   spokenText: string;
@@ -100,6 +106,79 @@ export const drizzleVoiceHistoryStore: VoiceHistoryStore = {
     await db.insert(messagesSchema).values(rows).execute();
   },
 };
+
+export function buildTranscriptHistoryRows(input: {
+  userId: string;
+  filename: string;
+  markdown: string;
+  chatId: string;
+  userMessageId: string;
+  assistantMessageId: string;
+  createdAt: string;
+}): { chat: VoiceHistoryChatRow; messages: VoiceHistoryMessageRow[] } {
+  const filename = input.filename.trim() || 'audio';
+  const markdown = input.markdown.trim() || '_No speech detected._';
+
+  return {
+    chat: {
+      id: input.chatId,
+      title: filename,
+      userId: input.userId,
+      createdAt: input.createdAt,
+      focusMode: VOICE_FOCUS_MODE,
+      documentId: null,
+      files: [],
+    },
+    messages: [
+      {
+        content: `Transcribe ${filename}`,
+        chatId: input.chatId,
+        userId: input.userId,
+        messageId: input.userMessageId,
+        role: 'user',
+        createdAt: input.createdAt,
+      },
+      {
+        content: markdown,
+        chatId: input.chatId,
+        userId: input.userId,
+        messageId: input.assistantMessageId,
+        role: 'assistant',
+        createdAt: input.createdAt,
+      },
+    ],
+  };
+}
+
+export async function saveTranscriptHistory(
+  input: TranscriptHistoryInput,
+  deps: {
+    store?: VoiceHistoryStore;
+    createIds?: () => {
+      chatId: string;
+      userMessageId: string;
+      assistantMessageId: string;
+    };
+    now?: () => Date;
+  } = {},
+): Promise<{ chatId: string }> {
+  const ids = (deps.createIds ?? createVoiceHistoryIds)();
+  const createdAt = (deps.now ?? (() => new Date()))().toString();
+  const rows = buildTranscriptHistoryRows({
+    userId: input.userId,
+    filename: input.filename,
+    markdown: input.markdown,
+    chatId: ids.chatId,
+    userMessageId: ids.userMessageId,
+    assistantMessageId: ids.assistantMessageId,
+    createdAt,
+  });
+
+  const store = deps.store ?? drizzleVoiceHistoryStore;
+  await store.insertChat(rows.chat);
+  await store.insertMessages(rows.messages);
+  return { chatId: ids.chatId };
+}
 
 export async function saveVoiceHistory(
   input: VoiceHistoryInput,

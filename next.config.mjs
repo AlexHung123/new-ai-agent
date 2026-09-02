@@ -17,6 +17,15 @@ const nextConfig = {
     'better-sqlite3',
     '@firecrawl/anydoc',
   ],
+  experimental: {
+    // Middleware clones request bodies (default 10MB). Video transcribe
+    // uploads go through /api/voice middleware; serverActions.bodySizeLimit
+    // does not apply to Route Handlers.
+    middlewareClientMaxBodySize: '2gb',
+    serverActions: {
+      bodySizeLimit: '2gb',
+    },
+  },
 };
 
 export default nextConfig;

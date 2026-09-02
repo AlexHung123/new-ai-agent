@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { ArrowLeft, Download, Mic, Upload } from 'lucide-react';
+import { ArrowLeft, Copy, Download, Mic, Upload } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Select from '@/components/ui/Select';
 import {
@@ -12,9 +12,19 @@ import {
   getAuthToken,
   initializeAuthToken,
 } from '@/lib/utils/auth';
+import { audioAcceptAttribute } from '@/lib/voice/audio-formats';
 import { DEFAULT_TTS_MODEL, TTS_MODELS } from '@/lib/voice/ttsModels';
 
 const VOICE_PERMISSION = 'chatVoiceAgent:execute';
+const STT_ACCEPT = audioAcceptAttribute();
+const STT_LANGUAGES = [
+  { value: 'yue', label: 'Cantonese (yue)' },
+  { value: 'zh', label: 'Mandarin (zh)' },
+  { value: 'en', label: 'English (en)' },
+  { value: 'auto', label: 'Auto' },
+];
+
+type VoiceTab = 'speak' | 'transcribe';
 
 const VoicePage = () => {
   const searchParams = useSearchParams();
@@ -22,6 +32,7 @@ const VoicePage = () => {
   const [loadingAccess, setLoadingAccess] = useState(true);
   const [allowed, setAllowed] = useState(false);
 
+  const [tab, setTab] = useState<VoiceTab>('speak');
   const [refAudio, setRefAudio] = useState<File | null>(null);
   const [refText, setRefText] = useState('');
   const [input, setInput] = useState('');
@@ -30,6 +41,14 @@ const VoicePage = () => {
   const [error, setError] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const audioUrlRef = useRef<string | null>(null);
+
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [language, setLanguage] = useState('yue');
+  const [transcribing, setTranscribing] = useState(false);
+  const [transcribeError, setTranscribeError] = useState<string | null>(null);
+  const [markdown, setMarkdown] = useState<string | null>(null);
+  const [downloadName, setDownloadName] = useState('transcript.md');
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     initializeAuthToken(searchParams);
@@ -71,6 +90,7 @@ const VoicePage = () => {
 
   const canGenerate =
     Boolean(refAudio) && input.trim().length > 0 && !generating;
+  const canTranscribe = Boolean(mediaFile) && !transcribing;
 
   const handleGenerate = async () => {
     if (!refAudio || !canGenerate) return;
@@ -122,6 +142,90 @@ const VoicePage = () => {
     } finally {
       setGenerating(false);
     }
+  };
+
+  const handleTranscribe = async () => {
+    if (!mediaFile || !canTranscribe) return;
+
+    setTranscribing(true);
+    setTranscribeError(null);
+    setCopied(false);
+
+    const form = new FormData();
+    form.set('file', mediaFile);
+    if (language.trim()) form.set('language', language.trim());
+
+    const token = getAuthToken();
+    const headers: HeadersInit = token
+      ? { Authorization: `Bearer ${token}` }
+      : {};
+
+    try {
+      const response = await fetch(`/itms/ai/api/voice/transcribe`, {
+        method: 'POST',
+        headers,
+        body: form,
+      });
+
+      let body: {
+        error?: string;
+        markdown?: string;
+        downloadName?: string;
+      } = {};
+      try {
+        body = await response.json();
+      } catch {
+        body = {};
+      }
+
+      if (!response.ok) {
+        setTranscribeError(
+          typeof body.error === 'string' && body.error
+            ? body.error
+            : `Transcription failed (${response.status})`,
+        );
+        return;
+      }
+
+      if (typeof body.markdown !== 'string' || !body.markdown.trim()) {
+        setTranscribeError('Transcription returned empty text.');
+        return;
+      }
+
+      setMarkdown(body.markdown);
+      if (typeof body.downloadName === 'string' && body.downloadName) {
+        setDownloadName(body.downloadName);
+      }
+    } catch {
+      setTranscribeError(
+        'Could not reach the transcription service. Please try again.',
+      );
+    } finally {
+      setTranscribing(false);
+    }
+  };
+
+  const handleCopyTranscript = async () => {
+    if (!markdown) return;
+    try {
+      await navigator.clipboard.writeText(markdown);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  const handleDownloadTranscript = () => {
+    if (!markdown) return;
+    const blob = new Blob([markdown], {
+      type: 'text/markdown;charset=utf-8',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = downloadName;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   if (loadingAccess) {
@@ -198,21 +302,50 @@ const VoicePage = () => {
                   Agent Voice
                 </h1>
                 <p className="text-sm text-black/60 dark:text-white/60">
-                  Clone a reference voice and generate speech
+                  Clone a voice or transcribe audio and video to text
                 </p>
               </div>
             </div>
           </motion.div>
 
-          <motion.form
+          <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 }}
+            className="flex flex-col gap-5 rounded-3xl border border-white/50 bg-white/80 p-6 shadow-lg backdrop-blur-sm dark:border-white/10 dark:bg-gray-900/80"
+          >
+            <div className="flex gap-2 rounded-full bg-black/5 p-1 dark:bg-white/10">
+              <button
+                type="button"
+                onClick={() => setTab('speak')}
+                className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                  tab === 'speak'
+                    ? 'bg-white text-black shadow-sm dark:bg-gray-950 dark:text-white'
+                    : 'text-black/55 dark:text-white/55'
+                }`}
+              >
+                Speak
+              </button>
+              <button
+                type="button"
+                onClick={() => setTab('transcribe')}
+                className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                  tab === 'transcribe'
+                    ? 'bg-white text-black shadow-sm dark:bg-gray-950 dark:text-white'
+                    : 'text-black/55 dark:text-white/55'
+                }`}
+              >
+                Transcribe
+              </button>
+            </div>
+
+            {tab === 'speak' ? (
+          <form
             onSubmit={(event) => {
               event.preventDefault();
               void handleGenerate();
             }}
-            className="flex flex-col gap-5 rounded-3xl border border-white/50 bg-white/80 p-6 shadow-lg backdrop-blur-sm dark:border-white/10 dark:bg-gray-900/80"
+            className="flex flex-col gap-5"
           >
             <div className="flex flex-col gap-2">
               <span className="text-sm font-semibold text-black dark:text-white">
@@ -321,7 +454,103 @@ const VoicePage = () => {
                 </a>
               </div>
             ) : null}
-          </motion.form>
+          </form>
+            ) : (
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleTranscribe();
+            }}
+            className="flex flex-col gap-5"
+          >
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-semibold text-black dark:text-white">
+                Audio or video
+              </span>
+              <span className="text-xs text-black/50 dark:text-white/50">
+                Upload a recording. The original file is not kept after
+                transcription.
+              </span>
+              <label className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-dashed border-black/15 bg-white px-4 py-3 text-sm dark:border-white/15 dark:bg-gray-950">
+                <span className="flex min-w-0 items-center gap-2 text-black/70 dark:text-white/70">
+                  <Upload size={16} />
+                  <span className="truncate">
+                    {mediaFile ? mediaFile.name : 'Choose audio or video file'}
+                  </span>
+                </span>
+                <input
+                  type="file"
+                  accept={STT_ACCEPT}
+                  className="hidden"
+                  onChange={(event) => {
+                    setMediaFile(event.target.files?.[0] ?? null);
+                    setTranscribeError(null);
+                    setCopied(false);
+                  }}
+                />
+              </label>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-semibold text-black dark:text-white">
+                Language
+              </span>
+              <Select
+                aria-label="Transcript language"
+                value={language}
+                onChange={(event) => setLanguage(event.target.value)}
+                options={STT_LANGUAGES}
+                className="rounded-2xl border-black/10 bg-white px-4 py-3 text-sm text-black dark:border-white/10 dark:bg-gray-950 dark:text-white"
+              />
+            </div>
+
+            {transcribeError ? (
+              <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
+                {transcribeError}
+              </p>
+            ) : null}
+
+            <button
+              type="submit"
+              disabled={!canTranscribe}
+              className="inline-flex h-11 items-center justify-center rounded-full bg-blue-600 px-5 text-sm font-semibold text-white shadow-lg transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-600/40"
+            >
+              {transcribing ? 'Transcribing…' : 'Transcribe'}
+            </button>
+
+            {markdown ? (
+              <div className="flex flex-col gap-3 rounded-2xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-gray-950">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-black dark:text-white">
+                    Transcript
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => void handleCopyTranscript()}
+                      className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
+                    >
+                      <Copy size={16} />
+                      {copied ? 'Copied' : 'Copy'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDownloadTranscript}
+                      className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
+                    >
+                      <Download size={16} />
+                      Download {downloadName}
+                    </button>
+                  </div>
+                </div>
+                <pre className="max-h-[28rem] overflow-auto whitespace-pre-wrap break-words text-sm text-black dark:text-white">
+                  {markdown}
+                </pre>
+              </div>
+            ) : null}
+          </form>
+            )}
+          </motion.div>
         </div>
       </div>
     </div>

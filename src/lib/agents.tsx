@@ -65,7 +65,7 @@ export const focusModes: AgentMode[] = [
     key: 'agentVoice',
     title: 'Agent Voice',
     description:
-      'Upload a reference voice and generate speech you can download',
+      'Clone a voice or transcribe audio and video to text',
     icon: Mic,
     image: '/itms/ai/agent-voice.png',
     permissionCode: 'chatVoiceAgent:execute',
