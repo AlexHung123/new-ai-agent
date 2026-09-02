@@ -61,5 +61,15 @@
     "maxTokens": 2000,
     "responseFormat": "wav",
     "maxRefAudioBytes": 10485760
+  },
+  "stt": {
+    "baseUrl": "http://192.168.1.56:443/transcribe",
+    "apiKey": "",
+    "model": "sensevoice",
+    "defaultLanguage": "yue",
+    "timeoutMs": 3600000,
+    "spk": true,
+    "mock": false,
+    "maxUploadBytes": 2073741824
   }
 }
