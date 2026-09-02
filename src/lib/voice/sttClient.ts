@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { SttConfig } from './sttConfig';
 import type { TranscriptSegment } from './transcriptFormat';
+import { toHkTraditionalResult } from './traditionalChinese';
 
 export type SttResult = {
   text: string;
@@ -220,7 +221,9 @@ export async function transcribeFile(
   const spk = typeof opts?.spk === 'boolean' ? opts.spk : config.spk;
 
   if (config.mock) {
-    return mockResult(filePath, language || config.defaultLanguage, spk);
+    return toHkTraditionalResult(
+      mockResult(filePath, language || config.defaultLanguage, spk),
+    );
   }
 
   if (!fs.existsSync(filePath)) {
@@ -260,7 +263,7 @@ export async function transcribeFile(
         `STT HTTP ${res.status}: ${textBody.slice(0, 500) || res.statusText}`,
       );
     }
-    return normalizeSttResponse(textBody, language);
+    return toHkTraditionalResult(normalizeSttResponse(textBody, language));
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error(`STT request timed out after ${config.timeoutMs}ms`);
