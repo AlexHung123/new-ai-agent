@@ -16,6 +16,7 @@ import {
 } from './shared/tools/surveySearchTool';
 import { clusterQuestionViaKodeAgent } from './shared/survey/clusterViaKodeAgent';
 import { completePiAgent } from './shared/agent/completePiAgent';
+import { formatAgentFailureResponse } from '../models/llmProviderError';
 
 const SURVEY_AGENT_ID_PREFIX = 'survey:';
 
@@ -672,9 +673,7 @@ export default class NewSurverAgent implements MetaSearchAgentType {
         console.error('-- ERROR IN NEW SURVER AGENT --', error);
         if (error instanceof Error && error.name === 'AbortError') return;
         if (signal?.aborted) return;
-        emitResponse(
-          `Error: ${error instanceof Error ? error.message : String(error)}`,
-        );
+        emitResponse(formatAgentFailureResponse(error).trim());
       } finally {
         if (shellAgentId && harnessAgentManager) {
           try {

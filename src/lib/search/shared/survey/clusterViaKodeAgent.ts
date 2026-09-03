@@ -109,6 +109,10 @@ export async function clusterQuestionViaKodeAgent(options: {
           : `${prompt}\n\n上次輸出無法解析。請嚴格只輸出合法 JSON，不要加任何說明。`,
       );
 
+      if (result?.status === 'error') {
+        throw new Error(result.text || 'Cluster failed');
+      }
+
       const text = result?.text ?? '';
       return parseClustersFromAgentText(text);
     } catch (err) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { initialChatQuery } from './initialChatQuery';
+import { initialChatQuery, isNewChatPath } from './initialChatQuery';
 
 describe('initialChatQuery', () => {
   it('returns the trimmed q on the home chat route', () => {
@@ -31,5 +31,19 @@ describe('initialChatQuery', () => {
     expect(initialChatQuery('/', '')).toBeNull();
     expect(initialChatQuery('/', '   ')).toBeNull();
     expect(initialChatQuery('/', null)).toBeNull();
+  });
+});
+
+describe('isNewChatPath', () => {
+  it('treats home chat routes as a new chat', () => {
+    expect(isNewChatPath('/')).toBe(true);
+    expect(isNewChatPath('/itms/ai')).toBe(true);
+    expect(isNewChatPath('/itms/ai/')).toBe(true);
+  });
+
+  it('rejects existing chats and other pages', () => {
+    expect(isNewChatPath('/c/abc123')).toBe(false);
+    expect(isNewChatPath('/itms/ai/c/abc123')).toBe(false);
+    expect(isNewChatPath('/voice')).toBe(false);
   });
 });

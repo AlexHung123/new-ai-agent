@@ -8,6 +8,17 @@ import {
 
 const MAX_INDEX_CHARS = 6_000;
 
+export const WRITING_FS_TOOLS = ['fs_ls', 'fs_read', 'fs_grep', 'fs_find'];
+
+export function writingFsToolsForTurn(
+  userMessage: string,
+  ctx: WritingTurnContext | undefined = getWritingTurnContext(),
+): string[] {
+  if (!ctx) return [];
+  const mentioned = resolveMentionedFiles(userMessage, ctx.files || []);
+  return mentioned.length > 0 ? [...WRITING_FS_TOOLS] : [];
+}
+
 export function loadWritingIndexMd(
   rootAbs: string,
   maxChars = MAX_INDEX_CHARS,
@@ -34,26 +45,23 @@ export function buildWritingUserPrompt(
 ): string {
   const question = `[User request]\n${userMessage}`;
   if (!ctx) return question;
-  const index = loadWritingIndexMd(ctx.rootAbs);
   const mentioned = resolveMentionedFiles(userMessage, ctx.files || []);
+  if (mentioned.length === 0) return question;
+  const index = loadWritingIndexMd(ctx.rootAbs);
   const mentionBlock =
-    mentioned.length > 0
-      ? `[Mentioned files]\nThe user @-mentioned these files. Search inside them with fs_grep, then fs_read only the matching line range (fromLine/maxLines or path:from:count). Do not read a whole part:\n` +
-        mentioned
-          .map(
-            (file) =>
-              `- \`${file.relDir}/INDEX.md\` — ${file.name} (${file.parts} part${file.parts === 1 ? '' : 's'})`,
-          )
-          .join('\n') +
-        '\n\n'
-      : '';
-  if (!index && !mentionBlock) return question;
+    `[Mentioned files]\nThe user @-mentioned these files. Search inside them with fs_grep, then fs_read only the matching line range (fromLine/maxLines or path:from:count). Do not read a whole part:\n` +
+    mentioned
+      .map(
+        (file) =>
+          `- \`${file.relDir}/INDEX.md\` — ${file.name} (${file.parts} part${file.parts === 1 ? '' : 's'})`,
+      )
+      .join('\n') +
+    '\n\n';
   return (
     `[Attachments]\n` +
     `These files belong to this user. INDEX.md is already below when present.\n` +
     `Do not fs_read INDEX.md just to reload it.\n` +
-    `If it lists no files, do not use fs_* tools; write from the user request only.\n` +
-    `If the user @-mentioned files, grep those files first, then peek with fs_read around the hits. Do not load a whole part-*.md.\n\n` +
+    `Grep the @-mentioned files first, then peek with fs_read around the hits. Do not load a whole part-*.md.\n\n` +
     mentionBlock +
     (index
       ? index.content + (index.truncated ? '\n…(truncated)\n' : '\n')

@@ -3,7 +3,44 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { runWithWritingTurn } from '../runtime/writingTurnContext';
-import { buildWritingUserPrompt } from './writingTurnPrefix';
+import {
+  buildWritingUserPrompt,
+  writingFsToolsForTurn,
+} from './writingTurnPrefix';
+
+const MEMO = {
+  fileId: 'a1',
+  userId: 'user-42',
+  name: 'memo.docx',
+  status: 'ready' as const,
+  relDir: 'memo-a1',
+  parts: 2,
+  charCount: 40,
+  format: 'docx',
+  createdAt: 't',
+};
+
+describe('writingFsToolsForTurn', () => {
+  it('returns no fs tools when no file is selected', () => {
+    expect(
+      writingFsToolsForTurn('fix typos in this transcript', {
+        userId: 'user-42',
+        rootAbs: '/tmp/writing',
+        files: [MEMO],
+      }),
+    ).toEqual([]);
+  });
+
+  it('returns fs tools when a file is @mentioned', () => {
+    expect(
+      writingFsToolsForTurn('rewrite @memo.docx', {
+        userId: 'user-42',
+        rootAbs: '/tmp/writing',
+        files: [MEMO],
+      }),
+    ).toEqual(['fs_ls', 'fs_read', 'fs_grep', 'fs_find']);
+  });
+});
 
 describe('buildWritingUserPrompt', () => {
   let root: string;
@@ -18,7 +55,7 @@ describe('buildWritingUserPrompt', () => {
     );
   });
 
-  it('uses an explicit writing context without ALS', () => {
+  it('does not inject attachments or fs instructions when no file is selected', () => {
     root = mkdtempSync(join(tmpdir(), 'writing-prefix-'));
     writeFileSync(
       join(root, 'INDEX.md'),
@@ -28,13 +65,14 @@ describe('buildWritingUserPrompt', () => {
     const prompt = buildWritingUserPrompt('Summarize this', {
       userId: 'user-42',
       rootAbs: root,
-      files: [],
+      files: [MEMO],
     });
-    expect(prompt).toContain('[Attachments]');
-    expect(prompt).toContain('memo.docx');
+    expect(prompt).toBe('[User request]\nSummarize this');
+    expect(prompt).not.toMatch(/fs_/);
+    expect(prompt).not.toContain('[Attachments]');
   });
 
-  it('injects INDEX.md inside a writing turn', async () => {
+  it('skips INDEX.md in a writing turn when no file is selected', async () => {
     root = mkdtempSync(join(tmpdir(), 'writing-prefix-'));
     writeFileSync(
       join(root, 'INDEX.md'),
@@ -42,12 +80,10 @@ describe('buildWritingUserPrompt', () => {
       'utf8',
     );
     const prompt = await runWithWritingTurn(
-      { userId: 'user-42', rootAbs: root, files: [] },
+      { userId: 'user-42', rootAbs: root, files: [MEMO] },
       () => buildWritingUserPrompt('Summarize this'),
     );
-    expect(prompt).toContain('[Attachments]');
-    expect(prompt).toContain('memo.docx');
-    expect(prompt).toContain('[User request]\nSummarize this');
+    expect(prompt).toBe('[User request]\nSummarize this');
   });
 
   it('lists @mentioned files first', async () => {
@@ -57,19 +93,7 @@ describe('buildWritingUserPrompt', () => {
       {
         userId: 'user-42',
         rootAbs: root,
-        files: [
-          {
-            fileId: 'a1',
-            userId: 'user-42',
-            name: 'memo.docx',
-            status: 'ready',
-            relDir: 'memo-a1',
-            parts: 2,
-            charCount: 40,
-            format: 'docx',
-            createdAt: 't',
-          },
-        ],
+        files: [MEMO],
       },
       () => buildWritingUserPrompt('rewrite @memo.docx'),
     );

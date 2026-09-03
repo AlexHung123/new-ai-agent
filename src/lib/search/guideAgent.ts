@@ -5,6 +5,7 @@ import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import type { Embeddings } from '@langchain/core/embeddings';
 import eventEmitter from 'events';
 import { MetaSearchAgentType } from './metaSearchAgent';
+import { formatAgentFailureResponse } from '../models/llmProviderError';
 import { streamAgentProgressToEmitter } from '../utils/agentStream';
 import { getSharedAgentContext } from './shared/agent/getSharedAgentContext';
 import { safeJson } from './shared/utils/safeJson';
@@ -97,7 +98,7 @@ export default class GuideAgent implements MetaSearchAgentType {
           'data',
           JSON.stringify({
             type: 'response',
-            data: `\n\nError: ${error instanceof Error ? error.message : String(error)}`,
+            data: formatAgentFailureResponse(error),
           }),
         );
       } finally {

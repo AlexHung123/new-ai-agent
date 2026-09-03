@@ -247,4 +247,115 @@ describe('streamAgentProgressToEmitter', () => {
       },
     });
   });
+
+  it('emits emptyResponseFallback when the run ends with no text', async () => {
+    const agent = createScriptedAgent([{ type: 'agent_end' }]);
+    const emitter = new EventEmitter();
+    const lines = collectLines(emitter);
+
+    const done = streamAgentProgressToEmitter({
+      agent,
+      emitter,
+      emptyResponseFallback: 'Based on the provided document, I could not find any information regarding your question.',
+    });
+    await agent.prompt('q');
+    const result = await done;
+
+    expect(result.hasTextResponse).toBe(true);
+    expect(lines).toContainEqual({ type: 'response', data: DISCLAIMER });
+    expect(lines).toContainEqual({
+      type: 'response',
+      data: 'Based on the provided document, I could not find any information regarding your question.',
+    });
+  });
+
+  it('emits LLM provider connection error instead of empty fallback', async () => {
+    const agent = createScriptedAgent([{ type: 'agent_end' }]);
+    agent.state.errorMessage = 'connect ECONNREFUSED 192.168.128.122:8000';
+    const emitter = new EventEmitter();
+    const lines = collectLines(emitter);
+
+    const done = streamAgentProgressToEmitter({
+      agent,
+      emitter,
+      emptyResponseFallback:
+        'Based on the provided document, I could not find any information regarding your question.',
+    });
+    await agent.prompt('q');
+    const result = await done;
+
+    expect(result.hasTextResponse).toBe(true);
+    expect(lines).toContainEqual({
+      type: 'response',
+      data: 'LLM provider connection error.',
+    });
+    expect(lines).not.toContainEqual({
+      type: 'response',
+      data: 'Based on the provided document, I could not find any information regarding your question.',
+    });
+  });
+
+  it('emits LLM provider connection error when the model does not exist', async () => {
+    const agent = createScriptedAgent([
+      {
+        type: 'message_end',
+        message: {
+          role: 'assistant',
+          content: [],
+          stopReason: 'error',
+          errorMessage:
+            '404 The model `deepseek-ai/DeepSeek-V4-Flash-0731111` does not exist.',
+        },
+      },
+      { type: 'agent_end' },
+    ]);
+    const emitter = new EventEmitter();
+    const lines = collectLines(emitter);
+
+    const done = streamAgentProgressToEmitter({
+      agent,
+      emitter,
+      emptyResponseFallback:
+        'Based on the provided document, I could not find any information regarding your question.',
+    });
+    await agent.prompt('q');
+    const result = await done;
+
+    expect(result.hasTextResponse).toBe(true);
+    expect(lines).toContainEqual({
+      type: 'response',
+      data: 'LLM provider connection error.',
+    });
+    expect(lines).not.toContainEqual({
+      type: 'response',
+      data: 'Based on the provided document, I could not find any information regarding your question.',
+    });
+  });
+
+  it('emits LLM provider connection error when a failed LLM turn has no empty fallback', async () => {
+    const agent = createScriptedAgent([
+      {
+        type: 'message_end',
+        message: {
+          role: 'assistant',
+          content: [],
+          stopReason: 'error',
+          errorMessage:
+            '404 The model `deepseek-ai/DeepSeek-V4-Flash-0731111` does not exist.',
+        },
+      },
+      { type: 'agent_end' },
+    ]);
+    const emitter = new EventEmitter();
+    const lines = collectLines(emitter);
+
+    const done = streamAgentProgressToEmitter({ agent, emitter });
+    await agent.prompt('q');
+    await done;
+
+    expect(lines).toContainEqual({
+      type: 'response',
+      data: 'LLM provider connection error.',
+    });
+  });
 });

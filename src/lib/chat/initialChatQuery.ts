@@ -10,6 +10,15 @@ function appPathname(pathname: string): string {
   return path.startsWith('/') ? path : `/${path}`;
 }
 
+export function isChatPath(pathname: string): boolean {
+  const path = appPathname(pathname);
+  return path === '/' || path.startsWith('/c/');
+}
+
+export function isNewChatPath(pathname: string): boolean {
+  return appPathname(pathname) === '/';
+}
+
 /** `?q=` bootstraps a first chat message. It must not apply on other pages
  * (admin search also uses `q`, and ChatProvider is mounted app-wide). */
 export function initialChatQuery(
@@ -21,9 +30,7 @@ export function initialChatQuery(
     return null;
   }
 
-  const path = appPathname(pathname);
-  const isChatRoute = path === '/' || path.startsWith('/c/');
-  if (!isChatRoute) {
+  if (!isChatPath(pathname)) {
     return null;
   }
 

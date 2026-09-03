@@ -1,4 +1,8 @@
 import { assistantContentAfterAbort } from '../../../chat/abortedReply';
+import {
+  LLM_PROVIDER_CONNECTION_ERROR,
+  isLlmProviderConnectionError,
+} from '../../../models/llmProviderError';
 import type { PooledAgent } from './piAgentSessionManager';
 
 export type CompletePiAgentResult = {
@@ -44,6 +48,7 @@ export async function completePiAgent(
   signal?: AbortSignal,
 ): Promise<CompletePiAgentResult> {
   let text = '';
+  let providerError: unknown;
 
   const onAbort = () => {
     try {
@@ -67,6 +72,16 @@ export async function completePiAgent(
       if (fromMsg) {
         text = fromMsg;
       }
+      const msg = event.message as {
+        errorMessage?: unknown;
+        stopReason?: unknown;
+      };
+      if (
+        msg.stopReason === 'error' ||
+        (typeof msg.errorMessage === 'string' && msg.errorMessage)
+      ) {
+        providerError = msg;
+      }
     }
   });
 
@@ -75,6 +90,12 @@ export async function completePiAgent(
     await agent.waitForIdle();
     if (signal?.aborted) {
       return { status: 'aborted', text: assistantContentAfterAbort(text) };
+    }
+    if (
+      !text.trim() &&
+      isLlmProviderConnectionError(providerError ?? agent.state.errorMessage)
+    ) {
+      return { status: 'error', text: LLM_PROVIDER_CONNECTION_ERROR };
     }
     return { status: 'ok', text };
   } catch (error) {
@@ -85,6 +106,9 @@ export async function completePiAgent(
         /* ignore */
       }
       return { status: 'aborted', text: assistantContentAfterAbort(text) };
+    }
+    if (isLlmProviderConnectionError(error)) {
+      return { status: 'error', text: LLM_PROVIDER_CONNECTION_ERROR };
     }
     throw error;
   } finally {

@@ -4,15 +4,25 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { ArrowLeft, Copy, Download, Mic, Upload } from 'lucide-react';
+import {
+  ArrowLeft,
+  Copy,
+  Download,
+  Mic,
+  Upload,
+  WandSparkles,
+} from 'lucide-react';
 import { motion } from 'framer-motion';
 import Select from '@/components/ui/Select';
+import { stashPendingInitialChatMessage } from '@/lib/chat/pendingInitialMessage';
+import { useChat } from '@/lib/hooks/useChat';
 import {
   getAuthHeaders,
   getAuthToken,
   initializeAuthToken,
 } from '@/lib/utils/auth';
 import { audioAcceptAttribute } from '@/lib/voice/audio-formats';
+import { buildTypoSummaryPrompt } from '@/lib/voice/transcriptFormat';
 import { DEFAULT_TTS_MODEL, TTS_MODELS } from '@/lib/voice/ttsModels';
 
 const VOICE_PERMISSION = 'chatVoiceAgent:execute';
@@ -28,6 +38,7 @@ type VoiceTab = 'speak' | 'transcribe';
 
 const VoicePage = () => {
   const searchParams = useSearchParams();
+  const { setFocusMode } = useChat();
   const [tokenReady, setTokenReady] = useState(false);
   const [loadingAccess, setLoadingAccess] = useState(true);
   const [allowed, setAllowed] = useState(false);
@@ -226,6 +237,13 @@ const VoicePage = () => {
     link.download = downloadName;
     link.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleCheckTypoAndSummarize = () => {
+    if (!markdown) return;
+    stashPendingInitialChatMessage(buildTypoSummaryPrompt(markdown));
+    setFocusMode('agentWriting');
+    window.location.href = '/itms/ai/';
   };
 
   if (loadingAccess) {
@@ -535,11 +553,19 @@ const VoicePage = () => {
                     </button>
                     <button
                       type="button"
+                      onClick={handleCheckTypoAndSummarize}
+                      className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
+                    >
+                      <WandSparkles size={16} />
+                      Check Typo and Summarize
+                    </button>
+                    <button
+                      type="button"
                       onClick={handleDownloadTranscript}
                       className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
                     >
                       <Download size={16} />
-                      Download {downloadName}
+                      Download
                     </button>
                   </div>
                 </div>

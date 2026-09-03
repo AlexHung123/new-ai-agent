@@ -73,6 +73,25 @@ export function buildTranscriptMarkdown(input: TranscriptFormatInput): string {
   return lines.join('\n');
 }
 
+export const TYPO_SUMMARY_INSTRUCTION =
+  'help me to find out all the typo, mistakes and correct it, and then summarize it';
+
+/** Body after the `## Transcript` heading. Empty when the heading is missing. */
+export function extractTranscriptBody(markdown: string): string {
+  const lines = (markdown || '').split(/\r?\n/);
+  const headingIndex = lines.findIndex((line) =>
+    /^##\s*Transcript\s*$/i.test(line),
+  );
+  if (headingIndex === -1) return '';
+  return lines.slice(headingIndex + 1).join('\n').trim();
+}
+
+export function buildTypoSummaryPrompt(markdown: string): string {
+  const body = extractTranscriptBody(markdown);
+  if (!body) return TYPO_SUMMARY_INSTRUCTION;
+  return `${TYPO_SUMMARY_INSTRUCTION}\n\n${body}`;
+}
+
 export function transcriptDownloadFilename(originalName: string): string {
   const base =
     originalName

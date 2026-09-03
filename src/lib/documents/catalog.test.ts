@@ -56,6 +56,14 @@ describe('document catalog', () => {
     ]);
   });
 
+  it('hides sfc from the Agent Document picker while still resolving it', () => {
+    mkdirSync(join(root, 'sfc', 'wiki'), { recursive: true });
+    mkdirSync(join(root, 'spr'));
+    writeFileSync(join(root, 'spr', 'AGENTS.md'), '# spr\n');
+    expect(listAvailableDocuments().map((s) => s.id)).toEqual(['spr']);
+    expect(resolveDocument('sfc')?.id).toBe('sfc');
+  });
+
   it('keeps titles and descriptions free of Chinese characters', () => {
     const cjk = /[\u3000-\u9fff\uf900-\ufaff]/;
     for (const slot of DOCUMENT_SLOTS) {

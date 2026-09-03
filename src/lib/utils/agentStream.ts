@@ -1,5 +1,9 @@
 import type { EventEmitter } from 'events';
 import { buildToolEndSummary } from '../chat/toolSummary';
+import {
+  LLM_PROVIDER_CONNECTION_ERROR,
+  isLlmProviderConnectionError,
+} from '../models/llmProviderError';
 import type { PooledAgent } from '../search/shared/agent/piAgentSessionManager';
 
 interface StreamAgentProgressOptions {
@@ -99,6 +103,7 @@ export function streamAgentProgressToEmitter(
   let hasEmittedWarning = false;
   let hasTextResponse = false;
   let settled = false;
+  let providerError: unknown;
   const collectedSources: Array<{
     pageContent: string;
     metadata: { title: string; url: string };
@@ -111,14 +116,22 @@ export function streamAgentProgressToEmitter(
       unsubscribe();
       signal?.removeEventListener('abort', onAbort);
 
-      if (
-        !hasTextResponse &&
-        emptyResponseFallback &&
-        !signal?.aborted
-      ) {
-        emitJson(emitter, { type: 'response', data: DISCLAIMER });
-        emitJson(emitter, { type: 'response', data: emptyResponseFallback });
-        hasTextResponse = true;
+      if (!hasTextResponse && !signal?.aborted) {
+        if (
+          isLlmProviderConnectionError(
+            providerError ?? agent.state.errorMessage,
+          )
+        ) {
+          emitJson(emitter, {
+            type: 'response',
+            data: LLM_PROVIDER_CONNECTION_ERROR,
+          });
+          hasTextResponse = true;
+        } else if (emptyResponseFallback) {
+          emitJson(emitter, { type: 'response', data: DISCLAIMER });
+          emitJson(emitter, { type: 'response', data: emptyResponseFallback });
+          hasTextResponse = true;
+        }
       }
 
       if (collectedSources.length > 0) {
@@ -210,6 +223,16 @@ export function streamAgentProgressToEmitter(
               resultPreview: event.result?.details ?? event.result,
             },
           });
+          break;
+        }
+        case 'message_end': {
+          const message = event.message;
+          if (
+            message?.stopReason === 'error' ||
+            (typeof message?.errorMessage === 'string' && message.errorMessage)
+          ) {
+            providerError = message;
+          }
           break;
         }
         case 'agent_end':

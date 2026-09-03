@@ -8,6 +8,10 @@ import configManager from '../config';
 import db from '../db';
 import { sfcQuestionM } from '../db/schema';
 import { eq, and } from 'drizzle-orm';
+import {
+  LLM_PROVIDER_CONNECTION_ERROR,
+  isLlmProviderConnectionError,
+} from '../models/llmProviderError';
 
 class SfcAgent implements MetaSearchAgentType {
   // 靜態 Converter 實例，避免每次調用都創建新實例
@@ -849,7 +853,9 @@ class SfcAgent implements MetaSearchAgentType {
             'data',
             JSON.stringify({
               type: 'response',
-              data: `錯誤：${error instanceof Error ? error.message : String(error)}`,
+              data: isLlmProviderConnectionError(error)
+                ? LLM_PROVIDER_CONNECTION_ERROR
+                : `錯誤：${error instanceof Error ? error.message : String(error)}`,
             }),
           );
           emitter.emit('end');

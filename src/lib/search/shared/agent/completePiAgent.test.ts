@@ -154,4 +154,48 @@ describe('completePiAgent', () => {
       text: '這段文字的重點是…',
     });
   });
+
+  it('returns the LLM connection fallback when the provider is unreachable', async () => {
+    const agent = createScriptedAgent([
+      {
+        type: 'message_end',
+        message: {
+          role: 'assistant',
+          content: [{ type: 'text', text: '' }],
+          stopReason: 'error',
+          errorMessage: 'fetch failed',
+        },
+      },
+    ]);
+    agent.state.errorMessage = 'fetch failed';
+
+    const result = await completePiAgent(agent, 'hi');
+
+    expect(result).toEqual({
+      status: 'error',
+      text: 'LLM provider connection error.',
+    });
+  });
+
+  it('returns the LLM connection fallback when the model does not exist', async () => {
+    const agent = createScriptedAgent([
+      {
+        type: 'message_end',
+        message: {
+          role: 'assistant',
+          content: [{ type: 'text', text: '' }],
+          stopReason: 'error',
+          errorMessage:
+            '404 The model `deepseek-ai/DeepSeek-V4-Flash-0731111` does not exist.',
+        },
+      },
+    ]);
+
+    const result = await completePiAgent(agent, 'hi');
+
+    expect(result).toEqual({
+      status: 'error',
+      text: 'LLM provider connection error.',
+    });
+  });
 });

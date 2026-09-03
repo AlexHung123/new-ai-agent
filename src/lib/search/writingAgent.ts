@@ -5,14 +5,16 @@ import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import type { Embeddings } from '@langchain/core/embeddings';
 import eventEmitter from 'events';
 import { MetaSearchAgentType } from './metaSearchAgent';
+import { formatAgentFailureResponse } from '../models/llmProviderError';
 import { streamAgentProgressToEmitter } from '../utils/agentStream';
 import { getSharedAgentContext } from './shared/agent/getSharedAgentContext';
-import { buildWritingUserPrompt } from './shared/prompts/writingTurnPrefix';
+import {
+  buildWritingUserPrompt,
+  writingFsToolsForTurn,
+} from './shared/prompts/writingTurnPrefix';
 import { bindTurnFsTools } from './shared/runtime/bindTurnFsTools';
 import { getWritingTurnContext } from './shared/runtime/writingTurnContext';
 import { safeJson } from './shared/utils/safeJson';
-
-const FS_TOOLS = ['fs_ls', 'fs_read', 'fs_grep', 'fs_find'];
 
 export default class WritingAgent implements MetaSearchAgentType {
   async searchAndAnswer(
@@ -64,15 +66,19 @@ export default class WritingAgent implements MetaSearchAgentType {
         const stableAgentId =
           harnessAgentManager.normalizeAgentId(requestAgentId);
 
+        const fsTools = writingFsToolsForTurn(message, writingCtx);
         const agent = await harnessAgentManager.getOrCreateAgent(
           stableAgentId,
-          FS_TOOLS,
+          fsTools,
           'writing-agent-template',
         );
 
         harnessAgentManager.markBusy(stableAgentId);
         harnessAgentManager.touchAgent(stableAgentId);
-        const restoreFs = bindTurnFsTools(agent, { writing: writingCtx });
+        const restoreFs = bindTurnFsTools(
+          agent,
+          fsTools.length > 0 ? { writing: writingCtx } : {},
+        );
 
         try {
           const subscriptionPromise = streamAgentProgressToEmitter({
@@ -105,7 +111,7 @@ export default class WritingAgent implements MetaSearchAgentType {
           'data',
           JSON.stringify({
             type: 'response',
-            data: `\n\nError: ${error instanceof Error ? error.message : String(error)}`,
+            data: formatAgentFailureResponse(error),
           }),
         );
       } finally {

@@ -16,8 +16,7 @@ const OPTIONS: Array<{
   position: 'first' | 'middle' | 'last';
 }> = [
   { id: 'keyword', label: 'Keyword Search', position: 'first' },
-  { id: 'reply', label: 'Reply Generation', position: 'middle' },
-  { id: 'document', label: 'Document Q&A', position: 'last' },
+  { id: 'document', label: 'Reply Generation', position: 'last' },
 ];
 
 function optionFromFocusMode(focusMode: string): SfcOption {

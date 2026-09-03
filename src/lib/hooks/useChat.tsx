@@ -37,6 +37,7 @@ import {
 } from '../chat/agentProcess';
 import { applySseProcessEvent } from '../chat/applySseProcessEvent';
 import { initialChatQuery } from '../chat/initialChatQuery';
+import { takePendingInitialChatMessage } from '../chat/pendingInitialMessage';
 import { messageFromChatHttpError } from '../chat/readChatHttpError';
 import {
   extractUserIdFromToken,
@@ -693,13 +694,14 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     [chatTurns],
   );
 
-  // Auto-send initial query (?q=...)
+  // Auto-send initial query (?q=...) or a stashed prompt from another tool
   useEffect(() => {
-    if (isReady && initialMessage && isConfigReady) {
-      sendMessage(initialMessage);
-    }
+    if (!isReady || !isConfigReady) return;
+    const message =
+      initialMessage ?? takePendingInitialChatMessage(pathname);
+    if (message) sendMessage(message);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isReady, isConfigReady, initialMessage]);
+  }, [isReady, isConfigReady, initialMessage, pathname]);
 
   const sendMessageImplementation: ChatContext['sendMessage'] = async (
     message,

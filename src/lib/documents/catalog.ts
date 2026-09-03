@@ -6,6 +6,8 @@ export type DocumentSlot = {
   title: string;
   description: string;
   dirName: string;
+  /** When true, omit from Agent Document picker; still resolvable for Agent SFC. */
+  hiddenFromPicker?: boolean;
 };
 
 export const DOCUMENT_SLOTS: DocumentSlot[] = [
@@ -58,6 +60,7 @@ export const DOCUMENT_SLOTS: DocumentSlot[] = [
       'Finance Committee Special Meetings written replies on the Estimates of Expenditure (SFC)',
     description: '',
     dirName: 'sfc',
+    hiddenFromPicker: true,
   },
   {
     id: 'training-guide',
@@ -89,7 +92,9 @@ export function isDocumentAvailable(slot: DocumentSlot): boolean {
 }
 
 export function listAvailableDocuments(): DocumentSlot[] {
-  return DOCUMENT_SLOTS.filter(isDocumentAvailable);
+  return DOCUMENT_SLOTS.filter(
+    (slot) => !slot.hiddenFromPicker && isDocumentAvailable(slot),
+  );
 }
 
 export function resolveDocument(
