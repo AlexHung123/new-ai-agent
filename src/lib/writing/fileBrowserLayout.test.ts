@@ -60,6 +60,18 @@ describe('writing FILES explorer layout', () => {
     expect(xl).toMatch(/\.writing-left-rail\s*\{[^}]*position:\s*fixed/s);
     expect(xl).toMatch(/\.writing-left-rail\s+\.writing-file-browser\s*\{[^}]*flex:\s*1/s);
   });
+
+  it('keeps the writing agent card at the same art size as other agents', () => {
+    const art = cssRule(css, '.agent-card-art');
+    expect(art).toMatch(/aspect-ratio:\s*1/);
+    expect(art).toMatch(/max-height:\s*16rem/);
+    expect(css).not.toMatch(
+      /\.writing-left-rail:has\([^)]*writing-file-browser[^)]*\)\s+\.agent-card-art/,
+    );
+    expect(css).toMatch(
+      /\.writing-left-rail\s+\.agent-card\s*\{[^}]*flex:\s*0\s+0\s+auto/s,
+    );
+  });
 });
 
 describe('writing FILES explorer markup', () => {

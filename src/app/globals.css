@@ -19,6 +19,7 @@
   --wiki-shadow-focus: 0 0 0 3px rgba(15, 118, 110, 0.18);
   --wiki-primary: #0f766e;
   --wiki-primary-soft: #e5f3f0;
+  --chat-content-max-width: 820px;
   --mobile-bottom-nav-height: 0px;
 }
 
@@ -440,7 +441,7 @@
 }
 
 .message-list {
-  width: min(100%, 720px);
+  width: min(100%, var(--chat-content-max-width, 820px));
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -791,7 +792,7 @@
 
 .welcome-wiki {
   display: flex;
-  width: min(100%, 720px);
+  width: min(100%, var(--chat-content-max-width, 820px));
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -1296,17 +1297,12 @@
 
   .writing-left-rail .agent-card {
     width: 100%;
-    flex: 0 1 auto;
-    min-height: 0;
+    flex: 0 0 auto;
   }
 
   .writing-left-rail .writing-file-browser {
     width: 100%;
     flex: 1 1 0;
     min-height: 10rem;
-  }
-
-  .writing-left-rail:has(.writing-file-browser) .agent-card-art {
-    max-height: 8rem;
   }
 }
