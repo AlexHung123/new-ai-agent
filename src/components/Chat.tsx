@@ -6,7 +6,6 @@ import MessageBox from './MessageBox';
 import MessageBoxLoading from './MessageBoxLoading';
 import { useChat } from '@/lib/hooks/useChat';
 import { findDisplayFocusMode } from '@/lib/agents';
-import WritingFileBrowser from './WritingFileBrowser';
 import Link from 'next/link';
 
 const Chat = () => {
@@ -73,11 +72,6 @@ const Chat = () => {
 
   return (
     <div className="wiki-chat">
-      {focusMode === 'agentWriting' ? (
-        <div className="writing-file-browser-chat">
-          <WritingFileBrowser />
-        </div>
-      ) : null}
       <div ref={columnRef} className="message-list">
         {sections.map((section, i) => {
           const isLast = i === sections.length - 1;

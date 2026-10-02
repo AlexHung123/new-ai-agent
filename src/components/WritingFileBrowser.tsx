@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { ChevronRight, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { useChat } from '@/lib/hooks/useChat';
+import { filterFilesByQuery } from '@/lib/writing/mentions';
 import {
   MAX_WRITING_FILES,
   WRITING_ACCEPT,
@@ -26,6 +27,11 @@ const WritingFileBrowser = ({ compact = false }: { compact?: boolean }) => {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [filesOpen, setFilesOpen] = useState(true);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [query, setQuery] = useState('');
+  const visibleFiles = useMemo(
+    () => filterFilesByQuery(writingFiles, query),
+    [writingFiles, query],
+  );
 
   if (focusMode !== 'agentWriting') return null;
 
@@ -109,6 +115,14 @@ const WritingFileBrowser = ({ compact = false }: { compact?: boolean }) => {
 
       {filesOpen ? (
         <div className="writing-files-body">
+          <input
+            type="search"
+            className="writing-files-search"
+            placeholder="Search files..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            aria-label="Search files"
+          />
           <div className="writing-files-path">
             <button type="button" className="writing-files-path-up" disabled>
               ..
@@ -120,8 +134,10 @@ const WritingFileBrowser = ({ compact = false }: { compact?: boolean }) => {
               <li className="writing-files-empty">
                 Empty — upload files with ↑
               </li>
+            ) : visibleFiles.length === 0 ? (
+              <li className="writing-files-empty">No matching files</li>
             ) : (
-              writingFiles.map((file) => {
+              visibleFiles.map((file) => {
                 const uploading = file.status === 'uploading';
                 const failed = file.status === 'failed';
                 const selected = selectedIds.includes(file.fileId);
@@ -138,8 +154,13 @@ const WritingFileBrowser = ({ compact = false }: { compact?: boolean }) => {
                         disabled={uploading}
                         title={file.error || `Mention ${file.name}`}
                       >
-                        <FileTypeIcon name={file.name} size={16} />
-                        <span className="writing-file-name" title={file.name}>
+                        <FileTypeIcon name={file.name} size={14} />
+                        <span
+                          className="writing-file-name"
+                          title={
+                            size ? `${file.name} · ${size}` : file.name
+                          }
+                        >
                           {uploading ? `Uploading… ${file.name}` : file.name}
                         </span>
                         {failed ? (

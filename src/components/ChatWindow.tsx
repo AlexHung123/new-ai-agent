@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 import Navbar from './Navbar';
 import Chat from './Chat';
-import AgentCard from './AgentCard';
+import WritingLeftRail from './WritingLeftRail';
 import EmptyChat from './EmptyChat';
 import Loader from './ui/Loader';
 import SettingsButtonMobile from './Settings/SettingsButtonMobile';
@@ -114,14 +114,7 @@ const ChatWindow = () => {
       >
         {messages.length > 0 ? (
           <>
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2, duration: 0.5, ease: 'easeOut' }}
-              className="fixed left-20 top-24 z-30 ml-4 hidden xl:block"
-            >
-              <AgentCard />
-            </motion.div>
+            <WritingLeftRail />
             <Navbar />
             <Chat />
             <div className="message-outline-host hidden xl:block">
