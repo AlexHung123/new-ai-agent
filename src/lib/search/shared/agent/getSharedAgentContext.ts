@@ -107,11 +107,20 @@ export type SharedAgentContext = {
 declare global {
   // eslint-disable-next-line no-var
   var __sharedAgentContext: SharedAgentContext | undefined;
+  // eslint-disable-next-line no-var
+  var __sharedAgentContextRev: number | undefined;
 }
 
+/** Bump when session-manager behavior changes so Next.js HMR rebuilds the pool. */
+const SHARED_AGENT_CONTEXT_REV = 2;
+
 export function getSharedAgentContext(): SharedAgentContext {
-  if (!globalThis.__sharedAgentContext) {
+  if (
+    !globalThis.__sharedAgentContext ||
+    globalThis.__sharedAgentContextRev !== SHARED_AGENT_CONTEXT_REV
+  ) {
     globalThis.__sharedAgentContext = initSharedAgentDependencies();
+    globalThis.__sharedAgentContextRev = SHARED_AGENT_CONTEXT_REV;
   }
   return globalThis.__sharedAgentContext;
 }

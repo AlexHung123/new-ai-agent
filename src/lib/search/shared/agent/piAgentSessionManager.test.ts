@@ -4,6 +4,7 @@ import { createMemoryAgentTranscriptStore } from '../runtime/agentTranscriptStor
 import { createMemoryPiSessionStore } from '../runtime/piSessionStore';
 import {
   createPiAgentSessionManager,
+  messagesHaveToolHistory,
   type CreatePooledAgentOptions,
   type PooledAgent,
 } from './piAgentSessionManager';
@@ -50,12 +51,14 @@ function createManager(maxActiveAgents = 2) {
       'writing-agent-template': {
         id: 'writing-agent-template',
         systemPrompt: 'write',
-        tools: [],
+        tools: ['fs_ls', 'fs_read'],
       },
     },
     tools: {
       es_bm25_search: { name: 'es_bm25_search' },
       guide_search: { name: 'guide_search' },
+      fs_ls: { name: 'fs_ls' },
+      fs_read: { name: 'fs_read' },
     },
     createAgent: (opts) => {
       const agent = createFakeAgent(opts);
@@ -65,6 +68,36 @@ function createManager(maxActiveAgents = 2) {
   });
   return { manager, store, transcript, created };
 }
+
+describe('messagesHaveToolHistory', () => {
+  it('detects assistant toolCall blocks and toolResult rows', () => {
+    expect(
+      messagesHaveToolHistory([
+        {
+          role: 'assistant',
+          content: [{ type: 'toolCall', id: 'tc1', name: 'fs_read' }],
+        },
+      ]),
+    ).toBe(true);
+    expect(
+      messagesHaveToolHistory([
+        { role: 'toolResult', toolCallId: 'tc1', toolName: 'fs_read' },
+      ]),
+    ).toBe(true);
+  });
+
+  it('is false for plain user/assistant text', () => {
+    expect(
+      messagesHaveToolHistory([
+        { role: 'user', content: 'hello' },
+        {
+          role: 'assistant',
+          content: [{ type: 'text', text: 'Hi there' }],
+        },
+      ]),
+    ).toBe(false);
+  });
+});
 
 describe('createPiAgentSessionManager', () => {
   it('normalizes empty and whitespace ids to the default', () => {
@@ -90,6 +123,89 @@ describe('createPiAgentSessionManager', () => {
     );
     expect(agent.state.systemPrompt).toBe('write');
     expect(agent.state.tools.map((t) => t.name)).toEqual(['es_bm25_search']);
+  });
+
+  it('creates with no tools when override is empty and history has none', async () => {
+    const { manager } = createManager();
+    const agent = await manager.getOrCreateAgent(
+      'c1',
+      [],
+      'writing-agent-template',
+    );
+    expect(agent.state.tools).toEqual([]);
+  });
+
+  it('does not strip tools from an existing session when a later turn passes an empty override', async () => {
+    const { manager } = createManager();
+    const agent = await manager.getOrCreateAgent('c1', [
+      'es_bm25_search',
+    ]);
+    agent.state.messages.push({
+      role: 'assistant',
+      content: [
+        {
+          type: 'toolCall',
+          id: 'tc1',
+          name: 'es_bm25_search',
+          arguments: {},
+        },
+      ],
+    });
+    const again = await manager.getOrCreateAgent('c1', []);
+    expect(again).toBe(agent);
+    expect(again.state.tools.map((t) => t.name)).toEqual(['es_bm25_search']);
+  });
+
+  it('restores template tools when an in-memory session lost them but still has tool history', async () => {
+    const { manager } = createManager();
+    const agent = await manager.getOrCreateAgent(
+      'c1',
+      ['fs_read'],
+      'writing-agent-template',
+    );
+    agent.state.messages.push({
+      role: 'toolResult',
+      toolCallId: 'tc1',
+      toolName: 'fs_read',
+      content: [{ type: 'text', text: 'doc body' }],
+    });
+    agent.state.tools = [];
+    const again = await manager.getOrCreateAgent(
+      'c1',
+      [],
+      'writing-agent-template',
+    );
+    expect(again.state.tools.map((t) => t.name)).toEqual(['fs_ls', 'fs_read']);
+  });
+
+  it('uses template tools when hydrating a session that already has tool history', async () => {
+    const { manager, store } = createManager();
+    await store.save('keep', {
+      templateId: 'writing-agent-template',
+      messages: [
+        { role: 'user', content: 'summarize @memo.docx', timestamp: 1 },
+        {
+          role: 'assistant',
+          content: [
+            { type: 'toolCall', id: 'tc1', name: 'fs_read', arguments: {} },
+          ],
+          timestamp: 2,
+        },
+        {
+          role: 'toolResult',
+          toolCallId: 'tc1',
+          toolName: 'fs_read',
+          content: [{ type: 'text', text: 'doc body' }],
+          timestamp: 3,
+        },
+      ],
+    });
+    const agent = await manager.getOrCreateAgent(
+      'keep',
+      [],
+      'writing-agent-template',
+    );
+    expect(agent.state.tools.map((t) => t.name)).toEqual(['fs_ls', 'fs_read']);
   });
 
   it('evicts the least recently used idle agent when full', async () => {

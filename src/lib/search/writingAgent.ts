@@ -77,7 +77,7 @@ export default class WritingAgent implements MetaSearchAgentType {
         harnessAgentManager.touchAgent(stableAgentId);
         const restoreFs = bindTurnFsTools(
           agent,
-          fsTools.length > 0 ? { writing: writingCtx } : {},
+          writingCtx ? { writing: writingCtx } : {},
         );
 
         try {

@@ -17,16 +17,16 @@ import {
 } from './types';
 
 describe('writing attachment filename rules', () => {
-  it('caps Agent Writing uploads at five files', () => {
-    expect(MAX_WRITING_FILES).toBe(5);
+  it('caps Agent Writing uploads at fifty files', () => {
+    expect(MAX_WRITING_FILES).toBe(50);
   });
 
   it('keeps only remaining slots when picking extra files', () => {
-    expect(planWritingUploads(0, ['a', 'b', 'c', 'd', 'e', 'f'])).toEqual({
-      accepted: ['a', 'b', 'c', 'd', 'e'],
+    expect(planWritingUploads(0, Array.from({ length: 51 }, (_, i) => `f${i}`))).toEqual({
+      accepted: Array.from({ length: 50 }, (_, i) => `f${i}`),
       rejected: 1,
     });
-    expect(planWritingUploads(5, ['x'])).toEqual({
+    expect(planWritingUploads(50, ['x'])).toEqual({
       accepted: [],
       rejected: 1,
     });
@@ -36,8 +36,8 @@ describe('writing attachment filename rules', () => {
     });
   });
 
-  it('states the five-file upload limit', () => {
-    expect(writingFileLimitMessage()).toBe('At most 5 files per user.');
+  it('states the file upload limit', () => {
+    expect(writingFileLimitMessage()).toBe('At most 50 files per user.');
   });
 
   it('allows Word, PowerPoint, Excel, OpenDocument, RTF, EPUB, CSV, and PDF', () => {

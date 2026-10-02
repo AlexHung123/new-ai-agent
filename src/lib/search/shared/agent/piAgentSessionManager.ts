@@ -12,6 +12,28 @@ import type { AgentTranscriptStore } from '../runtime/agentTranscriptStore';
 import type { TranscriptAgentMessage } from '../runtime/agentTranscriptCodec';
 import type { PiSessionStore } from '../runtime/piSessionStore';
 
+export function messagesHaveToolHistory(messages: unknown[]): boolean {
+  for (const raw of messages || []) {
+    if (!raw || typeof raw !== 'object') continue;
+    const msg = raw as {
+      role?: unknown;
+      content?: unknown;
+      toolCallId?: unknown;
+    };
+    const role = String(msg.role || '');
+    if (role === 'toolResult' || role === 'tool') return true;
+    if (typeof msg.toolCallId === 'string' && msg.toolCallId) return true;
+    if (role === 'assistant' && Array.isArray(msg.content)) {
+      const usedTool = msg.content.some((block) => {
+        if (!block || typeof block !== 'object') return false;
+        return (block as { type?: unknown }).type === 'toolCall';
+      });
+      if (usedTool) return true;
+    }
+  }
+  return false;
+}
+
 export type PiTemplate = {
   id: string;
   systemPrompt: string;
@@ -128,14 +150,30 @@ export function createPiAgentSessionManager(options: {
     return template;
   };
 
-  const resolveTools = (
-    template: PiTemplate,
-    toolsOverride?: string[],
-  ): NamedTool[] => {
-    const names = toolsOverride ?? template.tools;
-    return names
+  const resolveTools = (names: string[]): NamedTool[] =>
+    names
       .map((name) => tools[name])
       .filter((tool): tool is NamedTool => Boolean(tool));
+
+  const resolveEffectiveToolNames = (
+    template: PiTemplate,
+    toolsOverride: string[] | undefined,
+    messages: unknown[],
+    existingToolNames?: string[],
+  ): string[] => {
+    if (toolsOverride && toolsOverride.length > 0) {
+      return toolsOverride;
+    }
+    if (existingToolNames && existingToolNames.length > 0) {
+      return existingToolNames;
+    }
+    if (toolsOverride === undefined) {
+      return [...template.tools];
+    }
+    if (messagesHaveToolHistory(messages)) {
+      return [...template.tools];
+    }
+    return [];
   };
 
   const persistTranscript = async (agentId: string, entry: SessionEntry) => {
@@ -325,9 +363,15 @@ export function createPiAgentSessionManager(options: {
       entry.templateId = template.id;
       entry.agent.state.systemPrompt = template.systemPrompt;
     }
-    if (toolsOverride) {
+    if (toolsOverride !== undefined) {
       const template = resolveTemplate(entry.templateId);
-      entry.agent.state.tools = resolveTools(template, toolsOverride);
+      const names = resolveEffectiveToolNames(
+        template,
+        toolsOverride,
+        entry.agent.state.messages ?? [],
+        entry.agent.state.tools.map((tool) => tool.name),
+      );
+      entry.agent.state.tools = resolveTools(names);
     }
   };
 
@@ -370,7 +414,13 @@ export function createPiAgentSessionManager(options: {
       const agent = await createAgent({
         sessionId: id,
         systemPrompt: template.systemPrompt,
-        tools: resolveTools(template, toolsOverride),
+        tools: resolveTools(
+          resolveEffectiveToolNames(
+            template,
+            toolsOverride,
+            hydrated.messages,
+          ),
+        ),
         messages: hydrated.messages,
         templateId: template.id,
       });

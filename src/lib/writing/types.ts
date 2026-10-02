@@ -1,5 +1,5 @@
 export const MAX_WRITING_FILE_BYTES = 15 * 1024 * 1024;
-export const MAX_WRITING_FILES = 5;
+export const MAX_WRITING_FILES = 50;
 /** Stay under AGENT_FS_MAX_READ_BYTES (200 KiB), including CJK. */
 export const MAX_WRITING_PART_BYTES = 150 * 1024;
 
