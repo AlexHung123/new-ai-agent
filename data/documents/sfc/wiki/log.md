@@ -57,3 +57,20 @@
 - Year catalogs originally escaped `[[slug|label]]` for markdown tables; converted to `[[slug]]` so Obsidian resolves
 - Fixed `synthesis.md` citation 2016-3171 → [[2017-3171]]
 - Compiled pages: overview, synthesis, 7 chapters, 9 entities, 15 concepts, 3 comparisons, 11 year catalogs, 1 058 chunks
+
+## [2026-10-06] ingest | source3 2026 初步問題 85 條
+
+- 原料鎖定 `sfc/source3.md`（由 `wiki/new add/MinerU_2026_SFC_初步問題的書面答覆.md` 複製）；增量切檔 `sfc/scripts/ingest_source3.py`（不重寫 source1／source2 chunk，因工作樹沒有那兩份 raw）
+- 新增 85 個 chunk `wiki/chunks/2026-*.md`；與 source1 的 9 條 2026 跟進（`S…`）無 slug 重疊
+- 目錄合併為 1 143 條；[[year-2026]] 94 條（9 跟進 + 85 主體）；總目 143=892、37=77、46=80、136=22
+- 來源摘要 [[source3]]；SCHEMA／index／catalog／chunks／overview／synthesis 改為三份 immutable raw
+- `chunk_qas.py` 加入 source3；缺 raw 時中止全量重寫
+
+## [2026-10-06] compile | 把 2026 主體寫進章／概念／實體
+
+- 章：[[143-csb]]、[[37-medical-dental]]、[[46-general-expenses]]、[[136-psc-secretariat]]、[[120-pensions]]（120 本身無 2026 chunk，人數改引 [[2026-2276]]）
+- 概念：[[establishment]]、[[ncsc]]、[[ai-in-government]]、[[internship]]、[[housing-benefits]]、[[civil-service-medical]]、[[discipline]]、[[civil-service-training]]、[[post-retirement-contract]]、[[pension-benefits]]、[[pay-adjustment]]、[[language-policy]]、[[basic-law-promotion]]、[[ethnic-minorities]]、[[national-studies]]
+- 實體：[[csb]]、[[civil-service-college]]、[[psc]]、[[dh]]、[[treasury]]
+- 比較：[[compare-years]]、[[compare-heads]]、[[compare-employment-types]]
+- 義工嘉許只記在 [[143-csb]]／[[csb]]（2026 年 2–3 條，未跨年，不開概念頁）
+- 後期數字不覆蓋前期：空缺 18 193（[[2026-S013]]）vs 19 866（[[2026-2249]]）；PRSC 4 919（2024-06-30）vs 3 751（2025-06-30）；NACS 實際 16 417 vs 預算 17 100

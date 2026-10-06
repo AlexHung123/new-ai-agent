@@ -2,16 +2,17 @@
 
 > Content catalog. Every compiled wiki page listed under its type with a one-line summary.
 > Read this first to find relevant pages for any query.
-> Last updated: 2026-08-24 | Compiled pages: ~45 | Chunks: 1 058
+> Last updated: 2026-10-06 | Compiled pages: ~46 | Chunks: 1 143
 
 ## Start here
 
 - [[overview|總覽]] — 這批答問是什麼、十年地圖、誰管什麼、怎麼查。
 - [[synthesis|綜合]] — 編制轉向、四條僱用軌道、培訓軸、2019 紀律斷層、福利三塊、認識限度。
-- [[catalog|問題總目錄]] — 1 058 條按年／總目／主題；連到各年目錄。
+- [[catalog|問題總目錄]] — 1 143 條按年／總目／主題；連到各年目錄。
 - [[chunks|Chunk 規則]] — 用「年份 + 問題編號」切檔；如何引用。
-- [[source1]] — 公務員集群原料（1 042 條）。
+- [[source1]] — 公務員集群原料（1 042 條；2026 年 9 條跟進）。
 - [[source2]] — 16 條雜項總目樣本。
+- [[source3]] — 2026 年初步問題（85 條）。
 
 ## 按年目錄
 
@@ -25,7 +26,7 @@
 - [[year-2023]] — 104 條
 - [[year-2024]] — 99 條
 - [[year-2025]] — 160 條
-- [[year-2026]] — 9 條
+- [[year-2026]] — 94 條（9 條跟進 + 85 條初步問題）
 
 ## Chapters（總目）
 

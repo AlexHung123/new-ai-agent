@@ -1,7 +1,7 @@
 ---
 title: 來源摘要 — source1.md
 created: 2026-08-24
-updated: 2026-08-24
+updated: 2026-10-06
 type: source
 tags: [catalog]
 sources: [source1.md]
@@ -10,7 +10,7 @@ confidence: high
 
 # 來源摘要 — source1.md
 
-唯一的大原料。1 042 條獨立問答，2016–2026，幾乎全是**公務員開支集群**。原文不可改。切成的 chunk 在 `wiki/chunks/`，按年目錄見 [[catalog]]。
+大原料之一。1 042 條獨立問答，2016–2026，幾乎全是**公務員開支集群**。原文不可改。2026 年在本檔只有 9 條跟進（`S…`）；該年初步問題 85 條在 [[source3]]。切成的 chunk 在 `wiki/chunks/`，按年目錄見 [[catalog]]。
 
 ## 覆蓋的總目
 

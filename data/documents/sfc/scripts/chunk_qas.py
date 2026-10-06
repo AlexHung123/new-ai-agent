@@ -11,7 +11,11 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCES = [("source1.md", ROOT / "source1.md"), ("source2.md", ROOT / "source2.md")]
+SOURCES = [
+    ("source1.md", ROOT / "source1.md"),
+    ("source2.md", ROOT / "source2.md"),
+    ("source3.md", ROOT / "source3.md"),
+]
 CHUNKS_DIR = ROOT / "wiki" / "chunks"
 CATALOG_DIR = ROOT / "wiki" / "catalog"
 PACKS_DIR = ROOT / "wiki" / "_ingest"
@@ -67,7 +71,7 @@ TOPIC_RULES: list[tuple[str, list[str]]] = [
     ("language", ["兩文三語", "普通話", "翻譯", "傳譯", "法定語文", "中文語文"]),
     ("records", ["檔案管理", "檔案處", "檔案"]),
     ("internship", ["實習計劃", "實習名額", "學生實習"]),
-    ("award", ["嘉許", "獎勵計劃", "長期優良服務", "公費旅行"]),
+    ("award", ["嘉許", "獎勵計劃", "長期優良服務", "公費旅行", "義工"]),
     ("outsourcing", ["外判"]),
     ("recreation", ["度假別墅", "康樂設施"]),
     ("directorate-visit", ["外訪", "公務訪問", "出訪"]),
@@ -268,6 +272,13 @@ def main() -> None:
 
     recs: list[dict] = []
     seen: dict[str, int] = {}
+    missing = [str(path) for _, path in SOURCES if not path.exists()]
+    if missing:
+        raise SystemExit(
+            "chunk_qas.py rewrites the whole catalog; missing sources:\n  "
+            + "\n  ".join(missing)
+            + "\nUse scripts/ingest_source3.py to add source3 without source1/source2."
+        )
     for source, path in SOURCES:
         text = path.read_text(encoding="utf-8")
         for raw in split_qas(text):
@@ -347,7 +358,7 @@ def main() -> None:
                 f"| [[{rec['slug']}]] | {head} | {topic} | {asker} | {summary} |"
             )
         lines.append("")
-        (CATALOG_DIR / f"{year}.md").write_text("\n".join(lines), encoding="utf-8")
+        (CATALOG_DIR / f"year-{year}.md").write_text("\n".join(lines), encoding="utf-8")
 
     # Topic packs for ingest (excerpts, not wiki pages)
     by_topic: dict[str, list[dict]] = defaultdict(list)

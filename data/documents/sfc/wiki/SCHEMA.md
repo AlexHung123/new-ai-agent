@@ -4,14 +4,15 @@
 
 Hong Kong Legislative Council Finance Committee **Special Meetings** on the Estimates of Expenditure (財務委員會審核開支預算特別會議). Each record is an independent written Q&A: a LegCo member asks, a controlling officer answers.
 
-Two immutable raw files:
+Three immutable raw files:
 
 | File | Role |
 | --- | --- |
-| `source1.md` | 1 042 Q&As, 2016–2026. Almost entirely the civil-service cluster: 總目 143 公務員事務局, 46 公務員一般開支, 37 衞生署（綱領 7 公務員醫療及牙科）, 120 退休金, 136 公務員敍用委員會秘書處, 174 薪津諮詢委員會聯合秘書處。 |
+| `source1.md` | 1 042 Q&As, 2016–2026. Almost entirely the civil-service cluster: 總目 143 公務員事務局, 46 公務員一般開支, 37 衞生署（綱領 7 公務員醫療及牙科）, 120 退休金, 136 公務員敍用委員會秘書處, 174 薪津諮詢委員會聯合秘書處。2026 年只有 9 條跟進（`S…`）。 |
 | `source2.md` | 16 Q&As, mixed heads: 144 政制及內地事務局（《憲法》／《基本法》推廣）, 142 少數族裔事務督導委員會, 92 律政司, 55 創意智優計劃, 44 環保署販賣機／飲水機, 47 數字政策辦公室 AI。 |
+| `source3.md` | 85 Q&As, 2026 年初步問題書面答覆（MinerU）。公務員集群主體：總目 143（74）、37（6）、46（4）、136（1）。與 source1 的 9 條 2026 跟進不重複。 |
 
-The wiki compiles those Q&As into interlinked pages. **The chunk is the unit of evidence.** Do not flatten 1 058 answers into one narrative without citations.
+The wiki compiles those Q&As into interlinked pages. **The chunk is the unit of evidence.** Do not flatten 1 143 answers into one narrative without citations.
 
 ## Chunking
 
@@ -57,7 +58,7 @@ created: YYYY-MM-DD
 updated: YYYY-MM-DD
 type: entity | concept | comparison | chapter | source | query | synthesis | catalog
 tags: []          # only tags from the taxonomy below
-sources: [source1.md]   # and/or source2.md
+sources: [source1.md]   # and/or source2.md, source3.md
 years: 2016-2026        # optional coverage
 heads: [143]            # optional 總目 numbers
 confidence: high | medium | low
@@ -108,6 +109,7 @@ Do not invent competing slugs for these. Link to them.
 | --- | --- |
 | `source1` | `source1.md` 公務員集群 |
 | `source2` | `source2.md` 雜項總目 |
+| `source3` | `source3.md` 2026 年初步問題 |
 
 ### Chapters (總目)
 
@@ -169,7 +171,7 @@ Do not invent competing slugs for these. Link to them.
 
 ## Operations
 
-**Ingest.** Never edit raw sources. Re-run `scripts/chunk_qas.py` only when a source is replaced. Then: update the matching source summary, every reserved entity/concept the new Q&As materially change, year catalog, `index.md`, `log.md`. A batch of Q&As can touch 10–20 compiled pages.
+**Ingest.** Never edit raw sources. Re-run `scripts/chunk_qas.py` only when all raw sources are present (it rewrites the whole catalog). To add `source3.md` without `source1.md`/`source2.md` on disk, use `scripts/ingest_source3.py`. Then: update the matching source summary, every reserved entity/concept the new Q&As materially change, year catalog, `index.md`, `log.md`. A batch of Q&As can touch 10–20 compiled pages.
 
 **Query.** Read `index.md` first, then year catalog or concept page, then only the needed chunks. Cite chunk slugs in the answer. File substantial answers under `queries/`.
 
@@ -187,6 +189,7 @@ Do not invent competing slugs for these. Link to them.
 | --- | --- | --- |
 | source1 2016–2026 | 1 042 | `source1.md` |
 | source2 mixed | 16 | `source2.md` |
-| Chunks | 1 058 | `wiki/chunks/` |
+| source3 2026 初步 | 85 | `source3.md` |
+| Chunks | 1 143 | `wiki/chunks/` |
 | Year catalogs | 11 | `wiki/catalog/year-*.md` |
-| Machine catalog | 1 058 records | `wiki/catalog.json` |
+| Machine catalog | 1 143 records | `wiki/catalog.json` |

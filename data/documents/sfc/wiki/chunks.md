@@ -1,17 +1,17 @@
 ---
 title: Chunk 規則
 created: 2026-08-24
-updated: 2026-08-24
+updated: 2026-10-06
 type: source
 tags: [catalog, qa]
-sources: [source1.md, source2.md]
+sources: [source1.md, source2.md, source3.md]
 confidence: high
 contested: false
 ---
 
 # Chunk 規則
 
-原料 `source1.md`、`source2.md` 是兩份連寫的答問彙編。每一條獨立問答都切成一個 markdown 檔，放在 `wiki/chunks/`。編譯頁（章、概念、實體）只摘要、交叉引用，不重貼全文。
+原料 `source1.md`、`source2.md`、`source3.md` 是三份連寫的答問彙編。每一條獨立問答都切成一個 markdown 檔，放在 `wiki/chunks/`。編譯頁（章、概念、實體）只摘要、交叉引用，不重貼全文。
 
 ## 切法
 
@@ -39,4 +39,4 @@ contested: false
 - 問「編制十年怎麼變」→ 先讀 [[establishment]] 和 [[compare-years]]，再按該頁所列 chunk 核對當年數字。
 - 切勿把 2016 年的津貼額寫成現行數字。
 
-重新切檔用 `sfc/scripts/chunk_qas.py`。不要手改 chunk 去「潤色」原文。
+重新切全部原料用 `sfc/scripts/chunk_qas.py`（三份 source 都要在磁碟上）。只加 source3 用 `sfc/scripts/ingest_source3.py`。不要手改 chunk 去「潤色」原文。

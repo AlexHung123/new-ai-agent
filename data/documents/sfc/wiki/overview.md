@@ -1,16 +1,16 @@
 ---
 title: 總覽 — 財委會特別會議答問 wiki
 created: 2026-08-24
-updated: 2026-08-24
+updated: 2026-10-06
 type: synthesis
 tags: [chapter]
-sources: [source1.md, source2.md]
+sources: [source1.md, source2.md, source3.md]
 confidence: high
 ---
 
 # 總覽 — 財委會特別會議答問 wiki
 
-這是香港立法會財務委員會**審核開支預算特別會議書面答覆**的編譯 wiki。原料是 `source1.md`（公務員相關總目，1 042 條）和 `source2.md`（16 條雜項總目）。每一條問答已切成獨立 chunk。你讀 wiki；代理人寫 wiki。查任何問題先讀 [[index]]，再只打開相關頁和 chunk。
+這是香港立法會財務委員會**審核開支預算特別會議書面答覆**的編譯 wiki。原料是 `source1.md`（公務員相關總目，1 042 條）、`source2.md`（16 條雜項總目）和 `source3.md`（2026 年初步問題，85 條）。每一條問答已切成獨立 chunk。你讀 wiki；代理人寫 wiki。查任何問題先讀 [[index]]，再只打開相關頁和 chunk。
 
 ## 這批材料是什麼
 
@@ -18,8 +18,9 @@ confidence: high
 
 ```
 原料（不可改）
-  source1.md  公務員集群
+  source1.md  公務員集群（2026 年只有跟進）
   source2.md  基本法推廣、少數族裔督導、律政司、創意產業、環保署、數字辦
+  source3.md  2026 年初步問題
         ↓  按「年份 + 問題編號」切開
 chunks  [[2016-1140]] …
         ↓  編譯
@@ -34,6 +35,7 @@ chunks  [[2016-1140]] …
 2021–22  編制零增長、公務員學院成立（2021-12）、國安／宣誓
 2023–24  空缺過萬、全政府動員、學院重組、愛國者培訓指標
 2025–26  兩年各減編制 2%、凍薪、AI 培訓；NACS 人數仍升
+2026–27  編制落地 187 429；學院 AI 70 場確認；source3 補上 85 條主問題
 ```
 
 細節與數字見 [[synthesis]]、[[compare-years]]。
@@ -58,4 +60,4 @@ chunks  [[2016-1140]] …
 - 問「基本法是局方培訓還是全社會推廣」：[[basic-law-promotion]]（兩條線：[[csb]] 對內、[[cmab]] 對外）。
 - 問「數字能不能跨年直接比」：先看 [[compare-years]]；同一指標也要核對定義（編制 vs 實際員額 vs 空缺）。
 
-更深的判斷見 [[synthesis]]。來源說明見 [[source1]]、[[source2]]。
+更深的判斷見 [[synthesis]]。來源說明見 [[source1]]、[[source2]]、[[source3]]。
