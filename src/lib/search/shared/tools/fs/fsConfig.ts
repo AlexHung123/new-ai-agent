@@ -147,7 +147,7 @@ export function getAgentFsConfig(): AgentFsConfig {
     ),
     maxLsEntries: envIntInRange('AGENT_FS_MAX_LS_ENTRIES', 500, 10, 5_000),
     maxLsDepth: envIntInRange('AGENT_FS_MAX_LS_DEPTH', 3, 0, 20),
-    maxGrepHits: envIntInRange('AGENT_FS_MAX_GREP_HITS', 40, 1, 500),
+    maxGrepHits: envIntInRange('AGENT_FS_MAX_GREP_HITS', 100, 1, 500),
     maxGrepFileBytes: envBytes('AGENT_FS_MAX_GREP_FILE_BYTES', 1 * 1024 * 1024),
     maxFindResults: envIntInRange('AGENT_FS_MAX_FIND_RESULTS', 200, 1, 2_000),
     ignoreDirNames: new Set(ignoreList.map((s) => s.toLowerCase())),

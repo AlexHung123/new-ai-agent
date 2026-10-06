@@ -253,12 +253,19 @@ export function buildToolEndSummary(
           ? details.hitCount
           : countHits(details || {});
       const q = details ? firstQuery(details) : undefined;
-      const hitPart =
-        hits === undefined
-          ? 'Grep finished'
-          : hits === 1
-            ? '1 match'
-            : `${hits} matches`;
+      const filesOnly = Boolean(details && details.filesOnly === true);
+      const truncated = Boolean(details && details.truncated === true);
+      let hitPart: string;
+      if (hits === undefined) {
+        hitPart = 'Grep finished';
+      } else if (filesOnly) {
+        hitPart = hits === 1 ? '1 file' : `${hits} files`;
+      } else {
+        hitPart = hits === 1 ? '1 match' : `${hits} matches`;
+      }
+      if (truncated && hits !== undefined) {
+        hitPart = `${hitPart} (truncated)`;
+      }
       const qPart = q ? ` · ${clip(q, MAX_QUERY_CHARS)}` : '';
       return {
         summary: clip(`${hitPart}${qPart}`, MAX_SUMMARY_CHARS),

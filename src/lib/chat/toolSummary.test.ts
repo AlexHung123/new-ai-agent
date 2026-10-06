@@ -49,6 +49,39 @@ describe('buildToolEndSummary', () => {
     expect(out.hitCount).toBe(3);
   });
 
+  it('marks truncated fs_grep results', () => {
+    const out = buildToolEndSummary(
+      'fs_grep',
+      {
+        details: {
+          hitCount: 40,
+          totalHitCount: 88,
+          truncated: true,
+          query: '持續進修',
+        },
+      },
+      false,
+    );
+    expect(out.summary).toBe('40 matches (truncated) · 持續進修');
+  });
+
+  it('summarizes filesOnly grep as file count', () => {
+    const out = buildToolEndSummary(
+      'fs_grep',
+      {
+        details: {
+          filesOnly: true,
+          hitCount: 8,
+          totalFileCount: 13,
+          truncated: true,
+          query: '進修',
+        },
+      },
+      false,
+    );
+    expect(out.summary).toBe('8 files (truncated) · 進修');
+  });
+
   it('summarizes skipped fs_ls with the bound-folder error', () => {
     const out = buildToolEndSummary(
       'fs_ls',

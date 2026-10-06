@@ -82,6 +82,13 @@ function bufferToUtf8(buf: Buffer): string {
   return buf.toString('utf8');
 }
 
+/** Compiled wiki pages rank above `chunks/` so a hit cap still surfaces hubs. */
+export function grepFileRank(rel: string): number {
+  const n = (rel || '').replace(/\\/g, '/');
+  if (/(^|\/)chunks\//.test(n)) return 1;
+  return 0;
+}
+
 function matchGlob(name: string, pattern: string): boolean {
   // Simple glob: * and ? only, case-insensitive on Windows-ish paths
   const esc = pattern
@@ -496,7 +503,7 @@ export function createAgentFsTools(opts: {
     name: 'fs_grep',
     label: 'Grep project files',
     description:
-      'Search text files under the chrooted project FS for a literal substring or regex (read-only). Skips ignored dirs and large/binary files. Prefer fs_ls/fs_find to narrow path first on large trees.',
+      'Search text files under the chrooted project FS for a literal substring or regex (read-only). Skips ignored dirs and large/binary files. Scans the tree then returns a capped list: compiled pages (not under chunks/) first. Use filesOnly=true for a matching-file list (like grep -rl). If truncated, pass path= to a folder (wiki/concepts, wiki/catalog, wiki/chunks).',
     parameters: Type.Object({
       query: Type.String({
         description: 'Literal substring (default) or regex if useRegex=true',
@@ -516,9 +523,15 @@ export function createAgentFsTools(opts: {
           description: 'Case-insensitive match. Default true.',
         }),
       ),
+      filesOnly: Type.Optional(
+        Type.Boolean({
+          description:
+            'List matching file paths only (grep -rl). Default false.',
+        }),
+      ),
       maxHits: Type.Optional(
         Type.Number({
-          description: `Max matches (default ${cfg.maxGrepHits})`,
+          description: `Max matches (or files if filesOnly) returned (default ${cfg.maxGrepHits})`,
         }),
       ),
     }),
@@ -544,6 +557,8 @@ export function createAgentFsTools(opts: {
         typeof params.maxHits === 'number' && Number.isFinite(params.maxHits)
           ? Math.min(cfg.maxGrepHits, Math.max(1, Math.floor(params.maxHits)))
           : cfg.maxGrepHits;
+      const filesOnly = params.filesOnly === true;
+      const maxLinesStoredPerFile = 20;
 
       let re: RegExp;
       try {
@@ -566,16 +581,12 @@ export function createAgentFsTools(opts: {
         });
       }
 
-      type Hit = { rel: string; line: number; text: string };
-      const hits: Hit[] = [];
-      let truncated = false;
+      type LineHit = { line: number; text: string };
+      type FileHit = { rel: string; lines: LineHit[]; lineCount: number };
+      const fileHits: FileHit[] = [];
       let filesScanned = 0;
 
       const scanFile = (abs: string, rel: string) => {
-        if (hits.length >= maxHits) {
-          truncated = true;
-          return;
-        }
         let buf: Buffer;
         try {
           buf = readFileSync(abs);
@@ -587,27 +598,27 @@ export function createAgentFsTools(opts: {
         filesScanned++;
         const text = bufferToUtf8(buf);
         const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+        const stored: LineHit[] = [];
+        let lineCount = 0;
         for (let i = 0; i < lines.length; i++) {
           const lineText = lines[i] ?? '';
           if (!re.test(lineText)) continue;
           re.lastIndex = 0;
-          hits.push({
-            rel,
-            line: i + 1,
-            text: lineText.length > 400 ? `${lineText.slice(0, 400)}…` : lineText,
-          });
-          if (hits.length >= maxHits) {
-            truncated = true;
-            return;
+          lineCount += 1;
+          if (stored.length < maxLinesStoredPerFile) {
+            stored.push({
+              line: i + 1,
+              text:
+                lineText.length > 400 ? `${lineText.slice(0, 400)}…` : lineText,
+            });
           }
+        }
+        if (lineCount > 0) {
+          fileHits.push({ rel, lines: stored, lineCount });
         }
       };
 
       const walk = (absDir: string, relDir: string) => {
-        if (hits.length >= maxHits) {
-          truncated = true;
-          return;
-        }
         let names: string[];
         try {
           names = readdirSync(absDir);
@@ -615,10 +626,6 @@ export function createAgentFsTools(opts: {
           return;
         }
         for (const name of names) {
-          if (hits.length >= maxHits) {
-            truncated = true;
-            return;
-          }
           const abs = join(absDir, name);
           const rel =
             !relDir || relDir === '.'
@@ -627,7 +634,6 @@ export function createAgentFsTools(opts: {
           const kind = lstatKind(abs);
           if (kind === 'dir') {
             if (shouldIgnoreDirName(name, cfg.ignoreDirNames)) continue;
-            // Stay inside root via resolve on each step
             const child = resolveFsPath(root, rel);
             if (child.ok && child.isDirectory) walk(child.abs, child.rel);
           } else if (kind === 'file') {
@@ -643,26 +649,68 @@ export function createAgentFsTools(opts: {
         walk(resolved.abs, resolved.rel === '.' ? '' : resolved.rel);
       }
 
+      fileHits.sort((a, b) => {
+        const rank = grepFileRank(a.rel) - grepFileRank(b.rel);
+        if (rank !== 0) return rank;
+        return a.rel.localeCompare(b.rel);
+      });
+
+      const totalFileCount = fileHits.length;
+      const totalHitCount = fileHits.reduce((n, f) => n + f.lineCount, 0);
+
+      type Hit = { rel: string; line: number; text: string };
+      const hits: Hit[] = [];
+      if (filesOnly) {
+        for (const file of fileHits) {
+          if (hits.length >= maxHits) break;
+          hits.push({ rel: file.rel, line: 0, text: '' });
+        }
+      } else {
+        for (const file of fileHits) {
+          for (const line of file.lines) {
+            if (hits.length >= maxHits) break;
+            hits.push({ rel: file.rel, line: line.line, text: line.text });
+          }
+          if (hits.length >= maxHits) break;
+        }
+      }
+
+      const truncated = filesOnly
+        ? totalFileCount > hits.length
+        : totalHitCount > hits.length;
+
+      const truncNote = truncated
+        ? ` (truncated, total=${filesOnly ? totalFileCount : totalHitCount}${
+            filesOnly ? ' files' : ` lines in ${totalFileCount} files`
+          }). Narrow with path= (e.g. wiki/concepts or wiki/chunks)`
+        : '';
       const header = [
         `fs_grep path=${resolved.rel}`,
-        `query=${JSON.stringify(query)}${useRegex ? ' (regex)' : ' (literal)'}${caseInsensitive ? ' i' : ''}`,
-        `hits=${hits.length}${truncated ? ' (truncated)' : ''} filesScanned=${filesScanned}`,
+        `query=${JSON.stringify(query)}${useRegex ? ' (regex)' : ' (literal)'}${caseInsensitive ? ' i' : ''}${filesOnly ? ' filesOnly' : ''}`,
+        `${filesOnly ? 'files' : 'hits'}=${hits.length}${truncNote} filesScanned=${filesScanned}`,
         '',
       ].join('\n');
       const body =
         hits.length === 0
           ? 'No matches.'
-          : hits.map((h) => `${h.rel}:${h.line}: ${h.text}`).join('\n');
+          : filesOnly
+            ? hits.map((h) => h.rel).join('\n')
+            : hits.map((h) => `${h.rel}:${h.line}: ${h.text}`).join('\n');
 
       return textResult(header + body, {
         ok: true,
         path: 'fs_grep',
         rel: resolved.rel,
         query,
+        filesOnly,
         hitCount: hits.length,
+        totalHitCount,
+        totalFileCount,
         truncated,
         filesScanned,
-        hits: hits.slice(0, 50),
+        hits: filesOnly
+          ? hits.map((h) => ({ rel: h.rel }))
+          : hits.slice(0, 50),
       });
     },
   };

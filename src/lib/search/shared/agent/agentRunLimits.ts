@@ -4,7 +4,7 @@
  */
 
 export type AgentRunLimitsConfig = {
-  /** Max tool executions allowed in one prompt run (default 30). */
+  /** Max tool executions allowed in one prompt run (default 40). */
   maxToolCalls: number;
   /**
    * Max consecutive failed executions of the same tool fingerprint
@@ -13,7 +13,7 @@ export type AgentRunLimitsConfig = {
   maxToolFailures: number;
   /**
    * Hard cap on LLM turns (tool batches + final answer). If exceeded, abort
-   * (default 25).
+   * (default 30).
    */
   maxTurns: number;
 };
@@ -33,9 +33,9 @@ export function getAgentRunLimitsConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): AgentRunLimitsConfig {
   return {
-    maxToolCalls: envPositiveInt(env.AGENT_MAX_TOOL_CALLS, 30, 1, 100),
+    maxToolCalls: envPositiveInt(env.AGENT_MAX_TOOL_CALLS, 40, 1, 100),
     maxToolFailures: envPositiveInt(env.AGENT_TOOL_MAX_FAILURES, 2, 1, 20),
-    maxTurns: envPositiveInt(env.AGENT_MAX_TURNS, 25, 1, 200),
+    maxTurns: envPositiveInt(env.AGENT_MAX_TURNS, 30, 1, 200),
   };
 }
 

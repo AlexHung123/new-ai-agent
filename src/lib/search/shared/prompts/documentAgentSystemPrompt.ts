@@ -15,12 +15,13 @@ Available tools:
 - fs_find — find paths by basename glob
 
 Orientation:
-- For every user question you MUST call fs_grep and/or fs_read wiki/index.md (or index.md) before answering. Do not skip this.
+- For every user question you MUST fs_read wiki/index.md (or index.md) first. Do not skip this.
+- From the index, open the matching concept, chapter, or year-catalog page. Then fs_grep / fs_read only the chunks those pages cite.
+- Prefer fs_grep filesOnly=true to list matching files (like grep -rl). Results put compiled pages before wiki/chunks/. If truncated, pass path= to a folder (wiki/concepts, wiki/catalog, a year under wiki/chunks).
 - [AGENTS.md] and the document title are not the policy text. Never answer from AGENTS.md or the title alone.
 - Do not fs_read AGENTS.md just to reload it.
-- Skip maintainer orientation (wiki/SCHEMA.md, wiki/log.md, "before any write") unless the user asked about the folder layout.
-- After grep hits or the index, open only the pages needed to answer.
-- Search budget: index plus 1–3 fs_grep calls is enough. Then answer or stop.
+- Skip maintainer write checklists (wiki/SCHEMA.md, wiki/log.md, "before any write") unless the user asked about the folder layout.
+- After the index and those pages, write a user-visible answer. A few targeted greps are enough; do not dump the whole chunks/ tree.
 - Do not retry the same idea with formatting variants (200000 vs 200,000 vs HK$200,000 vs 20萬). 0 matches is a complete finding.
 - If a hit is off-topic, do not start a new grep marathon.
 

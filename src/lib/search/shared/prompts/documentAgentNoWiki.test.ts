@@ -19,3 +19,24 @@ describe('document agent: no wiki in answers', () => {
     expect(prefix).toMatch(FORBIDS_WIKI_IN_ANSWERS);
   });
 });
+
+describe('document agent: query navigation', () => {
+  it('tells the model to read the index then concept/year pages before chunks', () => {
+    expect(DOCUMENT_AGENT_SYSTEM_PROMPT).toMatch(/index\.md/i);
+    expect(DOCUMENT_AGENT_SYSTEM_PROMPT).toMatch(/concept/i);
+    expect(DOCUMENT_AGENT_SYSTEM_PROMPT).toMatch(/filesOnly/i);
+    expect(DOCUMENT_AGENT_SYSTEM_PROMPT).not.toMatch(
+      /index plus 1–3 fs_grep calls is enough/i,
+    );
+  });
+
+  it('turn prefix asks for index → concept/catalog → chunks', () => {
+    const prefix = buildDocumentTurnPrefix({
+      title: 'SFC',
+      agentsMd: 'Orient every session: read SCHEMA.md\n',
+    });
+    expect(prefix).toMatch(/index\.md/i);
+    expect(prefix).toMatch(/concept/i);
+    expect(prefix).toMatch(/filesOnly/i);
+  });
+});

@@ -25,6 +25,25 @@ describe('resolveAgentFsMaxReadLines', () => {
   });
 });
 
+describe('AGENT_FS_MAX_GREP_HITS', () => {
+  const prev = process.env.AGENT_FS_MAX_GREP_HITS;
+
+  afterEach(() => {
+    if (prev === undefined) delete process.env.AGENT_FS_MAX_GREP_HITS;
+    else process.env.AGENT_FS_MAX_GREP_HITS = prev;
+  });
+
+  it('defaults to 100 like pi-web grep', () => {
+    delete process.env.AGENT_FS_MAX_GREP_HITS;
+    expect(getAgentFsConfig().maxGrepHits).toBe(100);
+  });
+
+  it('lets env override the default', () => {
+    process.env.AGENT_FS_MAX_GREP_HITS = '80';
+    expect(getAgentFsConfig().maxGrepHits).toBe(80);
+  });
+});
+
 describe('AGENT_FS_MAX_READ_LINES', () => {
   const prev = process.env.AGENT_FS_MAX_READ_LINES;
 

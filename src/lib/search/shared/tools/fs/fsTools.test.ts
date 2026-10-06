@@ -238,6 +238,66 @@ describe('createAgentFsTools', () => {
     expect(nm.details.hitCount).toBe(0);
   });
 
+  function setupWikiTree() {
+    root = mkdtempSync(join(tmpdir(), 'doc-fstools-wiki-'));
+    mkdirSync(join(root, 'wiki', 'chunks'), { recursive: true });
+    mkdirSync(join(root, 'wiki', 'concepts'), { recursive: true });
+    for (let i = 1; i <= 12; i++) {
+      const id = String(1000 + i);
+      writeFileSync(
+        join(root, 'wiki', 'chunks', `2016-${id}.md`),
+        `chunk ${id} 進修 line\n`,
+        'utf8',
+      );
+    }
+    writeFileSync(
+      join(root, 'wiki', 'concepts', 'civil-service-training.md'),
+      '推廣持續進修的文化\n',
+      'utf8',
+    );
+    writeFileSync(join(root, 'wiki', 'index.md'), '# Wiki Index\n', 'utf8');
+    return root;
+  }
+
+  it('fs_grep keeps compiled pages in the cap when chunks would fill it', async () => {
+    setupWikiTree();
+    const tools = createAgentFsTools({
+      isAdmin: true,
+      config: makeCfg(root, { maxGrepHits: 8 }),
+      projectRootAbs: root,
+    });
+    const grep = tools.find((t) => t.name === 'fs_grep')!;
+    const out = await grep.execute('1', { query: '進修' });
+    const text = String(out.content[0]!.text);
+    expect(out.details.truncated).toBe(true);
+    expect(out.details.hitCount).toBe(8);
+    expect(Number(out.details.totalHitCount)).toBeGreaterThan(8);
+    expect(text).toMatch(/civil-service-training\.md/);
+    expect(text).toMatch(/truncated/i);
+    expect(text).toMatch(/path=/);
+  });
+
+  it('fs_grep filesOnly lists matching files with compiled pages first', async () => {
+    setupWikiTree();
+    const tools = createAgentFsTools({
+      isAdmin: true,
+      config: makeCfg(root, { maxGrepHits: 8 }),
+      projectRootAbs: root,
+    });
+    const grep = tools.find((t) => t.name === 'fs_grep')!;
+    const out = await grep.execute('1', { query: '進修', filesOnly: true });
+    const text = String(out.content[0]!.text);
+    expect(out.details.filesOnly).toBe(true);
+    expect(out.details.truncated).toBe(true);
+    expect(out.details.hitCount).toBe(8);
+    expect(Number(out.details.totalFileCount)).toBeGreaterThan(8);
+    expect(text).toMatch(/civil-service-training\.md/);
+    const conceptAt = text.indexOf('civil-service-training.md');
+    const chunkAt = text.indexOf('wiki/chunks/');
+    expect(conceptAt).toBeGreaterThanOrEqual(0);
+    expect(chunkAt).toBeGreaterThan(conceptAt);
+  });
+
   it('fs_find matches basename globs', async () => {
     setupTree();
     const tools = createAgentFsTools({

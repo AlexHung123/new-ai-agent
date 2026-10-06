@@ -37,13 +37,13 @@ export type AgentCompactionSettings = {
   enabled: boolean;
   /**
    * Compress when estimated tokens exceed this (kode maxTokens).
-   * Default 50_000. Env: AGENT_COMPACTION_MAX_TOKENS or
+   * Default 100_000. Env: AGENT_COMPACTION_MAX_TOKENS or
    * AGENT_COMPACTION_THRESHOLD_TOKENS (compat).
    */
   maxTokens: number;
   /**
    * Target residual budget used to compute keep ratio
-   * (kode compressToTokens). Default 30_000.
+   * (kode compressToTokens). Default 60_000.
    */
   compressToTokens: number;
   /**

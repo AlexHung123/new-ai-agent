@@ -13,8 +13,12 @@ const tight: AgentRunLimitsConfig = {
 };
 
 describe('getAgentRunLimitsConfig', () => {
-  it('defaults maxToolCalls to 30', () => {
-    expect(getAgentRunLimitsConfig({}).maxToolCalls).toBe(30);
+  it('defaults maxToolCalls to 40', () => {
+    expect(getAgentRunLimitsConfig({}).maxToolCalls).toBe(40);
+  });
+
+  it('defaults maxTurns to 30', () => {
+    expect(getAgentRunLimitsConfig({}).maxTurns).toBe(30);
   });
 
   it('reads AGENT_MAX_TOOL_CALLS', () => {

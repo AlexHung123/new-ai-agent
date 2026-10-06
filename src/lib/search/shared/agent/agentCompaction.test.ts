@@ -50,8 +50,8 @@ function defaultSettings(
 ): AgentCompactionSettings {
   return {
     enabled: true,
-    maxTokens: 50_000,
-    compressToTokens: 30_000,
+    maxTokens: 100_000,
+    compressToTokens: 60_000,
     minKeepRatio: 0.6,
     keepRecentMultimodal: 3,
     ...overrides,
@@ -59,11 +59,11 @@ function defaultSettings(
 }
 
 describe('getAgentCompactionSettings', () => {
-  it('defaults to kode-like max/compress/minKeep', () => {
+  it('defaults to 100k max / 60k compress / 0.6 minKeep', () => {
     const s = getAgentCompactionSettings({});
     expect(s.enabled).toBe(true);
-    expect(s.maxTokens).toBe(50_000);
-    expect(s.compressToTokens).toBe(30_000);
+    expect(s.maxTokens).toBe(100_000);
+    expect(s.compressToTokens).toBe(60_000);
     expect(s.minKeepRatio).toBe(0.6);
     expect(s.keepRecentMultimodal).toBe(3);
   });

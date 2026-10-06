@@ -81,14 +81,14 @@ export function getContextBudget(
     env.CONTEXT_BUDGET_COMPACTION_MAX_TOKENS ??
       env.AGENT_COMPACTION_MAX_TOKENS ??
       env.AGENT_COMPACTION_THRESHOLD_TOKENS,
-    50_000,
+    100_000,
     1_000,
     2_000_000,
   );
   const compactionCompressToTokensRaw = envPositiveInt(
     env.CONTEXT_BUDGET_COMPACTION_COMPRESS_TO ??
       env.AGENT_COMPACTION_COMPRESS_TO_TOKENS,
-    30_000,
+    60_000,
     256,
     2_000_000,
   );
