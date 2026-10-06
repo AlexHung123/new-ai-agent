@@ -42,7 +42,21 @@ export type PiTemplate = {
 
 export type NamedTool = {
   name: string;
+  label?: string;
 };
+
+export function resolveToolLabel(
+  tools: ReadonlyArray<NamedTool> | undefined,
+  toolName: string,
+): string | undefined {
+  if (!toolName) return undefined;
+  for (const tool of tools ?? []) {
+    if (tool?.name !== toolName) continue;
+    const label = typeof tool.label === 'string' ? tool.label.trim() : '';
+    if (label) return label;
+  }
+  return undefined;
+}
 
 export type PooledAgent = {
   sessionId?: string;

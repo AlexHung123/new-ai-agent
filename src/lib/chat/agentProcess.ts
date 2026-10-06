@@ -36,6 +36,15 @@ export function friendlyToolName(name: string): string {
   return key.replace(/_/g, ' ') || 'tool';
 }
 
+export function displayToolLabel(
+  toolName: string,
+  toolLabel?: string,
+): string {
+  const fromTool = typeof toolLabel === 'string' ? toolLabel.trim() : '';
+  if (fromTool) return fromTool;
+  return friendlyToolName(toolName);
+}
+
 let stepSeq = 0;
 
 function uniqueStepId(...parts: Array<string | undefined>): string {
@@ -67,10 +76,11 @@ export function applyToolStart(
   prev: AgentProcessState | null,
   toolName: string,
   toolCallId?: string,
+  displayLabel?: string,
 ): AgentProcessState | null {
   if (!prev || prev.status === 'done') return prev;
   const now = Date.now();
-  const name = friendlyToolName(toolName);
+  const name = displayToolLabel(toolName, displayLabel);
   const callId = toolCallId?.trim() || undefined;
   const closed = prev.steps.map((s) =>
     s.status === 'running' && s.kind === 'thinking'
@@ -100,10 +110,11 @@ export function applyToolEnd(
   ok: boolean,
   summary?: string,
   toolCallId?: string,
+  displayLabel?: string,
 ): AgentProcessState | null {
   if (!prev || prev.status === 'done') return prev;
   const now = Date.now();
-  const friendly = friendlyToolName(toolName);
+  const friendly = displayToolLabel(toolName, displayLabel);
   const callId = toolCallId?.trim() || undefined;
   const detailText =
     typeof summary === 'string' && summary.trim() ? summary.trim() : undefined;

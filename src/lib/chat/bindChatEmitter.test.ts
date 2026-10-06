@@ -370,6 +370,7 @@ describe('bindChatEmitterToWriter tool_execution', () => {
         data: {
           id: 't1',
           name: 'fs_read',
+          label: 'Read file',
           state: 'COMPLETED',
           summary: 'Read wiki/SCHEMA.md',
           resultPreview: { body: 'x'.repeat(90_000) },
@@ -383,6 +384,7 @@ describe('bindChatEmitterToWriter tool_execution', () => {
     );
     expect(toolEvents).toHaveLength(1);
     expect(toolEvents[0].data.summary).toBe('Read wiki/SCHEMA.md');
+    expect(toolEvents[0].data.label).toBe('Read file');
     expect(toolEvents[0].data.resultPreview).toMatchObject({ truncated: true });
   });
 });

@@ -8,12 +8,13 @@ const DISCLAIMER =
 
 function createScriptedAgent(
   events: Array<Record<string, unknown>>,
+  tools: PooledAgent['state']['tools'] = [],
 ): PooledAgent {
   const listeners = new Set<(event: any, signal?: AbortSignal) => void>();
   return {
     state: {
       systemPrompt: '',
-      tools: [],
+      tools,
       messages: [],
       isStreaming: false,
     },
@@ -132,6 +133,80 @@ describe('streamAgentProgressToEmitter', () => {
           metadata: { title: 'Year-Q1', url: 'https://example.com/doc' },
         },
       ],
+    });
+  });
+
+  it('includes the tool label from agent.state.tools on start, end, and error', async () => {
+    const agent = createScriptedAgent(
+      [
+        {
+          type: 'tool_execution_start',
+          toolCallId: 't1',
+          toolName: 'fs_read',
+          args: { path: 'wiki/SCHEMA.md' },
+        },
+        {
+          type: 'tool_execution_end',
+          toolCallId: 't1',
+          toolName: 'fs_read',
+          isError: false,
+          result: { details: { ok: true, rel: 'wiki/SCHEMA.md' } },
+        },
+        {
+          type: 'tool_execution_end',
+          toolCallId: 't2',
+          toolName: 'guide_search',
+          isError: true,
+          result: { content: [{ type: 'text', text: 'boom' }] },
+        },
+        { type: 'agent_end' },
+      ],
+      [
+        { name: 'fs_read', label: 'Read file' },
+        { name: 'guide_search', label: 'Guide search' },
+      ],
+    );
+    const emitter = new EventEmitter();
+    const lines = collectLines(emitter);
+
+    const done = streamAgentProgressToEmitter({
+      agent,
+      emitter,
+      safeJson: JSON.stringify,
+    });
+    await agent.prompt('q');
+    await done;
+
+    expect(lines).toContainEqual({
+      type: 'tool_execution',
+      data: {
+        id: 't1',
+        name: 'fs_read',
+        label: 'Read file',
+        state: 'RUNNING',
+        inputPreview: { path: 'wiki/SCHEMA.md' },
+      },
+    });
+    expect(lines).toContainEqual({
+      type: 'tool_execution',
+      data: {
+        id: 't1',
+        name: 'fs_read',
+        label: 'Read file',
+        state: 'COMPLETED',
+        summary: 'Read wiki/SCHEMA.md',
+        resultPreview: { ok: true, rel: 'wiki/SCHEMA.md' },
+      },
+    });
+    expect(lines).toContainEqual({
+      type: 'tool_error',
+      data: {
+        id: 't2',
+        name: 'guide_search',
+        label: 'Guide search',
+        state: 'FAILED',
+        error: 'boom',
+      },
     });
   });
 

@@ -164,6 +164,7 @@ export function bindChatEmitterToWriter(options: BindChatEmitterOptions) {
           safeToolData = {
             id: toolData.id,
             name: toolData.name,
+            label: toolData.label,
             state: toolData.state,
             durationMs: toolData.durationMs,
             inputPreview: toolData.inputPreview,
@@ -178,6 +179,7 @@ export function bindChatEmitterToWriter(options: BindChatEmitterOptions) {
         safeToolData = {
           id: toolData.id,
           name: toolData.name,
+          label: toolData.label,
           state: toolData.state,
           summary: toolData.summary,
           resultPreview: { truncated: true },

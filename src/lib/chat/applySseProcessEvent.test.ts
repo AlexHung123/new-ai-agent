@@ -15,6 +15,24 @@ describe('applySseProcessEvent', () => {
     });
   });
 
+  it('uses the streamed tool label for the process chip', () => {
+    const next = applySseProcessEvent(createInitialProcess('msg-1'), {
+      type: 'tool_execution',
+      data: {
+        id: 't1',
+        name: 'fs_read',
+        label: 'Read file',
+        state: 'RUNNING',
+      },
+    });
+    expect(next?.steps.at(-1)).toMatchObject({
+      kind: 'tool',
+      label: 'Read file',
+      detail: 'fs_read',
+      status: 'running',
+    });
+  });
+
   it('completes a tool from tool_execution COMPLETED', () => {
     const running = applySseProcessEvent(createInitialProcess('msg-1'), {
       type: 'tool_execution',

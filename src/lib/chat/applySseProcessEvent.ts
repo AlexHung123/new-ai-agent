@@ -39,6 +39,12 @@ function toolSummary(
   return summary;
 }
 
+function streamedToolLabel(data: Record<string, unknown>): string | undefined {
+  return typeof data.label === 'string' && data.label.trim()
+    ? data.label.trim()
+    : undefined;
+}
+
 function progressText(data: Record<string, unknown>): string {
   const raw =
     (typeof data.message === 'string' && data.message) ||
@@ -58,7 +64,10 @@ export function applySseProcessEvent(
     const name = typeof data.name === 'string' ? data.name : 'tool';
     const state = typeof data.state === 'string' ? data.state : '';
     const toolCallId = typeof data.id === 'string' ? data.id : undefined;
-    if (state === 'RUNNING') return applyToolStart(prev, name, toolCallId);
+    const label = streamedToolLabel(data);
+    if (state === 'RUNNING') {
+      return applyToolStart(prev, name, toolCallId, label);
+    }
     if (state === 'COMPLETED') {
       return applyToolEnd(
         prev,
@@ -66,6 +75,7 @@ export function applySseProcessEvent(
         true,
         toolSummary(name, data, false),
         toolCallId,
+        label,
       );
     }
     if (state === 'FAILED') {
@@ -75,6 +85,7 @@ export function applySseProcessEvent(
         false,
         toolSummary(name, data, true),
         toolCallId,
+        label,
       );
     }
     return prev;
@@ -83,12 +94,14 @@ export function applySseProcessEvent(
   if (event.type === 'tool_error') {
     const name = typeof data.name === 'string' ? data.name : 'tool';
     const toolCallId = typeof data.id === 'string' ? data.id : undefined;
+    const label = streamedToolLabel(data);
     return applyToolEnd(
       prev,
       name,
       false,
       toolSummary(name, data, true),
       toolCallId,
+      label,
     );
   }
 

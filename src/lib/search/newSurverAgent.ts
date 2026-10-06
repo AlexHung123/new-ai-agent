@@ -7,6 +7,10 @@ import eventEmitter from 'events';
 import { MetaSearchAgentType } from './metaSearchAgent';
 import { getSharedAgentContext } from './shared/agent/getSharedAgentContext';
 import {
+  resolveToolLabel,
+  type NamedTool,
+} from './shared/agent/piAgentSessionManager';
+import {
   assembleSurveyReportFromCache,
   getSurveyQuestionPayloadService,
   listSurveyQuestions,
@@ -256,6 +260,8 @@ export default class NewSurverAgent implements MetaSearchAgentType {
       emitJson({ type: 'progress', data });
     };
 
+    let toolCatalog: NamedTool[] = [];
+
     /** Stable tool id so RUNNING → COMPLETED updates one row (not two). */
     const emitTool = (
       name: string,
@@ -265,6 +271,7 @@ export default class NewSurverAgent implements MetaSearchAgentType {
       durationMs?: number,
       stableId?: string,
     ) => {
+      const label = resolveToolLabel(toolCatalog, name);
       emitJson({
         type: 'tool_execution',
         data: {
@@ -272,6 +279,7 @@ export default class NewSurverAgent implements MetaSearchAgentType {
             stableId ||
             `${name}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
           name,
+          ...(label ? { label } : {}),
           state,
           durationMs,
           inputPreview,
@@ -368,7 +376,7 @@ export default class NewSurverAgent implements MetaSearchAgentType {
         shellAgentId = stableBaseId;
 
         // Keep a shell agent in the Kode pool for this survey session (isolation / capacity).
-        await harnessAgentManager.getOrCreateAgent(
+        const shellAgent = await harnessAgentManager.getOrCreateAgent(
           shellAgentId,
           [
             'load_survey_questions',
@@ -378,6 +386,7 @@ export default class NewSurverAgent implements MetaSearchAgentType {
           ],
           'rag-survey-template',
         );
+        toolCatalog = shellAgent.state.tools;
         harnessAgentManager.markBusy(shellAgentId);
         harnessAgentManager.touchAgent(shellAgentId);
 

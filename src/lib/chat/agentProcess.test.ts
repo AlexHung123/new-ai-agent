@@ -6,6 +6,7 @@ import {
   applyToolEnd,
   applyToolStart,
   createInitialProcess,
+  displayToolLabel,
   friendlyToolName,
 } from './agentProcess';
 
@@ -39,6 +40,14 @@ describe('friendlyToolName', () => {
   });
 });
 
+describe('displayToolLabel', () => {
+  it('prefers the tool label and falls back to friendlyToolName', () => {
+    expect(displayToolLabel('fs_read', 'Read file')).toBe('Read file');
+    expect(displayToolLabel('fs_read', '  ')).toBe('fs read');
+    expect(displayToolLabel('es_bm25_search')).toBe('Search knowledge');
+  });
+});
+
 describe('applyToolStart', () => {
   it('closes thinking and adds a running tool step', () => {
     const started = applyToolStart(
@@ -65,6 +74,21 @@ describe('applyToolStart', () => {
       .map((s) => s.id);
     expect(toolIds).toHaveLength(2);
     expect(new Set(toolIds).size).toBe(2);
+  });
+
+  it('uses the tool-provided label when given', () => {
+    const started = applyToolStart(
+      createInitialProcess('msg-1'),
+      'fs_read',
+      undefined,
+      'Read file',
+    );
+    expect(started?.steps.at(-1)).toMatchObject({
+      kind: 'tool',
+      label: 'Read file',
+      detail: 'fs_read',
+      status: 'running',
+    });
   });
 
   it('keeps a previous running tool open when another starts', () => {

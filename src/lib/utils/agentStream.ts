@@ -4,7 +4,10 @@ import {
   LLM_PROVIDER_CONNECTION_ERROR,
   isLlmProviderConnectionError,
 } from '../models/llmProviderError';
-import type { PooledAgent } from '../search/shared/agent/piAgentSessionManager';
+import {
+  resolveToolLabel,
+  type PooledAgent,
+} from '../search/shared/agent/piAgentSessionManager';
 
 interface StreamAgentProgressOptions {
   agent: PooledAgent;
@@ -31,6 +34,14 @@ export interface StreamAgentProgressResult {
 
 const DISCLAIMER =
   '<span class="text-red-500 font-bold">AI生成的回覆可能不準確，使用前請仔細核實。</span>\n\n';
+
+function toolLabelPayload(
+  agent: PooledAgent,
+  toolName: string,
+): { label: string } | Record<string, never> {
+  const label = resolveToolLabel(agent.state.tools, toolName);
+  return label ? { label } : {};
+}
 
 function emitJson(emitter: EventEmitter, payload: unknown) {
   let text: string;
@@ -187,6 +198,7 @@ export function streamAgentProgressToEmitter(
             data: {
               id: event.toolCallId,
               name: event.toolName,
+              ...toolLabelPayload(agent, event.toolName),
               state: 'RUNNING',
               inputPreview: event.args,
             },
@@ -200,6 +212,7 @@ export function streamAgentProgressToEmitter(
               data: {
                 id: event.toolCallId,
                 name: event.toolName,
+                ...toolLabelPayload(agent, event.toolName),
                 state: 'FAILED',
                 error: toolErrorText(event.result),
               },
@@ -217,6 +230,7 @@ export function streamAgentProgressToEmitter(
             data: {
               id: event.toolCallId,
               name: event.toolName,
+              ...toolLabelPayload(agent, event.toolName),
               state: 'COMPLETED',
               inputPreview: event.args,
               summary,

@@ -5,6 +5,7 @@ import { createMemoryPiSessionStore } from '../runtime/piSessionStore';
 import {
   createPiAgentSessionManager,
   messagesHaveToolHistory,
+  resolveToolLabel,
   type CreatePooledAgentOptions,
   type PooledAgent,
 } from './piAgentSessionManager';
@@ -68,6 +69,26 @@ function createManager(maxActiveAgents = 2) {
   });
   return { manager, store, transcript, created };
 }
+
+describe('resolveToolLabel', () => {
+  it('returns the matching tool label', () => {
+    expect(
+      resolveToolLabel(
+        [
+          { name: 'fs_read', label: 'Read file' },
+          { name: 'fs_ls', label: 'List directory' },
+        ],
+        'fs_read',
+      ),
+    ).toBe('Read file');
+  });
+
+  it('ignores blank labels', () => {
+    expect(resolveToolLabel([{ name: 'fs_read', label: '  ' }], 'fs_read')).toBe(
+      undefined,
+    );
+  });
+});
 
 describe('messagesHaveToolHistory', () => {
   it('detects assistant toolCall blocks and toolResult rows', () => {

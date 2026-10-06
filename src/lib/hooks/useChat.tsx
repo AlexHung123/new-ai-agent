@@ -804,16 +804,9 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
 
-      if (data.type === 'tool_execution') {
-        return;
-      }
-
-      if (data.type === 'tool_error') {
-        // Tool failure can be recoverable. Keep stream alive so fallback text
-        // from the same turn (e.g. "No related source found.") can still arrive.
-        toast.error(
-          `Tool execution failed: ${data.data.error || 'Unknown error'}`,
-        );
+      if (data.type === 'tool_execution' || data.type === 'tool_error') {
+        // Tool failure is shown in the process panel. Keep the stream alive so
+        // fallback text from the same turn can still arrive.
         return;
       }
 
