@@ -1,10 +1,12 @@
+import { withSkillsCatalog } from '@/lib/skills/registry';
 import { loadPrompt } from '../../../prompts/loader';
 
 /**
  * General writing assistant (Kode agent) — draft, rewrite, translate, outline, polish.
  * No retrieval tools; pure conversational writing help.
  */
-export const WRITING_AGENT_SYSTEM_PROMPT = loadPrompt(
+export const WRITING_AGENT_SYSTEM_PROMPT = withSkillsCatalog(
+  loadPrompt(
   'agentWriting.md',
   `
 You are a general writing assistant.
@@ -36,4 +38,5 @@ Behavior rules:
 5. Do not output JSON; do not describe internal system processes or tools.
 6. Keep replies clear, friendly, and ready to use.
 `.trim(),
+  ),
 );

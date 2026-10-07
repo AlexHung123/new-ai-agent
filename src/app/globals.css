@@ -986,17 +986,37 @@
   color: var(--wiki-text-tertiary);
 }
 
-.html-mode-btn {
+.html-skill-hint {
+  position: relative;
   width: auto;
   padding: 0 8px;
   font-size: 11px;
   font-weight: 650;
   letter-spacing: 0.04em;
+  cursor: help;
 }
 
-.html-mode-btn.is-on {
-  background: color-mix(in srgb, var(--wiki-primary) 16%, transparent);
+.html-skill-hint:hover::after,
+.html-skill-hint:focus-visible::after {
+  content: attr(title);
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  z-index: 20;
+  width: max-content;
+  max-width: 280px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--wiki-border-subtle);
+  background: var(--wiki-surface);
   color: var(--wiki-text);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.4;
+  white-space: normal;
+  box-shadow: 0 8px 20px color-mix(in srgb, #000 12%, transparent);
+  pointer-events: none;
 }
 
 .html-page-embed {

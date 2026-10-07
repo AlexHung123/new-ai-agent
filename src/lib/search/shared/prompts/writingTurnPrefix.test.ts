@@ -45,28 +45,28 @@ describe('writingFsToolsForTurn', () => {
 });
 
 describe('writingToolsForTurn', () => {
-  it('adds am_render only when HTML mode is on', () => {
+  it('always includes read_skill and am_render, and fs tools only when a file is mentioned', () => {
     expect(
       writingToolsForTurn('hello', {
         userId: 'user-42',
         rootAbs: '/tmp/writing',
         files: [MEMO],
-      }, false),
-    ).toEqual([]);
-    expect(
-      writingToolsForTurn('hello', {
-        userId: 'user-42',
-        rootAbs: '/tmp/writing',
-        files: [MEMO],
-      }, true),
-    ).toEqual(['am_render']);
+      }),
+    ).toEqual(['read_skill', 'am_render']);
     expect(
       writingToolsForTurn('rewrite @memo.docx', {
         userId: 'user-42',
         rootAbs: '/tmp/writing',
         files: [MEMO],
-      }, true),
-    ).toEqual(['fs_ls', 'fs_read', 'fs_grep', 'fs_find', 'am_render']);
+      }),
+    ).toEqual([
+      'fs_ls',
+      'fs_read',
+      'fs_grep',
+      'fs_find',
+      'read_skill',
+      'am_render',
+    ]);
   });
 });
 
@@ -112,6 +112,7 @@ describe('buildWritingUserPrompt', () => {
       () => buildWritingUserPrompt('Summarize this'),
     );
     expect(prompt).toBe('[User request]\nSummarize this');
+    expect(prompt).not.toContain('[Attachments]');
   });
 
   it('lists @mentioned files first', async () => {
@@ -131,19 +132,16 @@ describe('buildWritingUserPrompt', () => {
     expect(prompt).not.toMatch(/Read them first/i);
   });
 
-  it('invokes the HTML skill on the user turn when HTML is tagged', async () => {
+  it('keeps HTML skill instructions off the user turn', async () => {
     const on = await runWithHtmlTurn({ userId: 'user-42', htmlMode: true }, () =>
       buildWritingUserPrompt('explain the flow to buy a server'),
     );
-    expect(on).toMatch(/\[HTML explainer skill\]/);
-    expect(on).toMatch(/am_render/);
-    expect(on).toMatch(/\[User request\]\nexplain the flow to buy a server/);
+    expect(on).toBe('[User request]\nexplain the flow to buy a server');
 
     const off = await runWithHtmlTurn(
       { userId: 'user-42', htmlMode: false },
       () => buildWritingUserPrompt('幫我總結一下 需要100字'),
     );
     expect(off).toBe('[User request]\n幫我總結一下 需要100字');
-    expect(off).not.toMatch(/am_render/);
   });
 });

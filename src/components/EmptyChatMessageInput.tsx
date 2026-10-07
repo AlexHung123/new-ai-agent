@@ -11,7 +11,7 @@ import {
   WritingAtMenu,
   WritingToolbarButtons,
 } from './WritingComposerTools';
-import { HtmlModeToggle } from './HtmlModeToggle';
+import { HtmlSkillHint } from './HtmlSkillHint';
 
 const SendArrow = () => (
   <span className="send-btn-icon" aria-hidden>
@@ -34,7 +34,6 @@ const EmptyChatMessageInput = () => {
     sfcExactMatch,
     documentId,
     writingFiles,
-    htmlMode,
   } = useChat();
   const [message, setMessage] = useState('');
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -52,8 +51,6 @@ const EmptyChatMessageInput = () => {
     placeholder = 'Search exact wording ...';
   } else if (focusMode === SFC_DOCUMENT_FOCUS_MODE) {
     placeholder = 'Ask about SFC written replies…';
-  } else if (htmlMode) {
-    placeholder = 'This reply will be an HTML explainer page…';
   }
 
   useEffect(() => {
@@ -136,7 +133,7 @@ const EmptyChatMessageInput = () => {
               uploadDisabled={writing.uploadDisabled}
             />
           ) : null}
-          <HtmlModeToggle />
+          <HtmlSkillHint />
         </div>
         <div className="composer-toolbar-right">
           <button

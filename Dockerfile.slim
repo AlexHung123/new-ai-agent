@@ -10,6 +10,7 @@ RUN npm ci
 COPY tsconfig.json next.config.mjs next-env.d.ts postcss.config.js drizzle.config.ts tailwind.config.ts ./
 COPY src ./src
 COPY public ./public
+COPY skills ./skills
 COPY drizzle ./drizzle
 
 RUN mkdir -p /home/aiagent/data
@@ -27,6 +28,7 @@ COPY --from=builder /home/aiagent/.next/standalone ./
 COPY --from=builder /home/aiagent/node_modules/@firecrawl ./node_modules/@firecrawl
 COPY --from=builder /home/aiagent/data ./data
 COPY drizzle ./drizzle
+COPY skills ./skills
 
 EXPOSE 3000
 

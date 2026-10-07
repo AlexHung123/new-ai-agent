@@ -11,12 +11,12 @@ import { formatAgentFailureResponse } from '../models/llmProviderError';
 import { DOCUMENT_AGENT_EMPTY_REPLY } from './shared/prompts/documentAgentSystemPrompt';
 import { buildDocumentUserPrompt } from './shared/prompts/documentTurnPrefix';
 import { bindTurnHtmlTool } from '@/lib/html/bindTurnHtmlTool';
-import { getHtmlTurnContext } from '@/lib/html/htmlTurnContext';
 import { bindTurnFsTools } from './shared/runtime/bindTurnFsTools';
 import { getDocumentTurnContext } from './shared/runtime/documentTurnContext';
 import { safeJson } from './shared/utils/safeJson';
 
 const FS_TOOLS = ['fs_ls', 'fs_read', 'fs_grep', 'fs_find'];
+const READ_SKILL_TOOL = 'read_skill';
 const AM_RENDER_TOOL = 'am_render';
 
 export default class DocumentAgent implements MetaSearchAgentType {
@@ -69,8 +69,7 @@ export default class DocumentAgent implements MetaSearchAgentType {
         const stableAgentId =
           harnessAgentManager.normalizeAgentId(requestAgentId);
 
-        const htmlMode = getHtmlTurnContext()?.htmlMode === true;
-        const tools = htmlMode ? [...FS_TOOLS, AM_RENDER_TOOL] : FS_TOOLS;
+        const tools = [...FS_TOOLS, READ_SKILL_TOOL, AM_RENDER_TOOL];
         const agent = await harnessAgentManager.getOrCreateAgent(
           stableAgentId,
           tools,

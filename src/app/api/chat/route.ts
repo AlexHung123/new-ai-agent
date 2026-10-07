@@ -234,11 +234,8 @@ export const POST = async (req: Request) => {
         req,
       );
 
-    const htmlMode =
-      body.htmlMode === true &&
-      (body.focusMode === 'agentWriting' || body.focusMode === 'agentDocument');
     const withHtml = <T,>(fn: () => T | Promise<T>) =>
-      runWithHtmlTurn({ userId, htmlMode }, fn);
+      runWithHtmlTurn({ userId, htmlMode: false }, fn);
 
     let stream;
     if (bound.status === 'ok' && !documentTurn) {

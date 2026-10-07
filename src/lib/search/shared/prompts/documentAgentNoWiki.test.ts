@@ -46,18 +46,26 @@ describe('document agent: query navigation', () => {
 });
 
 describe('document agent: HTML mode', () => {
-  it('invokes the HTML skill on the user turn when HTML is tagged', async () => {
+  it('keeps the skills catalog on the system prompt', () => {
+    expect(DOCUMENT_AGENT_SYSTEM_PROMPT).toContain('<available_skills>');
+    expect(DOCUMENT_AGENT_SYSTEM_PROMPT).toContain('html-explainer');
+    expect(DOCUMENT_AGENT_SYSTEM_PROMPT).toMatch(/read_skill/);
+    expect(DOCUMENT_AGENT_SYSTEM_PROMPT).not.toMatch(/This turn must produce/);
+    expect(DOCUMENT_AGENT_SYSTEM_PROMPT).not.toMatch(/```flow/);
+  });
+
+  it('keeps HTML skill instructions off the user turn', async () => {
     const on = await runWithHtmlTurn({ userId: '1', htmlMode: true }, () =>
       buildDocumentUserPrompt('How does NCSC work?'),
     );
-    expect(on).toMatch(/\[HTML explainer skill\]/);
-    expect(on).toMatch(/am_render/);
     expect(on).toMatch(/\[User question\]\nHow does NCSC work\?/);
+    expect(on).not.toMatch(/\[HTML explainer skill\]/);
+    expect(on).not.toMatch(/\[Plain text\]/);
 
     const off = await runWithHtmlTurn({ userId: '1', htmlMode: false }, () =>
       buildDocumentUserPrompt('幫我總結一下 需要100字'),
     );
     expect(off).toMatch(/\[User question\]\n幫我總結一下 需要100字/);
-    expect(off).not.toMatch(/am_render/);
+    expect(off).not.toMatch(/\[Plain text\]/);
   });
 });

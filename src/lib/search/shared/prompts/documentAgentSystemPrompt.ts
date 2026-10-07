@@ -1,3 +1,4 @@
+import { withSkillsCatalog } from '@/lib/skills/registry';
 import { loadPrompt } from '../../../prompts/loader';
 
 const DOCUMENT_AGENT_PROMPT_FALLBACK = `
@@ -42,7 +43,6 @@ Rules:
 export const DOCUMENT_AGENT_EMPTY_REPLY =
   'Based on the provided document, I could not find any information regarding your question.';
 
-export const DOCUMENT_AGENT_SYSTEM_PROMPT = loadPrompt(
-  'agentDocument.md',
-  DOCUMENT_AGENT_PROMPT_FALLBACK,
+export const DOCUMENT_AGENT_SYSTEM_PROMPT = withSkillsCatalog(
+  loadPrompt('agentDocument.md', DOCUMENT_AGENT_PROMPT_FALLBACK),
 );

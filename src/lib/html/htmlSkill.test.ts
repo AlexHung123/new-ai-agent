@@ -4,9 +4,9 @@ import { bindTurnHtmlTool } from './bindTurnHtmlTool';
 import {
   HTML_SKILL_HEADING,
   stripHtmlTurnPrefixFromUserText,
-  withHtmlSkillSystemPrompt,
 } from './htmlSkill';
 import { runWithHtmlTurn } from './htmlTurnContext';
+import { WRITING_AGENT_SYSTEM_PROMPT } from '@/lib/search/shared/prompts/writingAgentSystemPrompt';
 
 function fakeAgent(
   tools: NamedTool[],
@@ -27,12 +27,13 @@ function fakeAgent(
 }
 
 describe('HTML explainer skill', () => {
-  it('appends the skill to the system prompt', () => {
-    const out = withHtmlSkillSystemPrompt('You are a writing assistant.');
-    expect(out.startsWith('You are a writing assistant.')).toBe(true);
-    expect(out).toContain(HTML_SKILL_HEADING);
-    expect(out).toMatch(/am_render/);
-    expect(withHtmlSkillSystemPrompt(out)).toBe(out);
+  it('keeps the skills catalog on the writing system prompt', () => {
+    expect(WRITING_AGENT_SYSTEM_PROMPT).toContain('<available_skills>');
+    expect(WRITING_AGENT_SYSTEM_PROMPT).toContain('html-explainer');
+    expect(WRITING_AGENT_SYSTEM_PROMPT).toMatch(/read_skill/);
+    expect(WRITING_AGENT_SYSTEM_PROMPT).not.toMatch(/This turn must produce/);
+    expect(WRITING_AGENT_SYSTEM_PROMPT).not.toMatch(/```flow/);
+    expect(WRITING_AGENT_SYSTEM_PROMPT).not.toMatch(/composer HTML tag/i);
   });
 
   it('strips leftover HTML turn prefixes from user text', () => {
@@ -53,14 +54,37 @@ describe('HTML explainer skill', () => {
     ).toBe('[User request]\nhello');
   });
 
-  it('injects the skill and am_render only while HTML is tagged', async () => {
+  it('strips leftover HTML prefixes from Agent.prompt text-block content', () => {
+    const agent = fakeAgent([{ name: 'fs_read' }, { name: 'am_render' }], {
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: '[HTML explainer skill]\nCall am_render. Do not answer in plain text only.\n\n[User request]\nhello',
+            },
+          ],
+        },
+      ],
+    });
+    const restore = bindTurnHtmlTool(agent);
+    expect(agent.state.messages).toEqual([
+      { role: 'user', content: [{ type: 'text', text: '[User request]\nhello' }] },
+    ]);
+    restore();
+  });
+
+  it('does not inject the skill body even if a leftover htmlMode flag is on', async () => {
     const agent = fakeAgent([{ name: 'fs_read' }]);
     const restore = await runWithHtmlTurn({ userId: '1', htmlMode: true }, () =>
       bindTurnHtmlTool(agent),
     );
-    expect(agent.state.systemPrompt).toContain(HTML_SKILL_HEADING);
+    expect(agent.state.systemPrompt).toBe('You are a writing assistant.');
+    expect(agent.state.systemPrompt).not.toContain(HTML_SKILL_HEADING);
     expect(agent.state.tools.map((t) => t.name)).toEqual([
       'fs_read',
+      'read_skill',
       'am_render',
     ]);
     restore();
@@ -68,7 +92,7 @@ describe('HTML explainer skill', () => {
     expect(agent.state.tools.map((t) => t.name)).toEqual(['fs_read']);
   });
 
-  it('does not inject the skill when HTML is untagged and strips old prefixes', () => {
+  it('keeps am_render when untagged, without the full tutorial', () => {
     const agent = fakeAgent([{ name: 'fs_read' }, { name: 'am_render' }], {
       messages: [
         {
@@ -81,7 +105,11 @@ describe('HTML explainer skill', () => {
     const restore = bindTurnHtmlTool(agent);
     expect(agent.state.systemPrompt).toBe('You are a writing assistant.');
     expect(agent.state.systemPrompt).not.toContain(HTML_SKILL_HEADING);
-    expect(agent.state.tools.map((t) => t.name)).toEqual(['fs_read']);
+    expect(agent.state.tools.map((t) => t.name)).toEqual([
+      'fs_read',
+      'read_skill',
+      'am_render',
+    ]);
     expect(agent.state.messages).toEqual([
       { role: 'user', content: '[User request]\nhello' },
     ]);

@@ -21,10 +21,10 @@ export function createAmRenderTool(opts?: { runAm?: AmRunner }): AgentTool {
     }),
     execute: async (_id, args) => {
       const ctx = getHtmlTurnContext();
-      if (!ctx?.htmlMode || !ctx.userId) {
+      if (!ctx?.userId) {
         return jsonToolResult({
           ok: false,
-          error: 'HTML mode is off for this turn',
+          error: 'No user bound for HTML render',
         });
       }
       const draft =

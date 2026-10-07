@@ -9,7 +9,6 @@ import { formatAgentFailureResponse } from '../models/llmProviderError';
 import { streamAgentProgressToEmitter } from '../utils/agentStream';
 import { getSharedAgentContext } from './shared/agent/getSharedAgentContext';
 import { bindTurnHtmlTool } from '@/lib/html/bindTurnHtmlTool';
-import { getHtmlTurnContext } from '@/lib/html/htmlTurnContext';
 import {
   buildWritingUserPrompt,
   writingToolsForTurn,
@@ -68,8 +67,7 @@ export default class WritingAgent implements MetaSearchAgentType {
         const stableAgentId =
           harnessAgentManager.normalizeAgentId(requestAgentId);
 
-        const htmlMode = getHtmlTurnContext()?.htmlMode === true;
-        const tools = writingToolsForTurn(message, writingCtx, htmlMode);
+        const tools = writingToolsForTurn(message, writingCtx);
         const agent = await harnessAgentManager.getOrCreateAgent(
           stableAgentId,
           tools,
