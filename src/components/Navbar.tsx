@@ -202,7 +202,7 @@ const Navbar = () => {
   }, [sections]);
 
   return (
-    <div className="sticky -mx-4 lg:mx-0 top-0 z-40 bg-light-primary/95 dark:bg-dark-primary/95 backdrop-blur-sm border-b border-light-200/50 dark:border-dark-200/30">
+    <div className="sticky top-0 z-40 shrink-0 -mx-4 border-b border-light-200/50 bg-light-primary/95 backdrop-blur-sm dark:border-dark-200/30 dark:bg-dark-primary/95 lg:mx-0">
       <div className="px-4 lg:px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center min-w-0">

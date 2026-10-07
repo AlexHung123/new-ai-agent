@@ -110,7 +110,11 @@ const ChatWindow = () => {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.3 }}
-        className="relative min-h-screen"
+        className={
+          messages.length > 0
+            ? 'relative flex h-[100dvh] flex-col overflow-hidden'
+            : 'relative min-h-screen'
+        }
       >
         {messages.length > 0 ? (
           <>

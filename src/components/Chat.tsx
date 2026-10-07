@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import MessageInput from './MessageInput';
 import MessageBox from './MessageBox';
 import MessageBoxLoading from './MessageBoxLoading';
 import { useChat } from '@/lib/hooks/useChat';
 import { findDisplayFocusMode } from '@/lib/agents';
+import { isScrollAtTail } from '@/lib/chat/scroll';
 import Link from 'next/link';
 
 const Chat = () => {
@@ -22,57 +23,54 @@ const Chat = () => {
   const currentAgent = findDisplayFocusMode(focusMode);
   const isToolChat = currentAgent?.kind === 'tool';
 
-  const columnRef = useRef<HTMLDivElement | null>(null);
-  const messageEnd = useRef<HTMLDivElement | null>(null);
-  const [dock, setDock] = useState({ width: 0, left: 0 });
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const stickToBottom = useRef(true);
+
+  const isNearBottom = () => {
+    const el = listRef.current;
+    if (!el) return true;
+    return isScrollAtTail(el.scrollTop, el.clientHeight, el.scrollHeight);
+  };
+
+  const scrollToEnd = (behavior: ScrollBehavior = 'auto') => {
+    const el = listRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior });
+  };
 
   useEffect(() => {
-    const updateDock = () => {
-      if (!columnRef.current) return;
-      const rect = columnRef.current.getBoundingClientRect();
-      setDock({ width: rect.width, left: rect.left });
+    const el = listRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      stickToBottom.current = isNearBottom();
     };
-
-    updateDock();
-    window.addEventListener('resize', updateDock);
-    return () => window.removeEventListener('resize', updateDock);
-  }, [sections.length]);
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, []);
 
   useEffect(() => {
-    const scroll = (behavior: ScrollBehavior = 'auto') => {
-      messageEnd.current?.scrollIntoView({ behavior });
-    };
-
     if (chatTurns.length === 1) {
       document.title = `${chatTurns[0].content.substring(0, 30)} - iTMS`;
     }
 
-    const messageEndBottom =
-      messageEnd.current?.getBoundingClientRect().bottom ?? 0;
-
-    const distanceFromMessageEnd = window.innerHeight - messageEndBottom;
-
-    if (distanceFromMessageEnd >= -100) {
-      scroll('auto');
-    }
-
     if (chatTurns[chatTurns.length - 1]?.role === 'user') {
-      setTimeout(() => scroll('smooth'), 100);
+      stickToBottom.current = true;
+      setTimeout(() => scrollToEnd('smooth'), 100);
+      return;
     }
+
+    if (stickToBottom.current) scrollToEnd('auto');
   }, [chatTurns]);
 
   useEffect(() => {
-    if (loading) {
-      setTimeout(
-        () => messageEnd.current?.scrollIntoView({ behavior: 'smooth' }),
-        100,
-      );
-    }
-  }, [loading]);
+    if (!loading) return;
+    if (!stickToBottom.current) return;
+    scrollToEnd('auto');
+  }, [loading, agentProcess?.steps.length, agentProcess?.status]);
 
   return (
     <div className="wiki-chat">
-      <div ref={columnRef} className="message-list">
+      <div ref={listRef} className="message-list">
         {sections.map((section, i) => {
           const isLast = i === sections.length - 1;
 
@@ -90,31 +88,25 @@ const Chat = () => {
         {loading && !messageAppeared && !agentProcess && (
           <MessageBoxLoading progress={progress} />
         )}
-        <div ref={messageEnd} className="h-0" />
       </div>
-      {dock.width > 0 && (
-        <div
-          className="wiki-chat-composer-dock"
-          style={{ width: dock.width, left: dock.left }}
-        >
-          {isToolChat ? (
-            <div className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-black/70 dark:border-white/10 dark:bg-gray-950 dark:text-white/70">
-              {currentAgent?.href ? (
-                <Link
-                  href={currentAgent.href}
-                  className="font-medium text-blue-600 hover:underline dark:text-blue-400"
-                >
-                  Generate more speech
-                </Link>
-              ) : (
-                'This history item cannot be continued as a chat.'
-              )}
-            </div>
-          ) : (
-            <MessageInput />
-          )}
-        </div>
-      )}
+      <div className="wiki-chat-composer-dock">
+        {isToolChat ? (
+          <div className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-black/70 dark:border-white/10 dark:bg-gray-950 dark:text-white/70">
+            {currentAgent?.href ? (
+              <Link
+                href={currentAgent.href}
+                className="font-medium text-blue-600 hover:underline dark:text-blue-400"
+              >
+                Generate more speech
+              </Link>
+            ) : (
+              'This history item cannot be continued as a chat.'
+            )}
+          </div>
+        ) : (
+          <MessageInput />
+        )}
+      </div>
     </div>
   );
 };

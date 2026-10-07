@@ -15,14 +15,23 @@ function cssRule(css: string, selector: string): string {
 }
 
 describe('chat column width', () => {
-  it('matches pi-web chat content max width for messages and the empty composer', () => {
+  it('matches pi-web chat content max width for messages and composers', () => {
     const css = readCss();
     expect(css).toMatch(/--chat-content-max-width:\s*820px/);
-    expect(cssRule(css, '.message-list')).toMatch(
+    expect(cssRule(css, '.message-turn')).toMatch(
       /width:\s*min\(100%,\s*var\(--chat-content-max-width/,
     );
     expect(cssRule(css, '.welcome-wiki')).toMatch(
       /width:\s*min\(100%,\s*var\(--chat-content-max-width/,
     );
+    expect(cssRule(css, '.wiki-chat-composer-dock')).toMatch(
+      /width:\s*min\(100%,\s*var\(--chat-content-max-width/,
+    );
+  });
+
+  it('does not clamp the scroll container to the 820px column', () => {
+    const list = cssRule(readCss(), '.message-list');
+    expect(list).toMatch(/width:\s*100%/);
+    expect(list).not.toMatch(/--chat-content-max-width/);
   });
 });
