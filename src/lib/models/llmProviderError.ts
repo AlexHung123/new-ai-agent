@@ -62,15 +62,11 @@ function collectErrorText(error: unknown, depth = 0): string {
 }
 
 export function isLlmProviderConnectionError(error: unknown): boolean {
-  if (
-    error &&
-    typeof error === 'object' &&
-    (error as { stopReason?: unknown }).stopReason === 'error'
-  ) {
-    return true;
-  }
   const haystack = collectErrorText(error).toLowerCase();
   if (!haystack) return false;
+  if (haystack.includes('tool ') && haystack.includes(' not found')) {
+    return false;
+  }
   return CONNECTION_MARKERS.some((marker) => haystack.includes(marker));
 }
 

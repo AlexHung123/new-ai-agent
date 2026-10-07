@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { runWithHtmlTurn } from '@/lib/html/htmlTurnContext';
 import { DOCUMENT_AGENT_SYSTEM_PROMPT } from './documentAgentSystemPrompt';
-import { buildDocumentTurnPrefix } from './documentTurnPrefix';
+import {
+  buildDocumentTurnPrefix,
+  buildDocumentUserPrompt,
+} from './documentTurnPrefix';
 
 /** User-facing Document Agent replies must not say "wiki". */
 const FORBIDS_WIKI_IN_ANSWERS =
@@ -38,5 +42,22 @@ describe('document agent: query navigation', () => {
     expect(prefix).toMatch(/index\.md/i);
     expect(prefix).toMatch(/concept/i);
     expect(prefix).toMatch(/filesOnly/i);
+  });
+});
+
+describe('document agent: HTML mode', () => {
+  it('invokes the HTML skill on the user turn when HTML is tagged', async () => {
+    const on = await runWithHtmlTurn({ userId: '1', htmlMode: true }, () =>
+      buildDocumentUserPrompt('How does NCSC work?'),
+    );
+    expect(on).toMatch(/\[HTML explainer skill\]/);
+    expect(on).toMatch(/am_render/);
+    expect(on).toMatch(/\[User question\]\nHow does NCSC work\?/);
+
+    const off = await runWithHtmlTurn({ userId: '1', htmlMode: false }, () =>
+      buildDocumentUserPrompt('幫我總結一下 需要100字'),
+    );
+    expect(off).toMatch(/\[User question\]\n幫我總結一下 需要100字/);
+    expect(off).not.toMatch(/am_render/);
   });
 });

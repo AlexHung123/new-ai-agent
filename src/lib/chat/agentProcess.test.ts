@@ -28,6 +28,7 @@ describe('friendlyToolName', () => {
     expect(friendlyToolName('es_bm25_search')).toBe('Search knowledge');
     expect(friendlyToolName('guide_search')).toBe('Search guide');
     expect(friendlyToolName('load_survey_questions')).toBe('Load survey');
+    expect(friendlyToolName('am_render')).toBe('Render HTML page');
   });
 
   it('uses Read skill for the skill loader', () => {

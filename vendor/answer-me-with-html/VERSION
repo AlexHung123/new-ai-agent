@@ -1,0 +1,5 @@
+source=https://github.com/QingYunA/answer-me-with-html
+commit=822d0d293217ae08b681f7b9cac94f68fc665713
+cli=scripts/am.mjs
+version=0.4.12
+license=MIT

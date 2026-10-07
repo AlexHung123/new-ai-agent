@@ -1,5 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { withHtmlModePrompt } from '@/lib/html/htmlModePrompt';
+import { getHtmlTurnContext } from '@/lib/html/htmlTurnContext';
 import { resolveMentionedFiles } from '@/lib/writing/mentions';
 import {
   getWritingTurnContext,
@@ -9,6 +11,17 @@ import {
 const MAX_INDEX_CHARS = 6_000;
 
 export const WRITING_FS_TOOLS = ['fs_ls', 'fs_read', 'fs_grep', 'fs_find'];
+export const AM_RENDER_TOOL = 'am_render';
+
+export function writingToolsForTurn(
+  userMessage: string,
+  ctx: WritingTurnContext | undefined = getWritingTurnContext(),
+  htmlMode: boolean = getHtmlTurnContext()?.htmlMode === true,
+): string[] {
+  const fsTools = writingFsToolsForTurn(userMessage, ctx);
+  if (htmlMode) return [...fsTools, AM_RENDER_TOOL];
+  return fsTools;
+}
 
 export function writingFsToolsForTurn(
   userMessage: string,
@@ -44,9 +57,10 @@ export function buildWritingUserPrompt(
   ctx: WritingTurnContext | undefined = getWritingTurnContext(),
 ): string {
   const question = `[User request]\n${userMessage}`;
-  if (!ctx) return question;
+  const htmlMode = getHtmlTurnContext()?.htmlMode === true;
+  if (!ctx) return withHtmlModePrompt(question, htmlMode);
   const mentioned = resolveMentionedFiles(userMessage, ctx.files || []);
-  if (mentioned.length === 0) return question;
+  if (mentioned.length === 0) return withHtmlModePrompt(question, htmlMode);
   const index = loadWritingIndexMd(ctx.rootAbs);
   const mentionBlock =
     `[Mentioned files]\nThe user @-mentioned these files. Search inside them with fs_grep, then fs_read only the matching line range (fromLine/maxLines or path:from:count). Do not read a whole part:\n` +
@@ -57,15 +71,16 @@ export function buildWritingUserPrompt(
       )
       .join('\n') +
     '\n\n';
-  return (
+  return withHtmlModePrompt(
     `[Attachments]\n` +
-    `These files belong to this user. INDEX.md is already below when present.\n` +
-    `Do not fs_read INDEX.md just to reload it.\n` +
-    `Grep the @-mentioned files first, then peek with fs_read around the hits. Do not load a whole part-*.md.\n\n` +
-    mentionBlock +
-    (index
-      ? index.content + (index.truncated ? '\n…(truncated)\n' : '\n')
-      : '') +
-    `\n${question}`
+      `These files belong to this user. INDEX.md is already below when present.\n` +
+      `Do not fs_read INDEX.md just to reload it.\n` +
+      `Grep the @-mentioned files first, then peek with fs_read around the hits. Do not load a whole part-*.md.\n\n` +
+      mentionBlock +
+      (index
+        ? index.content + (index.truncated ? '\n…(truncated)\n' : '\n')
+        : '') +
+      `\n${question}`,
+    htmlMode,
   );
 }

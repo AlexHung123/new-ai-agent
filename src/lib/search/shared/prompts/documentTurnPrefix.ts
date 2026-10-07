@@ -3,6 +3,8 @@
  * 与 pi-rag Domain Wiki 的 buildProjectWorkspacePromptPrefix 对齐。
  */
 
+import { withHtmlModePrompt } from '@/lib/html/htmlModePrompt';
+import { getHtmlTurnContext } from '@/lib/html/htmlTurnContext';
 import {
   getDocumentTurnContext,
   type DocumentTurnContext,
@@ -48,13 +50,17 @@ export function buildDocumentUserPrompt(
   ctx: DocumentTurnContext | undefined = getDocumentTurnContext(),
 ): string {
   const question = `[User question]\n${userMessage}`;
+  const htmlMode = getHtmlTurnContext()?.htmlMode === true;
   if (!ctx) {
-    return `[No document bound]\n\n${question}`;
+    return withHtmlModePrompt(`[No document bound]\n\n${question}`, htmlMode);
   }
   const agents = loadDocumentAgentsMd(ctx.rootAbs);
-  return `${buildDocumentTurnPrefix({
-    title: ctx.title,
-    agentsMd: agents?.content,
-    agentsMdTruncated: agents?.truncated,
-  })}${question}`;
+  return withHtmlModePrompt(
+    `${buildDocumentTurnPrefix({
+      title: ctx.title,
+      agentsMd: agents?.content,
+      agentsMdTruncated: agents?.truncated,
+    })}${question}`,
+    htmlMode,
+  );
 }

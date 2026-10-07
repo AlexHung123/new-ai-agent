@@ -11,6 +11,7 @@ const PROTECTED_ROUTES = [
   '/api/voice',
   '/api/admin',
   '/api/writing',
+  '/api/html-pages',
 ];
 
 export async function middleware(request: NextRequest) {
@@ -73,5 +74,6 @@ export const config = {
     '/api/voice/:path*',
     '/api/admin/:path*',
     '/api/writing/:path*',
+    '/api/html-pages/:path*',
   ],
 };

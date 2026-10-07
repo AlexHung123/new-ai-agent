@@ -29,6 +29,7 @@ export const chatBodySchema = z.object({
   sfcExactMatch: z.boolean().optional(),
   sfcTrainingRelated: z.boolean().optional(),
   documentId: z.string().nullish(),
+  htmlMode: z.boolean().optional().default(false),
 });
 
 export type ChatBody = z.infer<typeof chatBodySchema>;

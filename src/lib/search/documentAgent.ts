@@ -10,11 +10,14 @@ import { getSharedAgentContext } from './shared/agent/getSharedAgentContext';
 import { formatAgentFailureResponse } from '../models/llmProviderError';
 import { DOCUMENT_AGENT_EMPTY_REPLY } from './shared/prompts/documentAgentSystemPrompt';
 import { buildDocumentUserPrompt } from './shared/prompts/documentTurnPrefix';
+import { bindTurnHtmlTool } from '@/lib/html/bindTurnHtmlTool';
+import { getHtmlTurnContext } from '@/lib/html/htmlTurnContext';
 import { bindTurnFsTools } from './shared/runtime/bindTurnFsTools';
 import { getDocumentTurnContext } from './shared/runtime/documentTurnContext';
 import { safeJson } from './shared/utils/safeJson';
 
 const FS_TOOLS = ['fs_ls', 'fs_read', 'fs_grep', 'fs_find'];
+const AM_RENDER_TOOL = 'am_render';
 
 export default class DocumentAgent implements MetaSearchAgentType {
   async searchAndAnswer(
@@ -66,15 +69,18 @@ export default class DocumentAgent implements MetaSearchAgentType {
         const stableAgentId =
           harnessAgentManager.normalizeAgentId(requestAgentId);
 
+        const htmlMode = getHtmlTurnContext()?.htmlMode === true;
+        const tools = htmlMode ? [...FS_TOOLS, AM_RENDER_TOOL] : FS_TOOLS;
         const agent = await harnessAgentManager.getOrCreateAgent(
           stableAgentId,
-          FS_TOOLS,
+          tools,
           'document-agent-template',
         );
 
         harnessAgentManager.markBusy(stableAgentId);
         harnessAgentManager.touchAgent(stableAgentId);
         const restoreFs = bindTurnFsTools(agent, { document: documentCtx });
+        const restoreHtml = bindTurnHtmlTool(agent);
 
         try {
           const subscriptionPromise = streamAgentProgressToEmitter({
@@ -96,6 +102,7 @@ export default class DocumentAgent implements MetaSearchAgentType {
           }
           await subscriptionPromise;
         } finally {
+          restoreHtml();
           restoreFs();
           await harnessAgentManager.markIdle(stableAgentId);
         }

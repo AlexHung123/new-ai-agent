@@ -8,9 +8,11 @@ import { MetaSearchAgentType } from './metaSearchAgent';
 import { formatAgentFailureResponse } from '../models/llmProviderError';
 import { streamAgentProgressToEmitter } from '../utils/agentStream';
 import { getSharedAgentContext } from './shared/agent/getSharedAgentContext';
+import { bindTurnHtmlTool } from '@/lib/html/bindTurnHtmlTool';
+import { getHtmlTurnContext } from '@/lib/html/htmlTurnContext';
 import {
   buildWritingUserPrompt,
-  writingFsToolsForTurn,
+  writingToolsForTurn,
 } from './shared/prompts/writingTurnPrefix';
 import { bindTurnFsTools } from './shared/runtime/bindTurnFsTools';
 import { getWritingTurnContext } from './shared/runtime/writingTurnContext';
@@ -66,10 +68,11 @@ export default class WritingAgent implements MetaSearchAgentType {
         const stableAgentId =
           harnessAgentManager.normalizeAgentId(requestAgentId);
 
-        const fsTools = writingFsToolsForTurn(message, writingCtx);
+        const htmlMode = getHtmlTurnContext()?.htmlMode === true;
+        const tools = writingToolsForTurn(message, writingCtx, htmlMode);
         const agent = await harnessAgentManager.getOrCreateAgent(
           stableAgentId,
-          fsTools,
+          tools,
           'writing-agent-template',
         );
 
@@ -79,6 +82,7 @@ export default class WritingAgent implements MetaSearchAgentType {
           agent,
           writingCtx ? { writing: writingCtx } : {},
         );
+        const restoreHtml = bindTurnHtmlTool(agent);
 
         try {
           const subscriptionPromise = streamAgentProgressToEmitter({
@@ -99,6 +103,7 @@ export default class WritingAgent implements MetaSearchAgentType {
           }
           await subscriptionPromise;
         } finally {
+          restoreHtml();
           restoreFs();
           await harnessAgentManager.markIdle(stableAgentId);
         }

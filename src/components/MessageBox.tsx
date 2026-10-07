@@ -7,8 +7,10 @@ import Rewrite from './MessageActions/Rewrite';
 import MessageSources from './MessageSources';
 import ThinkBox from './ThinkBox';
 import AgentProcessPanel from './AgentProcessPanel';
+import { HtmlPageEmbed } from './HtmlPageEmbed';
 import { useChat, Section } from '@/lib/hooks/useChat';
 import { findDisplayFocusMode } from '@/lib/agents';
+import { parseHtmlPageIds } from '@/lib/html/pageLink';
 
 const ThinkTagProcessor = ({
   children,
@@ -80,6 +82,7 @@ const MessageBox = memo(
     const parsedMessage = section.parsedAssistantMessage || '';
     const thinkingEnded = section.thinkingEnded;
     const { agentProcess, focusMode } = useChat();
+    const htmlPageIds = parseHtmlPageIds(parsedMessage);
     const timestamp = formatMessageTime(section.userMessage.createdAt);
     const hideRewrite = findDisplayFocusMode(focusMode)?.kind === 'tool';
 
@@ -122,6 +125,9 @@ const MessageBox = memo(
                     content={parsedMessage}
                     thinkingEnded={thinkingEnded}
                   />
+                  {htmlPageIds.map((pageId) => (
+                    <HtmlPageEmbed key={pageId} pageId={pageId} />
+                  ))}
 
                   {loading && isLast ? null : (
                     <div className="flex flex-row items-center justify-between w-full text-black dark:text-white py-3 -mx-2">

@@ -17,6 +17,7 @@ import { createPgPiSessionStoreFromUrl } from '../runtime/piSessionStore';
 import { createEsBm25SearchTool } from '../tools/esBm25Tool';
 import { createGuideSearchTool } from '../tools/guideSearchTool';
 import { createSurveySearchTools } from '../tools/surveySearchTool';
+import { createAmRenderTool } from '../tools/amRenderTool';
 import {
   createPiAgentSessionManager,
   type NamedTool,
@@ -31,6 +32,7 @@ function initSharedAgentDependencies() {
   const esBm25SearchTool = createEsBm25SearchTool();
   const guideSearchTool = createGuideSearchTool();
   const surveySearchTools = createSurveySearchTools();
+  const amRenderTool = createAmRenderTool();
   const fsTools = createAgentFsTools({
     isAdmin: true,
     getProjectRootAbs: () =>
@@ -47,6 +49,7 @@ function initSharedAgentDependencies() {
   for (const tool of fsTools) {
     tools[tool.name] = tool;
   }
+  tools[amRenderTool.name] = amRenderTool;
 
   const templates: Record<string, PiTemplate> = {
     [DEFAULT_TEMPLATE_ID]: {
@@ -112,7 +115,7 @@ declare global {
 }
 
 /** Bump when session-manager behavior changes so Next.js HMR rebuilds the pool. */
-const SHARED_AGENT_CONTEXT_REV = 4;
+const SHARED_AGENT_CONTEXT_REV = 5;
 
 export function getSharedAgentContext(): SharedAgentContext {
   if (

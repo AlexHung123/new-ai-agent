@@ -109,6 +109,8 @@ type ChatContext = {
   mentionRequest: string | null;
   requestMention: (name: string) => void;
   clearMentionRequest: () => void;
+  htmlMode: boolean;
+  setHtmlMode: (on: boolean) => void;
   sendMessage: (
     message: string,
     messageId?: string,
@@ -155,6 +157,8 @@ export const chatContext = createContext<ChatContext>({
   mentionRequest: null,
   requestMention: () => {},
   clearMentionRequest: () => {},
+  htmlMode: false,
+  setHtmlMode: () => {},
   stop: () => {},
 });
 
@@ -388,6 +392,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     [],
   );
   const [mentionRequest, setMentionRequest] = useState<string | null>(null);
+  const [htmlMode, setHtmlModeState] = useState(false);
 
   const [isMessagesLoaded, setIsMessagesLoaded] = useState(false);
   const [notFound, setNotFound] = useState(false);
@@ -404,6 +409,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   const sfcExactMatchRef = useRef(sfcExactMatch);
   const sfcTrainingRelatedRef = useRef(sfcTrainingRelated);
   const documentIdRef = useRef(documentId);
+  const htmlModeRef = useRef(htmlMode);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -432,6 +438,15 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     documentIdRef.current = documentId;
   }, [documentId]);
+
+  const setHtmlMode = useCallback((on: boolean) => {
+    htmlModeRef.current = on;
+    setHtmlModeState(on);
+  }, []);
+
+  useEffect(() => {
+    htmlModeRef.current = htmlMode;
+  }, [htmlMode]);
 
   useEffect(() => {
     if (focusMode !== 'agentDocument') return;
@@ -932,6 +947,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
           sfcExactMatch: sfcExactMatchRef.current,
           sfcTrainingRelated: sfcTrainingRelatedRef.current,
           documentId: boundDocumentId,
+          htmlMode: htmlModeRef.current,
           history: rewriteMode
             ? chatHistoryRef.current.slice(
                 0,
@@ -1085,6 +1101,8 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       mentionRequest,
       requestMention,
       clearMentionRequest,
+      htmlMode,
+      setHtmlMode,
       rewrite,
       sendMessage,
       stop,
@@ -1118,6 +1136,8 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       mentionRequest,
       requestMention,
       clearMentionRequest,
+      htmlMode,
+      setHtmlMode,
       handleSetFocusMode,
       rewrite,
       sendMessage,

@@ -926,6 +926,70 @@
   color: var(--wiki-text-tertiary);
 }
 
+.html-mode-btn {
+  width: auto;
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+}
+
+.html-mode-btn.is-on {
+  background: color-mix(in srgb, var(--wiki-primary) 16%, transparent);
+  color: var(--wiki-text);
+}
+
+.html-page-embed {
+  margin: 12px 0 4px;
+  border: 1px solid var(--wiki-border-subtle);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--wiki-surface);
+}
+
+.html-page-embed-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--wiki-border-subtle);
+}
+
+.html-page-embed-label {
+  font-size: 12px;
+  color: var(--wiki-text-secondary);
+}
+
+.html-page-embed-download {
+  border: 0;
+  background: transparent;
+  color: var(--wiki-text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.html-page-embed-download:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.html-page-embed-frame {
+  display: block;
+  width: 100%;
+  height: 520px;
+  border: 0;
+  background: #fff;
+}
+
+.html-page-embed-error,
+.html-page-embed-loading {
+  margin: 0;
+  padding: 16px;
+  font-size: 13px;
+  color: var(--wiki-text-secondary);
+}
+
 .writing-files-body {
   display: flex;
   flex-direction: column;

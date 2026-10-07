@@ -28,6 +28,7 @@ const TOOL_LABELS: Record<string, string> = {
   es_bm25_search: 'Search knowledge',
   guide_search: 'Search guide',
   read_skill: 'Read skill',
+  am_render: 'Render HTML page',
 };
 
 export function friendlyToolName(name: string): string {

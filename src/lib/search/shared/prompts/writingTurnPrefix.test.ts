@@ -3,9 +3,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { runWithWritingTurn } from '../runtime/writingTurnContext';
+import { runWithHtmlTurn } from '@/lib/html/htmlTurnContext';
 import {
   buildWritingUserPrompt,
   writingFsToolsForTurn,
+  writingToolsForTurn,
 } from './writingTurnPrefix';
 
 const MEMO = {
@@ -39,6 +41,32 @@ describe('writingFsToolsForTurn', () => {
         files: [MEMO],
       }),
     ).toEqual(['fs_ls', 'fs_read', 'fs_grep', 'fs_find']);
+  });
+});
+
+describe('writingToolsForTurn', () => {
+  it('adds am_render only when HTML mode is on', () => {
+    expect(
+      writingToolsForTurn('hello', {
+        userId: 'user-42',
+        rootAbs: '/tmp/writing',
+        files: [MEMO],
+      }, false),
+    ).toEqual([]);
+    expect(
+      writingToolsForTurn('hello', {
+        userId: 'user-42',
+        rootAbs: '/tmp/writing',
+        files: [MEMO],
+      }, true),
+    ).toEqual(['am_render']);
+    expect(
+      writingToolsForTurn('rewrite @memo.docx', {
+        userId: 'user-42',
+        rootAbs: '/tmp/writing',
+        files: [MEMO],
+      }, true),
+    ).toEqual(['fs_ls', 'fs_read', 'fs_grep', 'fs_find', 'am_render']);
   });
 });
 
@@ -101,5 +129,21 @@ describe('buildWritingUserPrompt', () => {
     expect(prompt).toContain('memo.docx');
     expect(prompt).toMatch(/fs_grep/);
     expect(prompt).not.toMatch(/Read them first/i);
+  });
+
+  it('invokes the HTML skill on the user turn when HTML is tagged', async () => {
+    const on = await runWithHtmlTurn({ userId: 'user-42', htmlMode: true }, () =>
+      buildWritingUserPrompt('explain the flow to buy a server'),
+    );
+    expect(on).toMatch(/\[HTML explainer skill\]/);
+    expect(on).toMatch(/am_render/);
+    expect(on).toMatch(/\[User request\]\nexplain the flow to buy a server/);
+
+    const off = await runWithHtmlTurn(
+      { userId: 'user-42', htmlMode: false },
+      () => buildWritingUserPrompt('幫我總結一下 需要100字'),
+    );
+    expect(off).toBe('[User request]\n幫我總結一下 需要100字');
+    expect(off).not.toMatch(/am_render/);
   });
 });
