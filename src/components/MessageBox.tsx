@@ -7,6 +7,7 @@ import Rewrite from './MessageActions/Rewrite';
 import MessageSources from './MessageSources';
 import ThinkBox from './ThinkBox';
 import AgentProcessPanel from './AgentProcessPanel';
+import ProcessingStatus from './ProcessingStatus';
 import { HtmlPageEmbed } from './HtmlPageEmbed';
 import { useChat, Section } from '@/lib/hooks/useChat';
 import { findDisplayFocusMode } from '@/lib/agents';
@@ -155,6 +156,10 @@ const MessageBox = memo(
                   )}
                 </>
               )}
+
+              {loading && isLast ? (
+                <ProcessingStatus loading={loading} process={agentProcess} />
+              ) : null}
             </div>
           </div>
         ) : null}

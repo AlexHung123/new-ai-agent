@@ -274,6 +274,51 @@ export function formatDurationLong(ms: number): string {
   return sec === 1 ? '1 second' : `${sec} seconds`;
 }
 
+export type LiveProcessingCopy = {
+  show: boolean;
+  title: string;
+  detail: string;
+};
+
+export function visibleProcessSteps(
+  steps: AgentProcessStep[],
+): AgentProcessStep[] {
+  return steps.filter((step) => step.kind !== 'writing');
+}
+
+export function latestRunningStep(
+  process: AgentProcessState | null,
+): AgentProcessStep | undefined {
+  if (!process) return undefined;
+  for (let i = process.steps.length - 1; i >= 0; i -= 1) {
+    if (process.steps[i].status === 'running') return process.steps[i];
+  }
+  return undefined;
+}
+
+export function liveProcessingCopy(input: {
+  loading: boolean;
+  process: AgentProcessState | null;
+  now: number;
+}): LiveProcessingCopy {
+  if (!input.loading) {
+    return { show: false, title: '', detail: '' };
+  }
+
+  const running = latestRunningStep(input.process);
+  const title = 'Still generating…';
+
+  if (running) {
+    return { show: true, title, detail: stepTitle(running, input.now) };
+  }
+
+  return {
+    show: true,
+    title,
+    detail: 'Working on your request',
+  };
+}
+
 export function stepTitle(step: AgentProcessStep, now: number): string {
   const ms = stepDurationMs(step, now);
   if (step.kind === 'thinking') {

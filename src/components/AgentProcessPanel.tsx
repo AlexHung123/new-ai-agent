@@ -6,6 +6,7 @@ import {
   formatDuration,
   stepDurationMs,
   stepTitle,
+  visibleProcessSteps,
   type AgentProcessState,
 } from '@/lib/chat/agentProcess';
 
@@ -26,8 +27,9 @@ export default function AgentProcessPanel({ process }: Props) {
     return () => window.clearInterval(t);
   }, [running]);
 
-  const stepCount = process.steps.length;
-  const toolCount = process.steps.filter((s) => s.kind === 'tool').length;
+  const steps = visibleProcessSteps(process.steps);
+  const stepCount = steps.length;
+  const toolCount = steps.filter((s) => s.kind === 'tool').length;
   const sourceCount = process.sourceCount ?? 0;
   const hasError = process.steps.some((s) => s.status === 'error');
   const totalMs = Math.max(
@@ -87,7 +89,7 @@ export default function AgentProcessPanel({ process }: Props) {
 
       {expanded && (
         <div className="mt-2 flex flex-col gap-1.5">
-          {process.steps.map((step) => {
+          {steps.map((step) => {
             const isTool = step.kind === 'tool';
             const stepOpen = Boolean(openStepIds[step.id]);
             const ms = stepDurationMs(step, now);

@@ -8,6 +8,8 @@ import {
   createInitialProcess,
   displayToolLabel,
   friendlyToolName,
+  liveProcessingCopy,
+  visibleProcessSteps,
 } from './agentProcess';
 
 describe('createInitialProcess', () => {
@@ -193,5 +195,54 @@ describe('applyProcessDone', () => {
     expect(done?.status).toBe('done');
     expect(done?.sourceCount).toBe(4);
     expect(done?.steps.every((s) => s.status !== 'running')).toBe(true);
+  });
+});
+
+describe('visibleProcessSteps', () => {
+  it('hides the wrote-answer chip from the process panel', () => {
+    const process = applyTextStarted(createInitialProcess('msg-1'));
+    const visible = visibleProcessSteps(process?.steps ?? []);
+    expect(visible.some((s) => s.kind === 'writing')).toBe(false);
+    expect(visible).toHaveLength(1);
+    expect(visible[0].kind).toBe('thinking');
+  });
+});
+
+describe('liveProcessingCopy', () => {
+  it('hides the indicator when the turn is not loading', () => {
+    const copy = liveProcessingCopy({
+      loading: false,
+      process: createInitialProcess('msg-1'),
+      now: Date.now(),
+    });
+    expect(copy.show).toBe(false);
+  });
+
+  it('shows a still-generating title while the stream is open', () => {
+    const copy = liveProcessingCopy({
+      loading: true,
+      process: null,
+      now: Date.now(),
+    });
+    expect(copy.show).toBe(true);
+    expect(copy.title).toBe('Still generating…');
+    expect(copy.detail).toBe('Working on your request');
+  });
+
+  it('surfaces the latest running step so a long pause still looks live', () => {
+    const started = Date.now() - 12_000;
+    const process = applyToolStart(
+      createInitialProcess('msg-1'),
+      'fs_read',
+      'call-1',
+    );
+    const copy = liveProcessingCopy({
+      loading: true,
+      process,
+      now: started + 12_000,
+    });
+    expect(copy.show).toBe(true);
+    expect(copy.title).toBe('Still generating…');
+    expect(copy.detail).toContain('fs read');
   });
 });

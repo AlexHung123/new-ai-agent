@@ -690,6 +690,52 @@
   }
 }
 
+.processing-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  max-width: 100%;
+  color: var(--wiki-text-secondary);
+}
+
+.processing-status-spinner {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  color: #0ea5e9;
+  animation: processing-spin 0.9s linear infinite;
+}
+
+.processing-status-text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  min-width: 0;
+  gap: 6px;
+}
+
+.processing-status-title {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--wiki-text-secondary);
+}
+
+.processing-status-detail {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--wiki-text-tertiary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes processing-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .composer {
   position: relative;
   width: 100%;
