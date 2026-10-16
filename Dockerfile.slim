@@ -11,6 +11,7 @@ COPY tsconfig.json next.config.mjs next-env.d.ts postcss.config.js drizzle.confi
 COPY src ./src
 COPY public ./public
 COPY skills ./skills
+COPY vendor ./vendor
 COPY drizzle ./drizzle
 
 RUN mkdir -p /home/aiagent/data
@@ -29,6 +30,7 @@ COPY --from=builder /home/aiagent/node_modules/@firecrawl ./node_modules/@firecr
 COPY --from=builder /home/aiagent/data ./data
 COPY drizzle ./drizzle
 COPY skills ./skills
+COPY vendor ./vendor
 
 EXPOSE 3000
 

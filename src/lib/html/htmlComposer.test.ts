@@ -81,6 +81,14 @@ describe('HTML explainer composer and embed', () => {
     expect(docker).toMatch(/COPY skills \.\/skills/);
   });
 
+  it('ships vendor/answer-me-with-html CLI in the Docker runtime image', () => {
+    for (const name of ['Dockerfile', 'Dockerfile.slim']) {
+      const docker = readFileSync(path.join(process.cwd(), name), 'utf8');
+      const runtime = docker.split(/^FROM /m).at(-1) ?? '';
+      expect(runtime, name).toMatch(/COPY vendor \.\/vendor/);
+    }
+  });
+
   it('binds html turn context for Writing and Document without a composer tag', () => {
     const route = readSrc('../../app/api/chat/route.ts');
     expect(route).toMatch(/runWithHtmlTurn/);
