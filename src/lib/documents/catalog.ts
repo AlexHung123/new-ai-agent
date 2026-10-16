@@ -63,6 +63,12 @@ export const DOCUMENT_SLOTS: DocumentSlot[] = [
     hiddenFromPicker: true,
   },
   {
+    id: 'training-and-development-guide',
+    title: 'Training & Development Guide',
+    description: '',
+    dirName: 'training-and-development-guide',
+  },
+  {
     id: 'training-guide',
     title: 'Guidelines on Training in the Civil Service (Training Guide)',
     description: '',

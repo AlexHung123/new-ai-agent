@@ -52,6 +52,7 @@ describe('document catalog', () => {
       'rm-manual',
       's17',
       'sfc',
+      'training-and-development-guide',
       'training-guide',
     ]);
   });
