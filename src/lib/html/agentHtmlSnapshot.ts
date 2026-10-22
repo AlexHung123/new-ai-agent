@@ -1,13 +1,12 @@
+/** Loaded canvas HTML wins. Otherwise the database page is used. */
 export function resolveAgentHtmlSnapshot(input: {
   html: unknown;
   htmlReady: unknown;
-  working: string | null;
   pageHtml: string | null;
-}): { html: string; persist: 'client' | 'page' | 'none' } {
+}): { html: string } {
   if (input.htmlReady === true && typeof input.html === 'string') {
-    return { html: input.html, persist: 'client' };
+    return { html: input.html };
   }
-  if (input.working != null) return { html: input.working, persist: 'none' };
-  if (input.pageHtml != null) return { html: input.pageHtml, persist: 'page' };
-  return { html: '', persist: 'none' };
+  if (input.pageHtml != null) return { html: input.pageHtml };
+  return { html: '' };
 }

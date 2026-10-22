@@ -65,15 +65,23 @@ describe('Agent HTML canvas', () => {
     expect(boot).toBeLessThan(stored);
     expect(chat).toMatch(/htmlReady/);
     expect(chat).toMatch(/shouldApplyFetchedWcmsHtml/);
+    expect(chat).not.toMatch(/draftHtml/);
+    expect(chat).not.toMatch(/restoreWcmsDraft/);
+    const chatRoute = readFileSync(
+      path.join(process.cwd(), 'src/app/api/chat/route.ts'),
+      'utf8',
+    );
+    expect(chatRoute).not.toMatch(/readWcmsWorkingHtml|saveWcmsWorkingHtml/);
     expect(chat).not.toMatch(
       /wcmsLang, wcmsFileBaseHref, userId/,
     );
   });
 
-  it('cancels a pending canvas save when HTML arrives from outside the editor', () => {
+  it('keeps editor changes on the canvas without writing a session file', () => {
     const canvas = readSrc('../../components/HtmlCanvas.tsx');
-    expect(canvas).toMatch(/clearTimeout\(saveTimer\.current\)/);
-    expect(canvas).toMatch(/revision/);
+    expect(canvas).toMatch(/suppressEditorEcho/);
+    expect(canvas).not.toMatch(/method: 'PUT'/);
+    expect(canvas).not.toMatch(/Restore unsaved draft/);
     expect(canvas).toMatch(/targetOrigin/);
     expect(canvas).not.toMatch(/postMessage\(message, '\*'\)/);
   });

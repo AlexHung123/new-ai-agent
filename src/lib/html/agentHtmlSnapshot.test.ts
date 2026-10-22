@@ -7,21 +7,29 @@ describe('resolveAgentHtmlSnapshot', () => {
       resolveAgentHtmlSnapshot({
         html: '',
         htmlReady: false,
-        working: null,
         pageHtml: '<p>from db</p>',
       }),
-    ).toEqual({ html: '<p>from db</p>', persist: 'page' });
+    ).toEqual({ html: '<p>from db</p>' });
   });
 
-  it('keeps an existing working copy when the canvas is not ready', () => {
+  it('uses the database page when the canvas is not ready', () => {
     expect(
       resolveAgentHtmlSnapshot({
         html: '',
         htmlReady: undefined,
-        working: '<p>working</p>',
         pageHtml: '<p>from db</p>',
       }),
-    ).toEqual({ html: '<p>working</p>', persist: 'none' });
+    ).toEqual({ html: '<p>from db</p>' });
+  });
+
+  it('returns empty html when the canvas is not ready and the database page is missing', () => {
+    expect(
+      resolveAgentHtmlSnapshot({
+        html: undefined,
+        htmlReady: false,
+        pageHtml: null,
+      }),
+    ).toEqual({ html: '' });
   });
 
   it('accepts an empty editor snapshot after the canvas has loaded', () => {
@@ -29,9 +37,8 @@ describe('resolveAgentHtmlSnapshot', () => {
       resolveAgentHtmlSnapshot({
         html: '',
         htmlReady: true,
-        working: '<p>working</p>',
         pageHtml: '<p>from db</p>',
       }),
-    ).toEqual({ html: '', persist: 'client' });
+    ).toEqual({ html: '' });
   });
 });

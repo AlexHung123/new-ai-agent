@@ -34,10 +34,6 @@ import {
 import { resolveAgentHtmlSnapshot } from '@/lib/html/agentHtmlSnapshot';
 import { allowedAssetOrigin } from '@/lib/html/allowedAssetOrigin';
 import { loadWcmsPage } from '@/lib/html/wcmsContent';
-import {
-  readWcmsWorkingHtml,
-  saveWcmsWorkingHtml,
-} from '@/lib/html/wcmsHtmlStore';
 import { runWithHtmlAgentTurn } from '@/lib/search/shared/runtime/htmlAgentTurnContext';
 import { inlineHtmlAssets } from '@/lib/html/inlineHtmlAssets';
 import { toTinyMceBodyFragment } from '@/lib/html/tinyMceFragment';
@@ -315,39 +311,32 @@ export const POST = async (req: Request) => {
             }
           : null;
       let titleEn: string | undefined;
-      let working: string | null = null;
       let pageHtml: string | null = null;
       if (bind) {
-        working = readWcmsWorkingHtml(userId, bind);
-        if (working == null) {
+        try {
           const loaded = await loadWcmsPage(bind);
           if (loaded.ok) {
             pageHtml = loaded.html;
             titleEn = loaded.titleEn;
           }
+        } catch {
+          /* itmsdb down: the turn keeps the canvas html, or stays empty */
         }
       }
       const snapshot = resolveAgentHtmlSnapshot({
         html: body.html,
         htmlReady: body.htmlReady,
-        working,
         pageHtml,
       });
       const fileBase = allowedAssetOrigin(
         parseItmsOrigin(body.itmsOrigin) || body.itmsOrigin,
       );
-      let html = toTinyMceBodyFragment(
+      const html = toTinyMceBodyFragment(
         await inlineHtmlAssets(snapshot.html, {
           baseHref: fileBase,
           allowedOrigin: fileBase,
         }),
       );
-      if (
-        bind &&
-        (snapshot.persist === 'client' || snapshot.persist === 'page')
-      ) {
-        saveWcmsWorkingHtml({ userId, bind, html });
-      }
       stream = await runWithHtmlAgentTurn(
         {
           userId,

@@ -27,35 +27,26 @@ export default function HtmlCanvas() {
     wcmsPageIndex,
     wcmsLang,
     wcmsTitle,
-    wcmsRevision,
   } = useChat();
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inlineTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const editorChangeRef = useRef(false);
-  const revisionRef = useRef(wcmsRevision);
-  const bindRef = useRef({ wcmsContentId, wcmsPageIndex, wcmsLang });
-  bindRef.current = { wcmsContentId, wcmsPageIndex, wcmsLang };
+  const htmlFromEditor = useRef(false);
+  const suppressEditorEcho = useRef(false);
+  const seenHtml = useRef(wcmsHtml);
+  if (seenHtml.current !== wcmsHtml) {
+    if (!htmlFromEditor.current) {
+      suppressEditorEcho.current = true;
+      queueMicrotask(() => {
+        suppressEditorEcho.current = false;
+      });
+    }
+    htmlFromEditor.current = false;
+    seenHtml.current = wcmsHtml;
+  }
   const [previewHtml, setPreviewHtml] = useState(wcmsHtml);
   const [view, setView] = useState<'source' | 'preview'>('source');
 
   useEffect(() => {
-    revisionRef.current = wcmsRevision;
-  }, [wcmsRevision]);
-
-  useEffect(() => {
-    if (editorChangeRef.current) {
-      editorChangeRef.current = false;
-      return;
-    }
-    if (saveTimer.current) {
-      clearTimeout(saveTimer.current);
-      saveTimer.current = null;
-    }
-  }, [wcmsHtml]);
-
-  useEffect(() => {
     return () => {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
       if (inlineTimer.current) clearTimeout(inlineTimer.current);
     };
   }, []);
@@ -115,38 +106,12 @@ export default function HtmlCanvas() {
   };
 
   const onEditorChange = (content: string) => {
-    editorChangeRef.current = true;
+    if (suppressEditorEcho.current || content === wcmsHtml) {
+      suppressEditorEcho.current = false;
+      return;
+    }
+    htmlFromEditor.current = true;
     setWcmsHtml(content);
-    const bind = bindRef.current;
-    if (!bind.wcmsContentId) return;
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    const revision = revisionRef.current;
-    saveTimer.current = setTimeout(() => {
-      void fetch(`/itms/ai/api/wcms-content/${bind.wcmsContentId}`, {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          html: content,
-          pageIndex: bind.wcmsPageIndex,
-          lang: bind.wcmsLang,
-          revision,
-        }),
-      })
-        .then(async (res) => {
-          if (!res.ok) return;
-          const data = (await res.json().catch(() => null)) as {
-            revision?: unknown;
-          } | null;
-          if (
-            data &&
-            typeof data.revision === 'number' &&
-            revision === revisionRef.current
-          ) {
-            revisionRef.current = data.revision;
-          }
-        })
-        .catch(() => undefined);
-    }, 400);
   };
 
   return (

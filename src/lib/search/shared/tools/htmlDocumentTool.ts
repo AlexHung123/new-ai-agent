@@ -1,7 +1,6 @@
 import { Type } from 'typebox';
 import type { AgentTool } from '@earendil-works/pi-agent-core';
 import { allowedAssetOrigin } from '@/lib/html/allowedAssetOrigin';
-import { saveWcmsWorkingHtml } from '@/lib/html/wcmsHtmlStore';
 import { inlineHtmlAssets } from '@/lib/html/inlineHtmlAssets';
 import { toTinyMceBodyFragment } from '@/lib/html/tinyMceFragment';
 import { getHtmlAgentTurnContext } from '../runtime/htmlAgentTurnContext';
@@ -95,15 +94,7 @@ export function createHtmlSetTool(): AgentTool {
         }),
       );
       ctx.html = html;
-      let revision: number | undefined;
-      if (ctx.bind) {
-        revision = saveWcmsWorkingHtml({
-          userId: ctx.userId,
-          bind: ctx.bind,
-          html,
-        }).revision;
-      }
-      ctx.emitHtml?.(html, revision);
+      ctx.emitHtml?.(html);
       return jsonToolResult({
         ok: true,
         chars: html.length,

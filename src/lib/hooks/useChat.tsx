@@ -110,7 +110,6 @@ type ChatContext = {
   wcmsLang: 'en' | 'tc' | 'sc';
   wcmsHtml: string;
   setWcmsHtml: (html: string) => void;
-  wcmsRevision: number;
   wcmsTitle: string | null;
   wcmsFileBaseHref: string | null;
   writingFiles: WritingAttachmentView[];
@@ -164,7 +163,6 @@ export const chatContext = createContext<ChatContext>({
   wcmsLang: 'en',
   wcmsHtml: '',
   setWcmsHtml: () => {},
-  wcmsRevision: 0,
   wcmsTitle: null,
   wcmsFileBaseHref: null,
   writingFiles: [],
@@ -419,7 +417,6 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   const [wcmsPageIndex, setWcmsPageIndex] = useState(0);
   const [wcmsLang, setWcmsLang] = useState<'en' | 'tc' | 'sc'>('en');
   const [wcmsHtml, setWcmsHtmlState] = useState('');
-  const [wcmsRevision, setWcmsRevision] = useState(0);
   const [wcmsTitle, setWcmsTitle] = useState<string | null>(null);
   const [wcmsFileBaseHref, setWcmsFileBaseHref] = useState<string | null>(null);
   const [writingFiles, setWritingFiles] = useState<WritingAttachmentView[]>(
@@ -452,6 +449,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   const setWcmsHtml = useCallback((html: string) => {
     wcmsEditedDuringLoad.current = true;
     wcmsHtmlReadyRef.current = true;
+    wcmsHtmlRef.current = html;
     setWcmsHtmlState(html);
   }, []);
   useEffect(() => {
@@ -549,7 +547,6 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
           })
         ) {
           setWcmsHtmlState(data.html);
-          if (typeof data.revision === 'number') setWcmsRevision(data.revision);
         }
         setWcmsTitle(typeof data.titleEn === 'string' ? data.titleEn : null);
         if (typeof data.fileBaseHref === 'string' && data.fileBaseHref) {
@@ -557,7 +554,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         }
         wcmsHtmlReadyRef.current = true;
       } catch {
-        /* leave htmlReady false so the server loads the stored page */
+        /* leave htmlReady false so the server loads the database page */
       }
     })();
     return () => {
@@ -703,7 +700,6 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       setWcmsHtmlState('');
       setWcmsTitle(null);
       setWcmsFileBaseHref(null);
-      setWcmsRevision(0);
       wcmsHtmlReadyRef.current = false;
       wcmsEditedDuringLoad.current = false;
     }
@@ -977,9 +973,6 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
           wcmsEditedDuringLoad.current = true;
           wcmsHtmlReadyRef.current = true;
           setWcmsHtmlState(html);
-          if (typeof data.data.revision === 'number') {
-            setWcmsRevision(data.data.revision);
-          }
         }
         return;
       }
@@ -1273,7 +1266,6 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       wcmsLang,
       wcmsHtml,
       setWcmsHtml,
-      wcmsRevision,
       wcmsTitle,
       wcmsFileBaseHref,
       writingFiles,
@@ -1313,7 +1305,6 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       wcmsPageIndex,
       wcmsLang,
       wcmsHtml,
-      wcmsRevision,
       wcmsTitle,
       wcmsFileBaseHref,
       writingFiles,

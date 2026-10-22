@@ -1,19 +1,10 @@
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { readWcmsWorkingHtml } from '@/lib/html/wcmsHtmlStore';
 import { runWithHtmlAgentTurn } from '../runtime/htmlAgentTurnContext';
 import { createHtmlGetTool, createHtmlSetTool } from './htmlDocumentTool';
 
 describe('html_get / html_set', () => {
-  const prev = process.env.HTML_PAGES_ROOT;
-  let root: string | undefined;
-
   afterEach(() => {
-    if (prev === undefined) delete process.env.HTML_PAGES_ROOT;
-    else process.env.HTML_PAGES_ROOT = prev;
-    if (root) rmSync(root, { recursive: true, force: true });
+    vi.unstubAllGlobals();
   });
 
   it('returns the bound document', async () => {
@@ -33,26 +24,29 @@ describe('html_get / html_set', () => {
     });
   });
 
-  it('writes html_set to the working copy and emits the new html', async () => {
-    root = mkdtempSync(join(tmpdir(), 'html-set-'));
-    process.env.HTML_PAGES_ROOT = root;
+  it('updates the turn html and emits the new html', async () => {
     const emitted: string[] = [];
     const tool = createHtmlSetTool();
-    const bind = { wcmsContentId: 7, pageIndex: 0, lang: 'en' as const };
     const result = await runWithHtmlAgentTurn(
       {
         userId: '42',
-        bind,
+        bind: { wcmsContentId: 7, pageIndex: 0, lang: 'en' },
         html: '<p>old</p>',
         emitHtml: (html) => emitted.push(html),
       },
-      () => tool.execute('t1', { html: '<script>ok()</script><p>new</p>' }),
+      async () => {
+        const first = await tool.execute('t1', {
+          html: '<script>ok()</script><p>new</p>',
+        });
+        const again = await createHtmlGetTool().execute('t2', {});
+        return { first, again };
+      },
     );
-    expect(result.details).toMatchObject({ ok: true });
+    expect(result.first.details).toMatchObject({ ok: true });
+    expect(result.again.details).toMatchObject({
+      html: '<script>ok()</script><p>new</p>',
+    });
     expect(emitted).toEqual(['<script>ok()</script><p>new</p>']);
-    expect(readWcmsWorkingHtml('42', bind)).toBe(
-      '<script>ok()</script><p>new</p>',
-    );
   });
 
   it('errors when no HTML turn is bound', async () => {
@@ -61,40 +55,31 @@ describe('html_get / html_set', () => {
   });
 
   it('rejects a much shorter document unless the user asked to delete', async () => {
-    root = mkdtempSync(join(tmpdir(), 'html-set-shrink-'));
-    process.env.HTML_PAGES_ROOT = root;
     const tool = createHtmlSetTool();
-    const bind = { wcmsContentId: 7, pageIndex: 0, lang: 'en' as const };
-    const previous = `<p>${'a'.repeat(400)}</p>`;
     const result = await runWithHtmlAgentTurn(
       {
         userId: '42',
-        bind,
-        html: previous,
+        bind: { wcmsContentId: 7, pageIndex: 0, lang: 'en' },
+        html: `<p>${'a'.repeat(400)}</p>`,
         userMessage: 'Make the heading larger',
       },
       () => tool.execute('t1', { html: '<p>short</p>' }),
     );
     expect(result.details).toMatchObject({ ok: false });
-    expect(readWcmsWorkingHtml('42', bind)).toBeNull();
   });
 
   it('allows a short replacement when the user asked to delete', async () => {
-    root = mkdtempSync(join(tmpdir(), 'html-set-delete-'));
-    process.env.HTML_PAGES_ROOT = root;
     const tool = createHtmlSetTool();
-    const bind = { wcmsContentId: 7, pageIndex: 0, lang: 'en' as const };
     const result = await runWithHtmlAgentTurn(
       {
         userId: '42',
-        bind,
+        bind: { wcmsContentId: 7, pageIndex: 0, lang: 'en' },
         html: `<p>${'a'.repeat(400)}</p>`,
         userMessage: 'Delete the extra paragraphs',
       },
       () => tool.execute('t1', { html: '<p>kept</p>' }),
     );
     expect(result.details).toMatchObject({ ok: true });
-    expect(readWcmsWorkingHtml('42', bind)).toBe('<p>kept</p>');
   });
 
   it('returns an error instead of clipping a huge document', async () => {
