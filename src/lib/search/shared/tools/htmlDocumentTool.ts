@@ -58,7 +58,7 @@ export function createHtmlSetTool(): AgentTool {
     parameters: Type.Object({
       html: Type.String({
         description:
-          'Body-only TinyMCE fragment. Inline CSS in style tags and JS in script tags. No html, head, or body tags.',
+          'Body-only TinyMCE fragment. Put CSS on style attributes, not in a style tag. Put JS in script tags with no src. No html, head, or body tags.',
       }),
     }),
     execute: async (_id, args) => {

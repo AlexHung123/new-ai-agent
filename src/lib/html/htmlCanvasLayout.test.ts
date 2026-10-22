@@ -14,9 +14,13 @@ describe('Agent HTML canvas', () => {
       path.join(process.cwd(), 'data', 'prompts', 'agentHtml.md'),
       'utf8',
     );
-    expect(prompt).toMatch(/<style>/);
+    expect(prompt).toMatch(/style attribute/);
+    expect(prompt).toMatch(/Do not add a <style> tag/);
+    expect(prompt).not.toMatch(/Put CSS in <style>/);
     expect(prompt).toMatch(/<script>/);
-    expect(prompt).toMatch(/inline/i);
+    const fallback = readSrc('../search/shared/prompts/htmlAgentSystemPrompt.ts');
+    expect(fallback).toMatch(/Do not add a <style> tag/);
+    expect(fallback).not.toMatch(/Put CSS in <style>/);
   });
 
   it('uses the iTMS TinyMCE allow-list and a sandboxed preview iframe', () => {

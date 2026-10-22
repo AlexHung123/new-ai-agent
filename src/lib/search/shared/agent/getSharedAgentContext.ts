@@ -132,7 +132,7 @@ declare global {
 }
 
 /** Bump when session-manager behavior changes so Next.js HMR rebuilds the pool. */
-const SHARED_AGENT_CONTEXT_REV = 11;
+const SHARED_AGENT_CONTEXT_REV = 12;
 
 export function getSharedAgentContext(): SharedAgentContext {
   if (
