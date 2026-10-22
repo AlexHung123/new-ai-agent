@@ -13,6 +13,7 @@ import { ArrowRight } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { initializeAuthToken, getAuthHeaders } from '@/lib/utils/auth';
+import { agentHtmlChatHref, parseWcmsBind } from '@/lib/html/wcmsQuery';
 
 const TEST_LOGIN_HREF = '/itms/ai/test-login';
 
@@ -92,6 +93,22 @@ const AgentsPage = () => {
 
     fetchPermissions();
   }, [tokenReady, searchParams]);
+
+  useEffect(() => {
+    if (loading) return;
+    const bind = parseWcmsBind({
+      wcmsContentId: searchParams.get('wcmsContentId'),
+      pageIndex: searchParams.get('pageIndex'),
+      lang: searchParams.get('lang'),
+    });
+    if (!bind) return;
+    const allowed = filteredModes.some((mode) => mode.key === 'agentHtml');
+    if (!allowed) return;
+    setFocusMode('agentHtml');
+    window.location.replace(
+      agentHtmlChatHref(bind, searchParams.get('itmsOrigin')),
+    );
+  }, [loading, filteredModes, searchParams, setFocusMode]);
 
   const handleSelect = (key: string) => {
     const mode = focusModes.find((item) => item.key === key);

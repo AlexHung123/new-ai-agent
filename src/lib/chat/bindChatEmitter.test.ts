@@ -388,3 +388,35 @@ describe('bindChatEmitterToWriter tool_execution', () => {
     expect(toolEvents[0].data.resultPreview).toMatchObject({ truncated: true });
   });
 });
+
+describe('bindChatEmitterToWriter html_document', () => {
+  it('forwards html_document events to the client', async () => {
+    const stream = new EventEmitter();
+    const { writer, writes } = createMockWriter();
+
+    bindChatEmitterToWriter({
+      stream,
+      writer,
+      encoder: new TextEncoder(),
+      signal: new AbortController().signal,
+      chatId: 'chat-1',
+      userId: 'user-1',
+      createMessageId: () => 'asst-1',
+      persistAssistant: () => {},
+      persistSources: () => {},
+    });
+
+    stream.emit(
+      'data',
+      JSON.stringify({
+        type: 'html_document',
+        data: { html: '<p>live</p>' },
+      }),
+    );
+    await flush();
+
+    expect(parseWrites(writes)).toEqual([
+      { type: 'html_document', data: { html: '<p>live</p>' } },
+    ]);
+  });
+});

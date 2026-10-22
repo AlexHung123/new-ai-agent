@@ -23,6 +23,7 @@ describe('allAgentPermissionCodes', () => {
       'chatSurveyAgent:execute',
       'chatGuideAgent:execute',
       'chatDocumentAgent:execute',
+      'chatHtmlAgent:execute',
       'chatVoiceAgent:execute',
     ]);
   });

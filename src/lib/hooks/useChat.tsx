@@ -24,6 +24,7 @@ import { getSuggestions } from '../actions';
 import {
   SFC_DOCUMENT_FOCUS_MODE,
   SFC_DOCUMENT_ID,
+  focusStateFromStored,
   resolveFocusMode,
   resolveLoadedFocusMode,
   shouldPersistFocusMode,
@@ -45,6 +46,8 @@ import {
   getAuthHeaders,
   initializeAuthToken,
 } from '../utils/auth';
+import { shouldApplyFetchedWcmsHtml } from '../html/wcmsLoad';
+import { parseItmsOrigin, parseWcmsBind, urlWcmsBoot } from '../html/wcmsQuery';
 import {
   isAllowedWritingFilename,
   writingUnsupportedTypeMessage,
@@ -102,6 +105,14 @@ type ChatContext = {
   documentId: string | null;
   setDocumentId: (id: string | null) => void;
   documentItems: Array<{ id: string; title: string; description: string }>;
+  wcmsContentId: number | null;
+  wcmsPageIndex: number;
+  wcmsLang: 'en' | 'tc' | 'sc';
+  wcmsHtml: string;
+  setWcmsHtml: (html: string) => void;
+  wcmsRevision: number;
+  wcmsTitle: string | null;
+  wcmsFileBaseHref: string | null;
   writingFiles: WritingAttachmentView[];
   refreshWritingFiles: () => Promise<void>;
   uploadWritingFile: (file: File) => Promise<void>;
@@ -148,6 +159,14 @@ export const chatContext = createContext<ChatContext>({
   documentId: null,
   setDocumentId: () => {},
   documentItems: [],
+  wcmsContentId: null,
+  wcmsPageIndex: 0,
+  wcmsLang: 'en',
+  wcmsHtml: '',
+  setWcmsHtml: () => {},
+  wcmsRevision: 0,
+  wcmsTitle: null,
+  wcmsFileBaseHref: null,
   writingFiles: [],
   refreshWritingFiles: async () => {},
   uploadWritingFile: async () => {},
@@ -215,6 +234,9 @@ const loadMessages = async (args: {
   setFocusMode: (mode: string) => void;
   setNotFound: (notFound: boolean) => void;
   setDocumentId: (id: string | null) => void;
+  setWcmsContentId: (id: number | null) => void;
+  setWcmsPageIndex: (index: number) => void;
+  setWcmsLang: (lang: 'en' | 'tc' | 'sc') => void;
 }) => {
   const {
     chatId,
@@ -224,44 +246,59 @@ const loadMessages = async (args: {
     setFocusMode,
     setNotFound,
     setDocumentId,
+    setWcmsContentId,
+    setWcmsPageIndex,
+    setWcmsLang,
   } = args;
 
-  const res = await fetch(`/itms/ai/api/chats/${chatId}`, {
-    method: 'GET',
-    headers: getAuthHeaders(),
-  });
+  try {
+    const res = await fetch(`/itms/ai/api/chats/${chatId}`, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
 
-  if (res.status === 404) {
-    setNotFound(true);
+    if (res.status === 404) {
+      setNotFound(true);
+      return;
+    }
+
+    const data = await res.json();
+    const messages = data.messages as Message[];
+    setMessages(messages);
+
+    const chatTurns = messages.filter(
+      (msg): msg is ChatTurn => msg.role === 'user' || msg.role === 'assistant',
+    );
+
+    const history = chatTurns.map((msg) => [msg.role, msg.content]) as [
+      string,
+      string,
+    ][];
+    if (chatTurns.length > 0) document.title = chatTurns[0].content;
+
+    setChatHistory(history);
+    const resolvedFocus = resolveLoadedFocusMode(data.chat.focusMode);
+    setFocusMode(resolvedFocus);
+    setDocumentId(
+      typeof data.chat.documentId === 'string' && data.chat.documentId
+        ? data.chat.documentId
+        : resolvedFocus === SFC_DOCUMENT_FOCUS_MODE
+          ? SFC_DOCUMENT_ID
+          : null,
+    );
+    const loadedWcms = parseWcmsBind({
+      wcmsContentId: data.chat.wcmsContentId,
+      pageIndex: data.chat.wcmsPageIndex,
+      lang: data.chat.wcmsLang,
+    });
+    if (loadedWcms) {
+      setWcmsContentId(loadedWcms.wcmsContentId);
+      setWcmsPageIndex(loadedWcms.pageIndex);
+      setWcmsLang(loadedWcms.lang);
+    }
+  } finally {
     setIsMessagesLoaded(true);
-    return;
   }
-
-  const data = await res.json();
-  const messages = data.messages as Message[];
-  setMessages(messages);
-
-  const chatTurns = messages.filter(
-    (msg): msg is ChatTurn => msg.role === 'user' || msg.role === 'assistant',
-  );
-
-  const history = chatTurns.map((msg) => [msg.role, msg.content]) as [
-    string,
-    string,
-  ][];
-  if (chatTurns.length > 0) document.title = chatTurns[0].content;
-
-  setChatHistory(history);
-  const resolvedFocus = resolveLoadedFocusMode(data.chat.focusMode);
-  setFocusMode(resolvedFocus);
-  setDocumentId(
-    typeof data.chat.documentId === 'string' && data.chat.documentId
-      ? data.chat.documentId
-      : resolvedFocus === SFC_DOCUMENT_FOCUS_MODE
-        ? SFC_DOCUMENT_ID
-        : null,
-  );
-  setIsMessagesLoaded(true);
 };
 
 /** -----------------------------
@@ -367,23 +404,24 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   const [chatHistory, setChatHistory] = useState<[string, string][]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
 
-  const [focusMode, setFocusMode] = useState(() => {
-    return resolveFocusMode(safeLocalStorageGet('focusMode'));
-  });
-
+  const initialFocus = focusStateFromStored(null);
+  const [focusMode, setFocusMode] = useState(initialFocus.focusMode);
   const [optimizationMode, setOptimizationMode] = useState('speed');
-  const [sfcExactMatch, setSfcExactMatch] = useState(
-    () => resolveFocusMode(safeLocalStorageGet('focusMode')) === 'agentSFC',
-  );
+  const [sfcExactMatch, setSfcExactMatch] = useState(initialFocus.sfcExactMatch);
   const [sfcTrainingRelated, setSfcTrainingRelated] = useState(true);
-  const [documentId, setDocumentId] = useState<string | null>(() =>
-    resolveFocusMode(safeLocalStorageGet('focusMode')) === SFC_DOCUMENT_FOCUS_MODE
-      ? SFC_DOCUMENT_ID
-      : null,
+  const [documentId, setDocumentId] = useState<string | null>(
+    initialFocus.documentId,
   );
   const [documentItems, setDocumentItems] = useState<
     Array<{ id: string; title: string; description: string }>
   >([]);
+  const [wcmsContentId, setWcmsContentId] = useState<number | null>(null);
+  const [wcmsPageIndex, setWcmsPageIndex] = useState(0);
+  const [wcmsLang, setWcmsLang] = useState<'en' | 'tc' | 'sc'>('en');
+  const [wcmsHtml, setWcmsHtmlState] = useState('');
+  const [wcmsRevision, setWcmsRevision] = useState(0);
+  const [wcmsTitle, setWcmsTitle] = useState<string | null>(null);
+  const [wcmsFileBaseHref, setWcmsFileBaseHref] = useState<string | null>(null);
   const [writingFiles, setWritingFiles] = useState<WritingAttachmentView[]>(
     [],
   );
@@ -403,6 +441,19 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   const sfcExactMatchRef = useRef(sfcExactMatch);
   const sfcTrainingRelatedRef = useRef(sfcTrainingRelated);
   const documentIdRef = useRef(documentId);
+  const wcmsContentIdRef = useRef(wcmsContentId);
+  const wcmsPageIndexRef = useRef(wcmsPageIndex);
+  const wcmsLangRef = useRef(wcmsLang);
+  const wcmsFileBaseHrefRef = useRef(wcmsFileBaseHref);
+  const wcmsHtmlRef = useRef(wcmsHtml);
+  const wcmsLoadGen = useRef(0);
+  const wcmsEditedDuringLoad = useRef(false);
+  const wcmsHtmlReadyRef = useRef(false);
+  const setWcmsHtml = useCallback((html: string) => {
+    wcmsEditedDuringLoad.current = true;
+    wcmsHtmlReadyRef.current = true;
+    setWcmsHtmlState(html);
+  }, []);
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
@@ -430,6 +481,91 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     documentIdRef.current = documentId;
   }, [documentId]);
+
+  useEffect(() => {
+    wcmsContentIdRef.current = wcmsContentId;
+  }, [wcmsContentId]);
+
+  useEffect(() => {
+    wcmsPageIndexRef.current = wcmsPageIndex;
+  }, [wcmsPageIndex]);
+
+  useEffect(() => {
+    wcmsLangRef.current = wcmsLang;
+  }, [wcmsLang]);
+
+  useEffect(() => {
+    wcmsFileBaseHrefRef.current = wcmsFileBaseHref;
+  }, [wcmsFileBaseHref]);
+
+  useEffect(() => {
+    wcmsHtmlRef.current = wcmsHtml;
+  }, [wcmsHtml]);
+
+  useEffect(() => {
+    const bind = parseWcmsBind({
+      wcmsContentId: searchParams.get('wcmsContentId'),
+      pageIndex: searchParams.get('pageIndex'),
+      lang: searchParams.get('lang'),
+    });
+    if (!bind) return;
+    setFocusMode('agentHtml');
+    setWcmsContentId(bind.wcmsContentId);
+    setWcmsPageIndex(bind.pageIndex);
+    setWcmsLang(bind.lang);
+    const origin = parseItmsOrigin(searchParams.get('itmsOrigin'));
+    if (origin) setWcmsFileBaseHref(origin);
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (focusMode !== 'agentHtml' || !wcmsContentId || !userId) {
+      if (focusMode === 'agentHtml' && !wcmsContentId) {
+        wcmsHtmlReadyRef.current = true;
+      }
+      return;
+    }
+    const requestGeneration = ++wcmsLoadGen.current;
+    wcmsEditedDuringLoad.current = false;
+    wcmsHtmlReadyRef.current = false;
+    let cancelled = false;
+    const originQuery = wcmsFileBaseHref
+      ? `&itmsOrigin=${encodeURIComponent(wcmsFileBaseHref)}`
+      : '';
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/itms/ai/api/wcms-content/${wcmsContentId}?pageIndex=${wcmsPageIndex}&lang=${wcmsLang}${originQuery}`,
+          { headers: getAuthHeaders() },
+        );
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (cancelled) return;
+        if (
+          typeof data.html === 'string' &&
+          shouldApplyFetchedWcmsHtml({
+            requestGeneration,
+            activeGeneration: wcmsLoadGen.current,
+            editedSinceRequest: wcmsEditedDuringLoad.current,
+          })
+        ) {
+          setWcmsHtmlState(data.html);
+          if (typeof data.revision === 'number') setWcmsRevision(data.revision);
+        }
+        setWcmsTitle(typeof data.titleEn === 'string' ? data.titleEn : null);
+        if (typeof data.fileBaseHref === 'string' && data.fileBaseHref) {
+          setWcmsFileBaseHref(data.fileBaseHref);
+        }
+        wcmsHtmlReadyRef.current = true;
+      } catch {
+        /* leave htmlReady false so the server loads the stored page */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // wcmsFileBaseHref is read once per bind. Writing it from this effect must not fetch again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusMode, wcmsContentId, wcmsPageIndex, wcmsLang, userId]);
 
   useEffect(() => {
     if (focusMode !== 'agentDocument') return;
@@ -560,6 +696,17 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     setFocusMode(resolved);
     safeLocalStorageSet('focusMode', resolved);
     setDocumentId(resolved === SFC_DOCUMENT_FOCUS_MODE ? SFC_DOCUMENT_ID : null);
+    if (resolved !== 'agentHtml') {
+      setWcmsContentId(null);
+      setWcmsPageIndex(0);
+      setWcmsLang('en');
+      setWcmsHtmlState('');
+      setWcmsTitle(null);
+      setWcmsFileBaseHref(null);
+      setWcmsRevision(0);
+      wcmsHtmlReadyRef.current = false;
+      wcmsEditedDuringLoad.current = false;
+    }
   }, []);
 
   const chatTurns = useMemo((): ChatTurn[] => {
@@ -604,11 +751,25 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     );
   }, []);
 
-  // Initial boot: auth token only. Chat model comes from data/config.json on the server.
+  // Initial boot: auth token, then the stored focus mode. Reading localStorage
+  // inside useState mismatches the server HTML (no window) and hydration fails.
   useEffect(() => {
     initializeAuthToken(searchParams);
     const extractedUserId = extractUserIdFromToken();
     setUserId(extractedUserId);
+    const boot = urlWcmsBoot(searchParams);
+    if (boot) {
+      setFocusMode('agentHtml');
+      setWcmsContentId(boot.bind.wcmsContentId);
+      setWcmsPageIndex(boot.bind.pageIndex);
+      setWcmsLang(boot.bind.lang);
+      if (boot.origin) setWcmsFileBaseHref(boot.origin);
+      return;
+    }
+    const stored = focusStateFromStored(safeLocalStorageGet('focusMode'));
+    setFocusMode(stored.focusMode);
+    setSfcExactMatch(stored.sfcExactMatch);
+    setDocumentId(stored.documentId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -649,6 +810,9 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         },
         setNotFound,
         setDocumentId,
+        setWcmsContentId,
+        setWcmsPageIndex,
+        setWcmsLang,
       });
       return;
     }
@@ -802,6 +966,24 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
 
+      if (data.type === 'html_document') {
+        const html =
+          data.data &&
+          typeof data.data === 'object' &&
+          typeof data.data.html === 'string'
+            ? data.data.html
+            : null;
+        if (html != null) {
+          wcmsEditedDuringLoad.current = true;
+          wcmsHtmlReadyRef.current = true;
+          setWcmsHtmlState(html);
+          if (typeof data.data.revision === 'number') {
+            setWcmsRevision(data.data.revision);
+          }
+        }
+        return;
+      }
+
       if (data.type === 'tool_execution' || data.type === 'tool_error') {
         // Tool failure is shown in the process panel. Keep the stream alive so
         // fallback text from the same turn can still arrive.
@@ -930,6 +1112,16 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
           sfcExactMatch: sfcExactMatchRef.current,
           sfcTrainingRelated: sfcTrainingRelatedRef.current,
           documentId: boundDocumentId,
+          wcmsContentId: wcmsContentIdRef.current,
+          wcmsPageIndex: wcmsPageIndexRef.current,
+          wcmsLang: wcmsLangRef.current,
+          itmsOrigin: wcmsFileBaseHrefRef.current,
+          html:
+            fm === 'agentHtml' && wcmsHtmlReadyRef.current
+              ? wcmsHtmlRef.current
+              : undefined,
+          htmlReady:
+            fm === 'agentHtml' && wcmsHtmlReadyRef.current ? true : undefined,
           history: rewriteMode
             ? chatHistoryRef.current.slice(
                 0,
@@ -1076,6 +1268,14 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       documentId,
       setDocumentId,
       documentItems,
+      wcmsContentId,
+      wcmsPageIndex,
+      wcmsLang,
+      wcmsHtml,
+      setWcmsHtml,
+      wcmsRevision,
+      wcmsTitle,
+      wcmsFileBaseHref,
       writingFiles,
       refreshWritingFiles,
       uploadWritingFile,
@@ -1109,6 +1309,13 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       sfcTrainingRelated,
       documentId,
       documentItems,
+      wcmsContentId,
+      wcmsPageIndex,
+      wcmsLang,
+      wcmsHtml,
+      wcmsRevision,
+      wcmsTitle,
+      wcmsFileBaseHref,
       writingFiles,
       refreshWritingFiles,
       uploadWritingFile,

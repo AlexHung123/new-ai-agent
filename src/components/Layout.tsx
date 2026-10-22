@@ -8,7 +8,7 @@ const Layout = ({
   flush?: boolean;
 }) => {
   return (
-    <main className="lg:pl-20 bg-light-primary dark:bg-dark-primary min-h-screen">
+    <main className="app-main lg:pl-20 bg-light-primary dark:bg-dark-primary min-h-screen">
       <div
         className={
           flush

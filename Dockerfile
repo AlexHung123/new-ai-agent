@@ -8,11 +8,13 @@ RUN apt-get update && apt-get install -y python3 python3-pip && rm -rf /var/lib/
 WORKDIR /home/aiagent
 
 COPY package.json package-lock.json ./
+COPY scripts/copy-tinymce.js ./scripts/copy-tinymce.js
 RUN npm ci
 
 COPY tsconfig.json next.config.mjs next-env.d.ts postcss.config.js drizzle.config.ts tailwind.config.ts ./
 COPY src ./src
 COPY public ./public
+RUN node scripts/copy-tinymce.js
 COPY skills ./skills
 COPY vendor ./vendor
 COPY drizzle ./drizzle

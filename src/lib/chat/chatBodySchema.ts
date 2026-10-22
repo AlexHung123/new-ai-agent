@@ -30,6 +30,12 @@ export const chatBodySchema = z.object({
   sfcTrainingRelated: z.boolean().optional(),
   documentId: z.string().nullish(),
   htmlMode: z.boolean().optional().default(false),
+  wcmsContentId: z.union([z.number().int(), z.string()]).nullish(),
+  wcmsPageIndex: z.union([z.number().int(), z.string()]).nullish(),
+  wcmsLang: z.string().nullish(),
+  itmsOrigin: z.string().nullish(),
+  html: z.string().optional(),
+  htmlReady: z.boolean().optional(),
 });
 
 export type ChatBody = z.infer<typeof chatBodySchema>;

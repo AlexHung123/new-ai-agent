@@ -11,6 +11,7 @@
     "format:write": "prettier . --write",
     "test": "vitest run",
     "test:watch": "vitest",
+    "postinstall": "node scripts/copy-tinymce.js",
     "db:migrate": "npx --yes tsx src/lib/db/runMigrate.ts",
     "db:import-sqlite": "npx --yes tsx src/lib/db/runImportSqlite.ts"
   },
@@ -25,6 +26,7 @@
     "@prisma/adapter-pg": "^6.17.0",
     "@prisma/client": "^6.17.0",
     "@tailwindcss/typography": "^0.5.12",
+    "@tinymce/tinymce-react": "^6.3.1",
     "@types/jsonwebtoken": "^9.0.10",
     "better-sqlite3": "^11.9.1",
     "clsx": "^2.1.0",
@@ -46,6 +48,7 @@
     "react-textarea-autosize": "^8.5.3",
     "sonner": "^1.4.41",
     "tailwind-merge": "^2.2.2",
+    "tinymce": "^8.10.0",
     "typebox": "^1.3.15",
     "zod": "^3.22.4"
   },

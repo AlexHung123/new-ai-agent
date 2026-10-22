@@ -27,6 +27,21 @@ import {
 import { runWithWritingTurn } from '@/lib/search/shared/runtime/writingTurnContext';
 import { runWithHtmlTurn } from '@/lib/html/htmlTurnContext';
 import { ensureUserWritingWorkspace } from '@/lib/writing/userFiles';
+import {
+  resolveBoundWcms,
+  wcmsBindPatchForExistingChat,
+} from '@/lib/html/resolveBoundWcms';
+import { resolveAgentHtmlSnapshot } from '@/lib/html/agentHtmlSnapshot';
+import { allowedAssetOrigin } from '@/lib/html/allowedAssetOrigin';
+import { loadWcmsPage } from '@/lib/html/wcmsContent';
+import {
+  readWcmsWorkingHtml,
+  saveWcmsWorkingHtml,
+} from '@/lib/html/wcmsHtmlStore';
+import { runWithHtmlAgentTurn } from '@/lib/search/shared/runtime/htmlAgentTurnContext';
+import { inlineHtmlAssets } from '@/lib/html/inlineHtmlAssets';
+import { toTinyMceBodyFragment } from '@/lib/html/tinyMceFragment';
+import { parseItmsOrigin } from '@/lib/html/wcmsQuery';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -67,6 +82,9 @@ const handleHistorySave = async (
   focusMode: string,
   userId: string,
   documentId?: string | null,
+  wcmsContentId?: number | null,
+  wcmsPageIndex?: number | null,
+  wcmsLang?: string | null,
 ) => {
   const chat = await db.query.chats.findFirst({
     where: eq(chats.id, message.chatId),
@@ -82,9 +100,29 @@ const handleHistorySave = async (
         createdAt: new Date().toString(),
         focusMode: focusMode,
         documentId: documentId ?? null,
+        wcmsContentId: wcmsContentId ?? null,
+        wcmsPageIndex: wcmsPageIndex ?? null,
+        wcmsLang: wcmsLang ?? null,
         files: [],
       })
       .execute();
+  } else {
+    const patch = wcmsBindPatchForExistingChat(chat, {
+      wcmsContentId: wcmsContentId ?? null,
+      wcmsPageIndex: wcmsPageIndex ?? null,
+      wcmsLang: wcmsLang ?? null,
+    });
+    if (patch) {
+      await db
+        .update(chats)
+        .set({
+          wcmsContentId: patch.wcmsContentId,
+          wcmsPageIndex: patch.wcmsPageIndex,
+          wcmsLang: patch.wcmsLang,
+          focusMode,
+        })
+        .where(eq(chats.id, message.chatId));
+    }
   }
 
   const messageExists = await db.query.messages.findFirst({
@@ -237,6 +275,17 @@ export const POST = async (req: Request) => {
     const withHtml = <T,>(fn: () => T | Promise<T>) =>
       runWithHtmlTurn({ userId, htmlMode: false }, fn);
 
+    const wcmsBound = resolveBoundWcms({
+      focusMode: body.focusMode,
+      chatExists: Boolean(existingChat),
+      existingWcmsContentId: existingChat?.wcmsContentId,
+      existingWcmsPageIndex: existingChat?.wcmsPageIndex,
+      existingWcmsLang: existingChat?.wcmsLang,
+      bodyWcmsContentId: body.wcmsContentId,
+      bodyWcmsPageIndex: body.wcmsPageIndex,
+      bodyWcmsLang: body.wcmsLang,
+    });
+
     let stream;
     if (bound.status === 'ok' && !documentTurn) {
       stream = unavailableDocumentEmitter();
@@ -255,6 +304,60 @@ export const POST = async (req: Request) => {
           },
           runSearch,
         ),
+      );
+    } else if (body.focusMode === 'agentHtml') {
+      const bind =
+        wcmsBound.status === 'ok'
+          ? {
+              wcmsContentId: wcmsBound.wcmsContentId,
+              pageIndex: wcmsBound.pageIndex,
+              lang: wcmsBound.lang,
+            }
+          : null;
+      let titleEn: string | undefined;
+      let working: string | null = null;
+      let pageHtml: string | null = null;
+      if (bind) {
+        working = readWcmsWorkingHtml(userId, bind);
+        if (working == null) {
+          const loaded = await loadWcmsPage(bind);
+          if (loaded.ok) {
+            pageHtml = loaded.html;
+            titleEn = loaded.titleEn;
+          }
+        }
+      }
+      const snapshot = resolveAgentHtmlSnapshot({
+        html: body.html,
+        htmlReady: body.htmlReady,
+        working,
+        pageHtml,
+      });
+      const fileBase = allowedAssetOrigin(
+        parseItmsOrigin(body.itmsOrigin) || body.itmsOrigin,
+      );
+      let html = toTinyMceBodyFragment(
+        await inlineHtmlAssets(snapshot.html, {
+          baseHref: fileBase,
+          allowedOrigin: fileBase,
+        }),
+      );
+      if (
+        bind &&
+        (snapshot.persist === 'client' || snapshot.persist === 'page')
+      ) {
+        saveWcmsWorkingHtml({ userId, bind, html });
+      }
+      stream = await runWithHtmlAgentTurn(
+        {
+          userId,
+          bind,
+          html,
+          titleEn,
+          fileBaseHref: fileBase,
+          userMessage: message.content,
+        },
+        runSearch,
       );
     } else {
       stream = await runSearch();
@@ -302,6 +405,9 @@ export const POST = async (req: Request) => {
       body.focusMode,
       userId,
       bound.status === 'ok' ? bound.documentId : null,
+      wcmsBound.status === 'ok' ? wcmsBound.wcmsContentId : null,
+      wcmsBound.status === 'ok' ? wcmsBound.pageIndex : null,
+      wcmsBound.status === 'ok' ? wcmsBound.lang : null,
     );
 
     return new Response(responseStream.readable, {

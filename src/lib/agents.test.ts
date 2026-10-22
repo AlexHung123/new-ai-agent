@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   SFC_DOCUMENT_FOCUS_MODE,
@@ -6,6 +8,7 @@ import {
   findDisplayFocusMode,
   focusModes,
   isSfcFocusMode,
+  focusStateFromStored,
   resolveFocusMode,
   resolveLoadedFocusMode,
   shouldPersistFocusMode,
@@ -18,6 +21,7 @@ describe('focusModes', () => {
       'newSurveyAgent',
       'agentWriting',
       'agentDocument',
+      'agentHtml',
       'agentVoice',
     ]);
     expect(focusModes.some((mode) => mode.key === 'agentGuide')).toBe(false);
@@ -30,6 +34,13 @@ describe('focusModes', () => {
     const writingAgent = focusModes.find((mode) => mode.key === 'agentWriting');
     expect(documentAgent?.image).toBe('/itms/ai/agent-document.png');
     expect(documentAgent?.image).not.toBe(writingAgent?.image);
+  });
+
+  it('registers Agent HTML for WCMS TinyMCE editing', () => {
+    const htmlAgent = focusModes.find((mode) => mode.key === 'agentHtml');
+    expect(htmlAgent?.title).toBe('Agent HTML');
+    expect(htmlAgent?.permissionCode).toBe('chatHtmlAgent:execute');
+    expect(htmlAgent?.image).toBe('/itms/ai/agent-html.jpg');
   });
 
   it('opens Agent Voice as a TTS tool with the voice illustration', () => {
@@ -51,6 +62,7 @@ describe('resolveFocusMode', () => {
     expect(resolveFocusMode('newSurveyAgent')).toBe('newSurveyAgent');
     expect(resolveFocusMode('agentWriting')).toBe('agentWriting');
     expect(resolveFocusMode('agentDocument')).toBe('agentDocument');
+    expect(resolveFocusMode('agentHtml')).toBe('agentHtml');
   });
 
   it('maps internal SFC modes to the Agent SFC card', () => {
@@ -85,9 +97,43 @@ describe('resolveFocusMode', () => {
     expect(resolveLoadedFocusMode('agentGuide')).toBe('agentSFC');
   });
 
+  it('uses the same focus state when storage is unavailable', () => {
+    expect(focusStateFromStored(null)).toEqual({
+      focusMode: 'agentSFC',
+      sfcExactMatch: true,
+      documentId: null,
+    });
+    expect(focusStateFromStored('agentHtml')).toEqual({
+      focusMode: 'agentHtml',
+      sfcExactMatch: false,
+      documentId: null,
+    });
+    expect(focusStateFromStored(SFC_DOCUMENT_FOCUS_MODE)).toEqual({
+      focusMode: SFC_DOCUMENT_FOCUS_MODE,
+      sfcExactMatch: false,
+      documentId: SFC_DOCUMENT_ID,
+    });
+  });
+
+  it('applies stored focus mode after mount so the first paint matches the server', () => {
+    const chat = readFileSync(
+      path.join(__dirname, 'hooks', 'useChat.tsx'),
+      'utf8',
+    );
+    const stateStart = chat.indexOf('const initialFocus = focusStateFromStored(null)');
+    const stateEnd = chat.indexOf('const [documentItems', stateStart);
+    expect(stateStart).toBeGreaterThanOrEqual(0);
+    const initialState = chat.slice(stateStart, stateEnd);
+    expect(initialState).not.toMatch(/safeLocalStorageGet/);
+    expect(chat).toMatch(
+      /focusStateFromStored\(safeLocalStorageGet\('focusMode'\)\)/,
+    );
+  });
+
   it('does not persist tool agents as the next new-chat focus mode', () => {
     expect(shouldPersistFocusMode('agentVoice')).toBe(false);
     expect(shouldPersistFocusMode('agentWriting')).toBe(true);
+    expect(shouldPersistFocusMode('agentHtml')).toBe(true);
     expect(shouldPersistFocusMode('agentSFC')).toBe(true);
   });
 });

@@ -5,6 +5,7 @@ import GuideAgent from '@/lib/search/guideAgent';
 import NewSurverAgent from '@/lib/search/newSurverAgent';
 import WritingAgent from '@/lib/search/writingAgent';
 import DocumentAgent from '@/lib/search/documentAgent';
+import HtmlAgent from '@/lib/search/htmlAgent';
 import { SFC_DOCUMENT_FOCUS_MODE } from '@/lib/agents';
 
 const documentAgent = new DocumentAgent();
@@ -16,5 +17,6 @@ export const searchHandlers: Record<string, MetaSearchAgentType> = {
   newSurveyAgent: new NewSurverAgent(),
   agentWriting: new WritingAgent(),
   agentDocument: documentAgent,
+  agentHtml: new HtmlAgent(),
   [SFC_DOCUMENT_FOCUS_MODE]: documentAgent,
 };

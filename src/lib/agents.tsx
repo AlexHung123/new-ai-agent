@@ -1,4 +1,5 @@
 import {
+  Code2,
   FileText,
   Mic,
   NotepadText,
@@ -62,10 +63,19 @@ export const focusModes: AgentMode[] = [
     followUpPlaceholder: 'Ask a follow-up about this document…',
   },
   {
+    key: 'agentHtml',
+    title: 'Agent HTML',
+    description: 'Edit WCMS TinyMCE HTML with a live preview',
+    icon: Code2,
+    image: '/itms/ai/agent-html.jpg',
+    permissionCode: 'chatHtmlAgent:execute',
+    placeholder: 'Describe the HTML change you want…',
+    followUpPlaceholder: 'Ask for another HTML revision…',
+  },
+  {
     key: 'agentVoice',
     title: 'Agent Voice',
-    description:
-      'Clone a voice or transcribe audio and video to text',
+    description: 'Clone a voice or transcribe audio and video to text',
     icon: Mic,
     image: '/itms/ai/agent-voice.png',
     permissionCode: 'chatVoiceAgent:execute',
@@ -127,4 +137,19 @@ export function resolveFocusMode(stored?: string | null): string {
   if (FOCUS_MODE_ALIASES[stored]) return FOCUS_MODE_ALIASES[stored];
   if (isChatFocusMode(stored)) return stored;
   return DEFAULT_FOCUS_MODE;
+}
+
+/** First paint must not read storage. Pass null on the server and the client. */
+export function focusStateFromStored(stored?: string | null): {
+  focusMode: string;
+  sfcExactMatch: boolean;
+  documentId: string | null;
+} {
+  const focusMode = resolveFocusMode(stored);
+  return {
+    focusMode,
+    sfcExactMatch: focusMode === DEFAULT_FOCUS_MODE,
+    documentId:
+      focusMode === SFC_DOCUMENT_FOCUS_MODE ? SFC_DOCUMENT_ID : null,
+  };
 }

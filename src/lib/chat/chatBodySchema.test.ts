@@ -33,6 +33,46 @@ describe('parseChatBody', () => {
     }
   });
 
+  it('accepts a WCMS content id for Agent HTML', () => {
+    const result = parseChatBody({
+      ...validWritingBody,
+      focusMode: 'agentHtml',
+      wcmsContentId: '15',
+      wcmsPageIndex: 1,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.wcmsContentId).toBe('15');
+      expect(result.data.wcmsPageIndex).toBe(1);
+    }
+  });
+
+  it('accepts htmlReady so an empty editor snapshot can be distinguished from a not-yet-loaded canvas', () => {
+    const result = parseChatBody({
+      ...validWritingBody,
+      focusMode: 'agentHtml',
+      html: '',
+      htmlReady: true,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.htmlReady).toBe(true);
+      expect(result.data.html).toBe('');
+    }
+  });
+
+  it('accepts live TinyMCE html for Agent HTML turns', () => {
+    const result = parseChatBody({
+      ...validWritingBody,
+      focusMode: 'agentHtml',
+      html: '<p>live</p>',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.html).toBe('<p>live</p>');
+    }
+  });
+
   it('accepts htmlMode true', () => {
     const result = parseChatBody({
       ...validWritingBody,

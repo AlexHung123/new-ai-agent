@@ -6,14 +6,15 @@ import { AlertCircle } from 'lucide-react';
 import NextError from 'next/error';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import Navbar from './Navbar';
 import Chat from './Chat';
 import WritingLeftRail from './WritingLeftRail';
+import ChatRightPanel from './ChatRightPanel';
 import EmptyChat from './EmptyChat';
 import Loader from './ui/Loader';
 import SettingsButtonMobile from './Settings/SettingsButtonMobile';
 import MessageTimeline from './MessageTimeline';
 import { useChat } from '@/lib/hooks/useChat';
+import { usesRightPanel } from '@/lib/chat/rightPanel';
 
 export interface BaseMessage {
   chatId: string;
@@ -57,7 +58,8 @@ export interface File {
 }
 
 const ChatWindow = () => {
-  const { hasError, isReady, notFound, messages } = useChat();
+  const { hasError, isReady, notFound, messages, focusMode } = useChat();
+  const split = usesRightPanel(focusMode);
 
   if (hasError) {
     return (
@@ -111,23 +113,33 @@ const ChatWindow = () => {
         exit={{ opacity: 0 }}
         transition={{ duration: 0.3 }}
         className={
-          messages.length > 0
-            ? 'relative flex h-[100dvh] flex-col overflow-hidden'
-            : 'relative min-h-screen'
+          messages.length > 0 || split
+            ? 'chat-workspace relative flex h-full overflow-hidden'
+            : 'relative h-full min-h-full'
         }
       >
-        {messages.length > 0 ? (
-          <>
-            <WritingLeftRail />
-            <Navbar />
-            <Chat />
-            <div className="message-outline-host hidden xl:block">
-              <MessageTimeline />
-            </div>
-          </>
-        ) : (
-          <EmptyChat />
-        )}
+        <div
+          className={
+            messages.length > 0 || split
+              ? 'chat-workspace-main'
+              : undefined
+          }
+        >
+          {messages.length > 0 ? (
+            <>
+              <WritingLeftRail />
+              <Chat />
+              {split ? null : (
+                <div className="message-outline-host hidden xl:block">
+                  <MessageTimeline />
+                </div>
+              )}
+            </>
+          ) : (
+            <EmptyChat />
+          )}
+        </div>
+        <ChatRightPanel />
       </motion.div>
     </AnimatePresence>
   );

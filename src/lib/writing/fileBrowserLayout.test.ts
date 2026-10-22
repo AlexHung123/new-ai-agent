@@ -58,6 +58,9 @@ describe('writing FILES explorer layout', () => {
     expect(rail).toMatch(/flex-direction:\s*column/);
     const xl = readSrc('../../app/globals.css');
     expect(xl).toMatch(/\.writing-left-rail\s*\{[^}]*position:\s*fixed/s);
+    expect(xl).toMatch(
+      /\.writing-left-rail\s*\{[^}]*top:\s*calc\(\s*var\(--chat-topbar-height\)\s*\+\s*0\.75rem\s*\)/s,
+    );
     expect(xl).toMatch(/\.writing-left-rail\s+\.writing-file-browser\s*\{[^}]*flex:\s*1/s);
   });
 

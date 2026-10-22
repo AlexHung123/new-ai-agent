@@ -35,6 +35,9 @@ export const chats = pgTable('chats', {
   createdAt: text('createdAt').notNull(),
   focusMode: text('focusMode').notNull(),
   documentId: text('documentId'),
+  wcmsContentId: integer('wcmsContentId'),
+  wcmsPageIndex: integer('wcmsPageIndex'),
+  wcmsLang: text('wcmsLang'),
   files: jsonb('files')
     .$type<ChatFile[]>()
     .default(sql`'[]'::jsonb`),

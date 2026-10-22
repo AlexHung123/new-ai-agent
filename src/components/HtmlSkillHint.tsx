@@ -7,7 +7,7 @@ export const HTML_SKILL_HINT =
 
 export function HtmlSkillHint() {
   const { focusMode } = useChat();
-  if (focusMode !== 'agentWriting' && focusMode !== 'agentDocument') {
+  if (focusMode !== 'agentDocument') {
     return null;
   }
   return (

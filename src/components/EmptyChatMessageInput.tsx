@@ -27,7 +27,15 @@ const SendArrow = () => (
   </span>
 );
 
-const EmptyChatMessageInput = () => {
+type EmptyChatMessageInputProps = {
+  draft?: string;
+  onDraftChange?: (value: string) => void;
+};
+
+const EmptyChatMessageInput = ({
+  draft,
+  onDraftChange,
+}: EmptyChatMessageInputProps = {}) => {
   const {
     sendMessage,
     focusMode,
@@ -35,7 +43,12 @@ const EmptyChatMessageInput = () => {
     documentId,
     writingFiles,
   } = useChat();
-  const [message, setMessage] = useState('');
+  const [internalMessage, setInternalMessage] = useState('');
+  const message = onDraftChange ? (draft ?? '') : internalMessage;
+  const setMessage = (next: string) => {
+    if (onDraftChange) onDraftChange(next);
+    else setInternalMessage(next);
+  };
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const writing = useWritingMention({
     value: message,

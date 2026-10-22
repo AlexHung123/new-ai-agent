@@ -9,6 +9,7 @@ describe('searchHandlers', () => {
         'agentSFC',
         'agentDocument',
         'agentWriting',
+        'agentHtml',
         'newSfcAgent',
         'newSurveyAgent',
         'sfcDocumentAgent',

@@ -35,10 +35,12 @@ describe('HTML explainer composer and embed', () => {
     expect(box).toMatch(/HtmlPageEmbed/);
   });
 
-  it('shows the HTML hint only for Writing and Document, with wording on hover', () => {
+  it('shows the HTML hint only for Document, with wording on hover', () => {
     const hint = readSrc('../../components/HtmlSkillHint.tsx');
-    expect(hint).toMatch(/focusMode !== 'agentWriting'/);
+    const writing = readSrc('../../components/WritingHtmlHint.tsx');
     expect(hint).toMatch(/focusMode !== 'agentDocument'/);
+    expect(hint).not.toMatch(/agentWriting/);
+    expect(writing).toMatch(/HTML_SKILL_HINT/);
     expect(hint).toMatch(/title=\{HTML_SKILL_HINT\}/);
     expect(hint).toMatch(/HTML explainer/);
     expect(hint).toMatch(/流程說明/);
@@ -60,7 +62,9 @@ describe('HTML explainer composer and embed', () => {
     expect(ctx).toMatch(
       /tools: \['fs_ls', 'fs_read', 'fs_grep', 'fs_find', 'read_skill', 'am_render'\]/,
     );
-    expect(ctx).toMatch(/SHARED_AGENT_CONTEXT_REV = 8/);
+    expect(ctx).toMatch(/SHARED_AGENT_CONTEXT_REV = 11/);
+    expect(ctx).toMatch(/'html-agent-template'/);
+    expect(ctx).toMatch(/tools: \['html_get', 'html_set'\]/);
   });
 
   it('keeps read_skill and am_render on Writing and Document even when the HTML tag is off', () => {

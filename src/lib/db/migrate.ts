@@ -7,6 +7,12 @@ import { importSqliteIfNeeded } from './importSqlite';
 const DATA_DIR = process.env.DATA_DIR || process.cwd();
 const migrationsFolder = path.join(DATA_DIR, 'drizzle', 'pg');
 
+// ran_migrations.name is the numeric prefix only (0004_ppt_decks.sql → "0004").
+// Never reuse a prefix even after deleting the old file.
+function migrationName(file: string): string {
+  return file.split('_')[0] || file;
+}
+
 function sanitizeSql(content: string) {
   return content
     .split(/\r?\n/)
@@ -38,11 +44,23 @@ export async function runMigrations(): Promise<void> {
       .filter((f) => f.endsWith('.sql'))
       .sort();
 
+    const seen = new Map<string, string>();
     for (const file of files) {
-      const migrationName = file.split('_')[0] || file;
+      const name = migrationName(file);
+      const prev = seen.get(name);
+      if (prev) {
+        throw new Error(
+          `Duplicate migration prefix "${name}": ${prev} and ${file}`,
+        );
+      }
+      seen.set(name, file);
+    }
+
+    for (const file of files) {
+      const name = migrationName(file);
       const already = await pool.query(
         'SELECT 1 FROM ran_migrations WHERE name = $1',
-        [migrationName],
+        [name],
       );
       if (already.rowCount) {
         console.log(`Skipping already-applied migration: ${file}`);
@@ -54,7 +72,7 @@ export async function runMigrations(): Promise<void> {
       );
       await pool.query(content);
       await pool.query('INSERT INTO ran_migrations (name) VALUES ($1)', [
-        migrationName,
+        name,
       ]);
       console.log(`Applied migration: ${file}`);
     }

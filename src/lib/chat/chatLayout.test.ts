@@ -38,7 +38,7 @@ describe('chat column layout', () => {
   });
 
   it('gives the FILES rail leftover height by filling the viewport column', () => {
-    expect(readSrc('../../components/ChatWindow.tsx')).toMatch(/h-\[100dvh\]/);
+    expect(readSrc('../../components/ChatWindow.tsx')).toMatch(/h-full/);
     expect(readSrc('../../components/Chat.tsx')).toMatch(/isScrollAtTail/);
   });
 });

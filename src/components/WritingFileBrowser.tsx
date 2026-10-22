@@ -15,6 +15,7 @@ import {
   writingUnsupportedTypeMessage,
 } from '@/lib/writing/types';
 import FileTypeIcon from './FileTypeIcon';
+import { useRightPanel } from './RightPanelContext';
 
 const WritingFileBrowser = ({ compact = false }: { compact?: boolean }) => {
   const {
@@ -24,6 +25,7 @@ const WritingFileBrowser = ({ compact = false }: { compact?: boolean }) => {
     removeWritingFile,
     requestMention,
   } = useChat();
+  const { openWritingFile } = useRightPanel();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [filesOpen, setFilesOpen] = useState(true);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -150,9 +152,11 @@ const WritingFileBrowser = ({ compact = false }: { compact?: boolean }) => {
                       <button
                         type="button"
                         className="writing-file-row-main"
-                        onClick={() => mentionFile(file.fileId, file.name)}
+                        onClick={() => {
+                          if (!failed) openWritingFile(file.fileId, file.name);
+                        }}
                         disabled={uploading}
-                        title={file.error || `Mention ${file.name}`}
+                        title={file.error || `Preview ${file.name}`}
                       >
                         <FileTypeIcon name={file.name} size={14} />
                         <span

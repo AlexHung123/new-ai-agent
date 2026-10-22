@@ -6,6 +6,9 @@ import Sidebar from '@/components/Sidebar';
 import { Toaster } from 'sonner';
 import ThemeProvider from '@/components/theme/Provider';
 import { ChatProvider } from '@/lib/hooks/useChat';
+import { RightPanelProvider } from '@/components/RightPanelContext';
+import WorkspaceChrome from '@/components/WorkspaceChrome';
+import Navbar from '@/components/Navbar';
 
 export const metadata: Metadata = {
   title: 'iTMS AI - Chat with iTMS',
@@ -23,16 +26,20 @@ export default function RootLayout({
       <body className="h-full font-sans">
         <ThemeProvider>
           <ChatProvider>
-            <Sidebar>{children}</Sidebar>
-            <Toaster
-              toastOptions={{
-                unstyled: true,
-                classNames: {
-                  toast:
-                    'bg-light-secondary dark:bg-dark-secondary dark:text-white/70 text-black-70 rounded-lg p-4 flex flex-row items-center space-x-2',
-                },
-              }}
-            />
+            <RightPanelProvider>
+              <WorkspaceChrome />
+              <Navbar />
+              <Sidebar>{children}</Sidebar>
+              <Toaster
+                toastOptions={{
+                  unstyled: true,
+                  classNames: {
+                    toast:
+                      'bg-light-secondary dark:bg-dark-secondary dark:text-white/70 text-black-70 rounded-lg p-4 flex flex-row items-center space-x-2',
+                  },
+                }}
+              />
+            </RightPanelProvider>
           </ChatProvider>
         </ThemeProvider>
       </body>

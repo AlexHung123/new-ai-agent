@@ -108,9 +108,8 @@ function findSurveyIdInHistory(history: BaseMessage[]): string {
 /** Heuristic: assistant turn that looks like a generated cluster summary report. */
 function looksLikeSurveyReport(text: string): boolean {
   if (!text || text.length < 200) return false;
-  // Common markers from assemble markdown / disclaimer
-  if (text.includes('AI生成的回覆可能不準確')) return true;
-  // "## question" + "- **label (n)**" is the assemble markdown shape
+  // "## question" + "- **label (n)**" is the assemble markdown shape.
+  // The accuracy disclaimer is on every survey reply, so it is not a report marker.
   if (/^##\s+/m.test(text) && /\*\*[^*]+\(\d+\)\*\*/.test(text)) return true;
   if (/#{1,3}\s/.test(text) && text.includes('未分類')) return true;
   const clusterHits = (text.match(/^\s*[-*]\s+.+/gm) || []).length;
@@ -288,10 +287,17 @@ export default class NewSurverAgent implements MetaSearchAgentType {
       });
     };
 
+    const SURVEY_ACCURACY_DISCLAIMER =
+      '<span class="text-red-500 font-bold">AI生成的回覆可能不準確，使用前請仔細核實。</span>\n\n';
+
     const emitResponse = (text: string) => {
+      const body = text.replace(/^\n+/, '');
+      const withDisclaimer = body.includes('AI生成的回覆可能不準確')
+        ? body
+        : `${SURVEY_ACCURACY_DISCLAIMER}${body}`;
       emitJson({
         type: 'response',
-        data: text.startsWith('\n') ? text : `\n\n${text}`,
+        data: `\n\n${withDisclaimer}`,
       });
     };
 
@@ -653,11 +659,7 @@ export default class NewSurverAgent implements MetaSearchAgentType {
         );
 
         if (report.ok && report.markdown) {
-          // Disclaimer + report (same style as streamAgentProgressToEmitter)
-          emitResponse(
-            '<span class="text-red-500 font-bold">AI生成的回覆可能不準確，使用前請仔細核實。</span>\n\n' +
-              report.markdown,
-          );
+          emitResponse(report.markdown);
         } else {
           const failNote =
             failures.length > 0
