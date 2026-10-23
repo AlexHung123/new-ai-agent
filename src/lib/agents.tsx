@@ -65,7 +65,7 @@ export const focusModes: AgentMode[] = [
   {
     key: 'agentHtml',
     title: 'Agent HTML',
-    description: 'Edit WCMS TinyMCE HTML with a live preview',
+    description: 'Your assistant for create and modify HTML webpages',
     icon: Code2,
     image: '/itms/ai/agent-html.jpg',
     permissionCode: 'chatHtmlAgent:execute',
@@ -149,7 +149,6 @@ export function focusStateFromStored(stored?: string | null): {
   return {
     focusMode,
     sfcExactMatch: focusMode === DEFAULT_FOCUS_MODE,
-    documentId:
-      focusMode === SFC_DOCUMENT_FOCUS_MODE ? SFC_DOCUMENT_ID : null,
+    documentId: focusMode === SFC_DOCUMENT_FOCUS_MODE ? SFC_DOCUMENT_ID : null,
   };
 }

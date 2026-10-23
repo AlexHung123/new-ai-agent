@@ -16,10 +16,9 @@ const EmptyChat = () => {
     [SFC_DOCUMENT_FOCUS_MODE]:
       'Your assistant for searching SFC questions and replies',
     newSurveyAgent: 'Your assistant for summarizing survey results',
-    agentWriting:
-      'Your assistant for drafting, rewriting, and polishing text',
+    agentWriting: 'Your assistant for drafting, rewriting, and polishing text',
     agentDocument: 'Ask about a selected policy document',
-    agentHtml: 'Edit WCMS TinyMCE HTML with a live preview',
+    agentHtml: 'Your assistant for create and modify HTML webpages',
   };
 
   const selectedDocument = documentItems.find((item) => item.id === documentId);
