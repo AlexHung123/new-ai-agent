@@ -59,10 +59,10 @@ function defaultSettings(
 }
 
 describe('getAgentCompactionSettings', () => {
-  it('defaults to 100k max / 60k compress / 0.6 minKeep', () => {
+  it('defaults to 220k max / 60k compress / 0.6 minKeep', () => {
     const s = getAgentCompactionSettings({});
     expect(s.enabled).toBe(true);
-    expect(s.maxTokens).toBe(100_000);
+    expect(s.maxTokens).toBe(220_000);
     expect(s.compressToTokens).toBe(60_000);
     expect(s.minKeepRatio).toBe(0.6);
     expect(s.keepRecentMultimodal).toBe(3);

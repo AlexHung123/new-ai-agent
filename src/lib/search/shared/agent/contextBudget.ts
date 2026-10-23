@@ -81,7 +81,7 @@ export function getContextBudget(
     env.CONTEXT_BUDGET_COMPACTION_MAX_TOKENS ??
       env.AGENT_COMPACTION_MAX_TOKENS ??
       env.AGENT_COMPACTION_THRESHOLD_TOKENS,
-    100_000,
+    220_000,
     1_000,
     2_000_000,
   );

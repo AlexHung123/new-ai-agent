@@ -5,12 +5,12 @@ import {
 } from './contextBudget';
 
 describe('getContextBudget', () => {
-  it('defaults to 100k max / 60k compress', () => {
+  it('defaults to 220k max / 60k compress', () => {
     const b = getContextBudget({});
     expect(b.scale).toBe(1);
     expect(b.toolResultMaxChars).toBe(120_000);
     expect(b.transcriptMaxChars).toBe(400_000);
-    expect(b.compactionMaxTokens).toBe(100_000);
+    expect(b.compactionMaxTokens).toBe(220_000);
     expect(b.compactionCompressToTokens).toBe(60_000);
     expect(b.logEnabled).toBe(true);
   });
@@ -58,7 +58,7 @@ describe('getContextBudget', () => {
     const s = formatContextBudgetSnapshot(getContextBudget({}));
     expect(s).toMatch(/^\[context-budget\]/);
     expect(s).toMatch(/toolChars=120000/);
-    expect(s).toMatch(/compactMaxTokens=100000/);
+    expect(s).toMatch(/compactMaxTokens=220000/);
     expect(s).toMatch(/compactToTokens=60000/);
   });
 });

@@ -37,7 +37,7 @@ export type AgentCompactionSettings = {
   enabled: boolean;
   /**
    * Compress when estimated tokens exceed this (kode maxTokens).
-   * Default 100_000. Env: AGENT_COMPACTION_MAX_TOKENS or
+   * Default 220_000. Env: AGENT_COMPACTION_MAX_TOKENS or
    * AGENT_COMPACTION_THRESHOLD_TOKENS (compat).
    */
   maxTokens: number;
