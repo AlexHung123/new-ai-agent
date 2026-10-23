@@ -32,6 +32,12 @@ describe('Agent Writing empty HTML hint', () => {
       /title: 'Write a weekly report example that goes beyond listing tasks'/,
     );
     expect(hint).toMatch(/title: 'Create a project meeting-minutes template'/);
+    expect(hint).toMatch(/asking a colleague for feedback on my draft/);
+    expect(hint).toMatch(/500-Chinese-character weekly report/);
+    expect(hint).toMatch(/marking missing fields “Not specified\.”/);
+    expect(hint).not.toMatch(/names the unanswered request/);
+    expect(hint).not.toMatch(/one-line status/);
+    expect(hint).not.toMatch(/open questions/);
     expect(hint).toMatch(
       /title: 'Turn materials into easy-to-understand visual notes'/,
     );

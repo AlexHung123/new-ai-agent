@@ -8,17 +8,17 @@ export const WRITING_HINT_SUGGESTIONS = [
   {
     title: 'Write a polite but firm follow-up email',
     prompt:
-      'Write a polite but firm follow-up email. Deliver a copy-ready email: a subject line that names the unanswered request, a first paragraph on what was asked and when, a second that states the new time the reply is needed by, and a third that says what is still missing. Keep it polite but firm; leave the colleague’s name and the dates blank.',
+      'Write an email asking a colleague for feedback on my draft. Deliver a copy-ready email: a subject line, a first paragraph on where the item stands now, a second giving the exact time I need their reply by, and a third explaining how to make it easy for them (for example, replying to just a few items). Keep it polite but clear; leave the colleague\'s name and the dates blank.',
   },
   {
     title: 'Write a weekly report example that goes beyond listing tasks',
     prompt:
-      'Write a weekly report example that goes beyond listing tasks. Deliver a short report a manager can read in one pass: a one-line status, what changed and why it matters, what is blocked and the decision needed, and the one outcome planned for next week. Use results instead of a task list; leave names, dates, and figures blank.',
+      'Using fictional administrative work, write a 500-Chinese-character weekly report around training arrangements, materials procurement and next-week preparation. State achievements, problems and next steps. Label it as an example and do not invent performance figures. After writing the template, ask whether I want to add specific information to make a report ready to submit.',
   },
   {
     title: 'Create a project meeting-minutes template',
     prompt:
-      'Create a project meeting-minutes template. Deliver a copy-ready template: meeting name, date, and attendees; decisions made; action items with an owner and a due date; and open questions. Keep each section to a few lines and leave the names and dates blank.',
+      'Create a project meeting-minutes template covering a meeting summary, key discussions, trade-offs, decisions and action items. If no transcript is provided, demonstrate the result with a short simulated case labeled “Example.” If text is provided, organize it faithfully without inventing information. List task, owner and deadline for action items, marking missing fields “Not specified.” Use polished Markdown, highlight key conclusions and include an action table. End by inviting the user to provide meeting notes.',
   },
   {
     title: 'Turn materials into easy-to-understand visual notes',
