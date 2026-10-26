@@ -4,12 +4,14 @@ import { verifyToken } from '@/lib/auth/verifyToken';
 export async function requireVoiceUser(
   req: NextRequest,
 ): Promise<string | NextResponse> {
-  const existing = req.headers.get('x-user-id')?.trim();
-  if (existing) return existing;
-
   const header = req.headers.get('authorization') || '';
   const token = header.replace(/^Bearer\s+/i, '').trim();
+  // The upload route is outside middleware, so a caller can send x-user-id.
+  // The status route is inside middleware, which replaces that header with the
+  // token user. Prefer the token so create and poll name the same person.
   if (!token) {
+    const existing = req.headers.get('x-user-id')?.trim();
+    if (existing) return existing;
     return NextResponse.json(
       { error: 'Unauthorized - Authentication required' },
       { status: 401 },

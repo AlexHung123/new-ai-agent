@@ -9,6 +9,7 @@ import {
 import {
   markTranscribeHistorySaved,
   ownedTranscribeJob,
+  rememberTranscribeJob,
 } from '@/lib/voice/transcribeJobStore';
 import { saveTranscriptHistory } from '@/lib/voice/voiceHistory';
 
@@ -24,9 +25,6 @@ async function loadOwnedJob(req: NextRequest, jobId: string) {
     return NextResponse.json({ error: 'Job not found' }, { status: 404 });
   }
   const owned = ownedTranscribeJob(jobId, userId);
-  if (!owned) {
-    return NextResponse.json({ error: 'Job not found' }, { status: 404 });
-  }
   const config = getSttConfig();
   if (!isSttConfigured(config)) {
     return NextResponse.json(
@@ -44,6 +42,7 @@ export async function GET(
   const { jobId } = await context.params;
   const loaded = await loadOwnedJob(req, jobId);
   if (loaded instanceof NextResponse) return loaded;
+  let owned = loaded.owned;
 
   let response: Response;
   try {
@@ -84,22 +83,35 @@ export async function GET(
     );
   }
 
+  if (!owned) {
+    rememberTranscribeJob({
+      jobId,
+      userId: loaded.userId,
+      filename: view.filename?.trim() || 'audio',
+      language: null,
+    });
+    owned = ownedTranscribeJob(jobId, loaded.userId);
+  }
+  if (!owned) {
+    return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+  }
+
   if (view.status === 'succeeded') {
     const rendered = markdownFromJobResult({
-      filename: loaded.owned.filename,
-      language: loaded.owned.language,
+      filename: owned.filename,
+      language: owned.language,
       result: view.result,
     });
-    if (!loaded.owned.historySaved) {
+    if (!owned.historySaved) {
       markTranscribeHistorySaved(jobId);
       try {
         await saveTranscriptHistory({
           userId: loaded.userId,
-          filename: loaded.owned.filename,
+          filename: owned.filename,
           markdown: rendered.markdown,
         });
       } catch (error) {
-        loaded.owned.historySaved = false;
+        owned.historySaved = false;
         console.error('Failed to save transcript history:', error);
       }
     }
@@ -108,7 +120,7 @@ export async function GET(
       status: view.status,
       markdown: rendered.markdown,
       downloadName: rendered.downloadName,
-      filename: loaded.owned.filename,
+      filename: owned.filename,
     });
   }
 
@@ -123,7 +135,7 @@ export async function GET(
   return NextResponse.json({
     jobId,
     status: isTerminalTranscribeStatus(view.status) ? view.status : view.status,
-    filename: loaded.owned.filename,
+    filename: owned.filename,
   });
 }
 

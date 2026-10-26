@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  filenameFromHeader,
   markdownFromJobResult,
   readCreatedJob,
   transcribeUploadHeaders,
@@ -20,6 +21,17 @@ describe('transcribe job protocol', () => {
       'x-spk': 'true',
       'content-type': 'video/mp4',
     });
+  });
+
+  it('puts a Chinese filename in an ASCII header and reads it back', () => {
+    const name = '香港特別行政區立法會 - 首頁.webm';
+    const headers = transcribeUploadHeaders({
+      filename: name,
+      contentType: 'video/webm',
+    });
+    expect(() => new Headers(headers)).not.toThrow();
+    expect(headers['x-filename']).not.toContain('香');
+    expect(filenameFromHeader(headers['x-filename'])).toBe(name);
   });
 
   it('rejects a fourth-style busy response as a queue message', () => {

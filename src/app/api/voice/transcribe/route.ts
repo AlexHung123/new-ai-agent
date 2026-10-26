@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { displayFilename } from '@/lib/voice/audio-formats';
 import { requireVoiceUser } from '@/lib/voice/requireVoiceUser';
 import { getSttConfig, isSttConfigured } from '@/lib/voice/sttConfig';
 import {
+  filenameFromHeader,
   readCreatedJob,
   transcribeUploadHeaders,
   validateTranscribeUpload,
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const filename = displayFilename(req.headers.get('x-filename') || '');
+  const filename = filenameFromHeader(req.headers.get('x-filename'));
   const rawLength = req.headers.get('content-length');
   const contentLength =
     rawLength && Number.isFinite(Number(rawLength)) ? Number(rawLength) : null;

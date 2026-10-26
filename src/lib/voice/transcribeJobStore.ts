@@ -5,7 +5,16 @@ export type OwnedTranscribeJob = {
   historySaved: boolean;
 };
 
-const jobs = new Map<string, OwnedTranscribeJob>();
+const globalJobs = globalThis as typeof globalThis & {
+  __voiceTranscribeJobs?: Map<string, OwnedTranscribeJob>;
+};
+
+function transcribeJobs(): Map<string, OwnedTranscribeJob> {
+  if (!globalJobs.__voiceTranscribeJobs) {
+    globalJobs.__voiceTranscribeJobs = new Map();
+  }
+  return globalJobs.__voiceTranscribeJobs;
+}
 
 export function rememberTranscribeJob(input: {
   jobId: string;
@@ -13,7 +22,7 @@ export function rememberTranscribeJob(input: {
   filename: string;
   language: string | null;
 }): void {
-  jobs.set(input.jobId, {
+  transcribeJobs().set(input.jobId, {
     userId: input.userId,
     filename: input.filename,
     language: input.language,
@@ -25,13 +34,13 @@ export function ownedTranscribeJob(
   jobId: string,
   userId: string,
 ): OwnedTranscribeJob | null {
-  const job = jobs.get(jobId);
+  const job = transcribeJobs().get(jobId);
   if (!job || job.userId !== userId) return null;
   return job;
 }
 
 export function markTranscribeHistorySaved(jobId: string): void {
-  const job = jobs.get(jobId);
+  const job = transcribeJobs().get(jobId);
   if (!job) return;
   job.historySaved = true;
 }

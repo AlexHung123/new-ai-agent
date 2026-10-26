@@ -1,5 +1,5 @@
-import { isAudioUpload } from './audio-formats';
-import { normalizeSttResponse } from './sttClient';
+import { displayFilename, isAudioUpload } from './audio-formats';
+import { normalizeSttResponse } from './sttNormalize';
 import { toHkTraditionalResult } from './traditionalChinese';
 import {
   buildTranscriptMarkdown,
@@ -28,6 +28,21 @@ export type TranscribeJobView = {
   result?: unknown;
 };
 
+/** Header values must be Latin-1. Percent-encode so Chinese names can be sent. */
+export function filenameHeaderValue(filename: string): string {
+  return encodeURIComponent(filename);
+}
+
+export function filenameFromHeader(value: string | null | undefined): string {
+  const raw = (value || '').trim();
+  if (!raw) return '';
+  try {
+    return displayFilename(decodeURIComponent(raw));
+  } catch {
+    return displayFilename(raw);
+  }
+}
+
 export function transcribeUploadHeaders(input: {
   filename: string;
   language?: string | null;
@@ -35,7 +50,7 @@ export function transcribeUploadHeaders(input: {
   contentLength?: string | null;
 }): Record<string, string> {
   const headers: Record<string, string> = {
-    'x-filename': input.filename,
+    'x-filename': filenameHeaderValue(input.filename),
     'x-spk': 'true',
     'content-type': input.contentType?.trim() || 'application/octet-stream',
   };
