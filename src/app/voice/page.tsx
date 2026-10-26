@@ -22,6 +22,12 @@ import {
   initializeAuthToken,
 } from '@/lib/utils/auth';
 import { audioAcceptAttribute } from '@/lib/voice/audio-formats';
+import {
+  isTerminalTranscribeStatus,
+  TRANSCRIBE_POLL_MS,
+  transcribePhaseLabel,
+  transcribeUploadHeaders,
+} from '@/lib/voice/transcribeJobProtocol';
 import { buildTypoSummaryPrompt } from '@/lib/voice/transcriptFormat';
 import { DEFAULT_TTS_MODEL, TTS_MODELS } from '@/lib/voice/ttsModels';
 
@@ -56,7 +62,10 @@ const VoicePage = () => {
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [language, setLanguage] = useState('yue');
   const [transcribing, setTranscribing] = useState(false);
+  const [transcribePhase, setTranscribePhase] = useState<string | null>(null);
   const [transcribeError, setTranscribeError] = useState<string | null>(null);
+  const transcribeRun = useRef(0);
+  const activeJobId = useRef<string | null>(null);
   const [markdown, setMarkdown] = useState<string | null>(null);
   const [downloadName, setDownloadName] = useState('transcript.md');
   const [copied, setCopied] = useState(false);
@@ -96,6 +105,19 @@ const VoicePage = () => {
   useEffect(() => {
     return () => {
       if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
+      transcribeRun.current += 1;
+      const jobId = activeJobId.current;
+      activeJobId.current = null;
+      if (!jobId) return;
+      const token = getAuthToken();
+      const headers: HeadersInit = token
+        ? { Authorization: `Bearer ${token}` }
+        : {};
+      void fetch(`/itms/ai/api/voice/transcribe/jobs/${jobId}`, {
+        method: 'DELETE',
+        headers,
+        keepalive: true,
+      });
     };
   }, []);
 
@@ -158,61 +180,121 @@ const VoicePage = () => {
   const handleTranscribe = async () => {
     if (!mediaFile || !canTranscribe) return;
 
+    const run = ++transcribeRun.current;
     setTranscribing(true);
+    setTranscribePhase('uploading');
     setTranscribeError(null);
     setCopied(false);
 
-    const form = new FormData();
-    form.set('file', mediaFile);
-    if (language.trim()) form.set('language', language.trim());
-
     const token = getAuthToken();
-    const headers: HeadersInit = token
-      ? { Authorization: `Bearer ${token}` }
-      : {};
+    const headers: Record<string, string> = {
+      ...transcribeUploadHeaders({
+        filename: mediaFile.name,
+        language,
+        contentType: mediaFile.type,
+      }),
+    };
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    const stillThisRun = () => transcribeRun.current === run;
 
     try {
       const response = await fetch(`/itms/ai/api/voice/transcribe`, {
         method: 'POST',
         headers,
-        body: form,
+        body: mediaFile,
       });
+      if (!stillThisRun()) return;
 
-      let body: {
+      let created: {
         error?: string;
-        markdown?: string;
-        downloadName?: string;
+        jobId?: string;
+        status?: string;
       } = {};
       try {
-        body = await response.json();
+        created = await response.json();
       } catch {
-        body = {};
+        created = {};
       }
-
       if (!response.ok) {
         setTranscribeError(
-          typeof body.error === 'string' && body.error
-            ? body.error
+          typeof created.error === 'string' && created.error
+            ? created.error
             : `Transcription failed (${response.status})`,
         );
         return;
       }
-
-      if (typeof body.markdown !== 'string' || !body.markdown.trim()) {
-        setTranscribeError('Transcription returned empty text.');
+      if (typeof created.jobId !== 'string' || !created.jobId) {
+        setTranscribeError('Transcription service returned an invalid job.');
         return;
       }
 
-      setMarkdown(body.markdown);
-      if (typeof body.downloadName === 'string' && body.downloadName) {
-        setDownloadName(body.downloadName);
+      activeJobId.current = created.jobId;
+      setTranscribePhase(created.status || 'queued');
+
+      while (stillThisRun()) {
+        await new Promise((resolve) => setTimeout(resolve, TRANSCRIBE_POLL_MS));
+        if (!stillThisRun()) return;
+
+        let polled: Response;
+        try {
+          polled = await fetch(
+            `/itms/ai/api/voice/transcribe/jobs/${created.jobId}`,
+            { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+          );
+        } catch {
+          continue;
+        }
+        if (!stillThisRun()) return;
+
+        let body: {
+          error?: string;
+          status?: string;
+          markdown?: string;
+          downloadName?: string;
+        } = {};
+        try {
+          body = await polled.json();
+        } catch {
+          body = {};
+        }
+        if (!polled.ok) {
+          if (polled.status === 404) {
+            activeJobId.current = null;
+            setTranscribeError(body.error || 'Job not found');
+            return;
+          }
+          continue;
+        }
+        const status = typeof body.status === 'string' ? body.status : '';
+        if (status === 'succeeded' && typeof body.markdown === 'string') {
+          activeJobId.current = null;
+          setMarkdown(body.markdown);
+          if (typeof body.downloadName === 'string' && body.downloadName) {
+            setDownloadName(body.downloadName);
+          }
+          return;
+        }
+        if (status === 'failed' || status === 'cancelled') {
+          activeJobId.current = null;
+          setTranscribeError(body.error || 'Transcription failed');
+          return;
+        }
+        if (!isTerminalTranscribeStatus(status)) {
+          setTranscribePhase(status || 'running');
+        }
       }
     } catch {
-      setTranscribeError(
-        'Could not reach the transcription service. Please try again.',
-      );
+      if (stillThisRun()) {
+        setTranscribeError(
+          'Could not reach the transcription service. Please try again.',
+        );
+      }
     } finally {
-      setTranscribing(false);
+      if (stillThisRun()) {
+        setTranscribing(false);
+        setTranscribePhase(null);
+      }
     }
   };
 
@@ -533,7 +615,9 @@ const VoicePage = () => {
               disabled={!canTranscribe}
               className="inline-flex h-11 items-center justify-center rounded-full bg-blue-600 px-5 text-sm font-semibold text-white shadow-lg transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-600/40"
             >
-              {transcribing ? 'Transcribing…' : 'Transcribe'}
+              {transcribePhase
+                ? transcribePhaseLabel(transcribePhase)
+                : 'Transcribe'}
             </button>
 
             {markdown ? (

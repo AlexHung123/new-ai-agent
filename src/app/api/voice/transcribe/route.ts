@@ -1,57 +1,99 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { transcribeUpload } from '@/lib/voice/transcribeRequest';
-import { saveTranscriptHistory } from '@/lib/voice/voiceHistory';
+import { displayFilename } from '@/lib/voice/audio-formats';
+import { requireVoiceUser } from '@/lib/voice/requireVoiceUser';
+import { getSttConfig, isSttConfigured } from '@/lib/voice/sttConfig';
+import {
+  readCreatedJob,
+  transcribeUploadHeaders,
+  validateTranscribeUpload,
+} from '@/lib/voice/transcribeJobProtocol';
+import { rememberTranscribeJob } from '@/lib/voice/transcribeJobStore';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 3600;
 
 export async function POST(req: NextRequest) {
-  const userId = req.headers.get('x-user-id');
-  if (!userId) {
-    return NextResponse.json(
-      { error: 'Unauthorized - Authentication required' },
-      { status: 401 },
-    );
-  }
+  const userId = await requireVoiceUser(req);
+  if (userId instanceof NextResponse) return userId;
 
-  let form: FormData;
-  try {
-    form = await req.formData();
-  } catch (err) {
-    console.error('Failed to parse transcribe multipart body', {
-      contentType: req.headers.get('content-type'),
-      error: err,
-    });
+  const config = getSttConfig();
+  if (!isSttConfigured(config)) {
     return NextResponse.json(
-      { error: 'Expected multipart form data' },
+      {
+        error:
+          'STT is not configured. Set stt.baseUrl in data/config.json (or stt.mock: true).',
+      },
       { status: 400 },
     );
   }
 
-  const result = await transcribeUpload(form);
-  if (!result.ok) {
+  const filename = displayFilename(req.headers.get('x-filename') || '');
+  const rawLength = req.headers.get('content-length');
+  const contentLength =
+    rawLength && Number.isFinite(Number(rawLength)) ? Number(rawLength) : null;
+  const contentType = req.headers.get('content-type');
+  const language = (req.headers.get('x-language') || '').trim() || null;
+  const valid = validateTranscribeUpload({
+    filename: req.headers.get('x-filename') ? filename : '',
+    contentType,
+    contentLength,
+    maxBytes: config.maxUploadBytes,
+  });
+  if (!valid.ok) {
+    return NextResponse.json({ error: valid.error }, { status: valid.status });
+  }
+  if (!req.body) {
+    return NextResponse.json({ error: 'file is required' }, { status: 400 });
+  }
+
+  const headers = transcribeUploadHeaders({
+    filename,
+    language,
+    contentType,
+    contentLength: rawLength,
+  });
+
+  let response: Response;
+  try {
+    response = await fetch(`${config.baseUrl}/v1/audio/jobs`, {
+      method: 'POST',
+      headers,
+      body: req.body,
+      duplex: 'half',
+    } as RequestInit & { duplex: 'half' });
+  } catch (error) {
+    console.error('Failed to reach transcription jobs endpoint', error);
     return NextResponse.json(
-      { error: result.error },
-      { status: result.status },
+      { error: 'Speech-to-text server is not reachable.' },
+      { status: 502 },
     );
   }
 
+  const text = await response.text();
+  let parsed: unknown = {};
   try {
-    await saveTranscriptHistory({
-      userId,
-      filename: result.filename,
-      markdown: result.markdown,
-    });
-  } catch (err) {
-    console.error('Failed to save transcript history:', err);
+    parsed = text ? JSON.parse(text) : {};
+  } catch {
+    parsed = {};
+  }
+  const created = readCreatedJob(response.status, parsed);
+  if (!created.ok) {
+    return NextResponse.json(
+      { error: created.error },
+      { status: created.status },
+    );
   }
 
+  rememberTranscribeJob({
+    jobId: created.jobId,
+    userId,
+    filename,
+    language,
+  });
   return NextResponse.json({
-    markdown: result.markdown,
-    language: result.language,
-    durationSeconds: result.durationSeconds,
-    filename: result.filename,
-    downloadName: result.downloadName,
+    jobId: created.jobId,
+    status: created.status,
+    filename,
   });
 }

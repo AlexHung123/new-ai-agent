@@ -18,9 +18,13 @@ const nextConfig = {
     '@firecrawl/anydoc',
   ],
   experimental: {
-    // Middleware clones request bodies (default 10MB). Video transcribe
-    // uploads go through /api/voice middleware; serverActions.bodySizeLimit
-    // does not apply to Route Handlers.
+    // The dev router proxy otherwise stops a quiet upstream socket after 30s.
+    // Uploads of long recordings need the socket to stay open until the file
+    // has been stored. Transcription itself is polled on a separate request.
+    proxyTimeout: 3_600_000,
+    // Middleware clones request bodies (default 10MB). Speech uploads still
+    // pass through /api/voice/speech. serverActions.bodySizeLimit does not
+    // apply to Route Handlers.
     middlewareClientMaxBodySize: '2gb',
     serverActions: {
       bodySizeLimit: '2gb',

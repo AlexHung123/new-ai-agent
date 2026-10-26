@@ -72,7 +72,11 @@ export const config = {
     '/api/permissions/:path*',
     '/api/documents/:path*',
     '/api/documents',
-    '/api/voice/:path*',
+    '/api/voice/speech',
+    '/api/voice/speech/:path*',
+    // Job status is small. The upload itself is not matched: middleware would
+    // clone the whole body, which breaks multi-gigabyte recordings.
+    '/api/voice/transcribe/jobs/:path*',
     '/api/admin/:path*',
     '/api/writing/:path*',
     '/api/html-pages/:path*',
