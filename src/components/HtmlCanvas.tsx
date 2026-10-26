@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ComponentType } from 'react';
 import dynamic from 'next/dynamic';
+import type { IAllProps } from '@tinymce/tinymce-react';
 import { useChat } from '@/lib/hooks/useChat';
 import { wrapHtmlPreview } from '@/lib/html/previewDoc';
 import { insertBackToWcms } from '@/lib/html/insertBackToWcms';
@@ -12,8 +13,12 @@ import {
 import { getAuthHeaders } from '@/lib/utils/auth';
 import { toast } from 'sonner';
 
+// Editor's propTypes.apiKey nominal type fails next/dynamic's ComponentClass check.
 const TinyMceEditor = dynamic(
-  () => import('@tinymce/tinymce-react').then((mod) => mod.Editor),
+  () =>
+    import('@tinymce/tinymce-react').then(
+      (mod) => mod.Editor as unknown as ComponentType<IAllProps>,
+    ),
   { ssr: false },
 );
 
