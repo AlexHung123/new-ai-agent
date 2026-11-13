@@ -19,7 +19,8 @@ import {
   initializeAuthToken,
 } from '@/lib/utils/auth';
 
-const IMAGE_PERMISSION = 'chatImageAgent:execute';
+// const IMAGE_PERMISSION = 'chatImageAgent:execute';
+const IMAGE_PERMISSION = 'chatVoiceAgent:execute';
 const AGENT_TITLE = 'Agent Image';
 const CHAT_ID_KEY = 'itms-agent-image-chat-id';
 
@@ -413,7 +414,9 @@ const ImagePage = () => {
       <div className="flex min-h-screen items-center justify-center bg-light-primary dark:bg-dark-primary">
         <div className="text-center">
           <div className="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent" />
-          <p className="text-black/60 dark:text-white/60">Loading Agent Image...</p>
+          <p className="text-black/60 dark:text-white/60">
+            Loading Agent Image...
+          </p>
         </div>
       </div>
     );
@@ -596,7 +599,9 @@ const ImagePage = () => {
                       </p>
                     ) : null}
                     {item.error ? (
-                      <p className="text-red-700 dark:text-red-300">{item.error}</p>
+                      <p className="text-red-700 dark:text-red-300">
+                        {item.error}
+                      </p>
                     ) : null}
                   </div>
                 </div>
