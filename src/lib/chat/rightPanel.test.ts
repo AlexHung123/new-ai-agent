@@ -22,6 +22,7 @@ describe('usesRightPanel', () => {
     expect(usesRightPanel('agentSFC')).toBe(false);
     expect(usesRightPanel('newSurveyAgent')).toBe(false);
     expect(usesRightPanel('agentVoice')).toBe(false);
+    expect(usesRightPanel('agentImage')).toBe(false);
     expect(usesRightPanel('')).toBe(false);
   });
 });

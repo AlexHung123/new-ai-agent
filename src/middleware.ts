@@ -9,6 +9,7 @@ const PROTECTED_ROUTES = [
   '/api/permissions',
   '/api/documents',
   '/api/voice',
+  '/api/image',
   '/api/admin',
   '/api/writing',
   '/api/html-pages',
@@ -78,6 +79,7 @@ export const config = {
     // Job status is small. The upload itself is not matched: middleware would
     // clone the whole body, which breaks multi-gigabyte recordings.
     '/api/voice/transcribe/jobs/:path*',
+    '/api/image/:path*',
     '/api/admin/:path*',
     '/api/writing/:path*',
     '/api/html-pages/:path*',

@@ -15,7 +15,7 @@ import {
 } from './agents';
 
 describe('focusModes', () => {
-  it('exposes remaining chat agents plus the voice tool', () => {
+  it('exposes remaining chat agents plus the voice and image tools', () => {
     expect(focusModes.map((mode) => mode.key)).toEqual([
       'agentSFC',
       'newSurveyAgent',
@@ -23,6 +23,7 @@ describe('focusModes', () => {
       'agentDocument',
       'agentHtml',
       'agentVoice',
+      'agentImage',
     ]);
     expect(focusModes.some((mode) => mode.key === 'agentGuide')).toBe(false);
   });
@@ -49,6 +50,15 @@ describe('focusModes', () => {
     expect(voiceAgent?.kind).toBe('tool');
     expect(voiceAgent?.href).toBe('/voice');
     expect(voiceAgent?.permissionCode).toBe('chatVoiceAgent:execute');
+  });
+
+  it('opens Agent Image as a ComfyUI tool with the image illustration', () => {
+    const imageAgent = focusModes.find((mode) => mode.key === 'agentImage');
+    expect(imageAgent?.title).toBe('Agent Image');
+    expect(imageAgent?.image).toBe('/itms/ai/agent-image.png');
+    expect(imageAgent?.kind).toBe('tool');
+    expect(imageAgent?.href).toBe('/image');
+    expect(imageAgent?.permissionCode).toBe('chatImageAgent:execute');
   });
 });
 
@@ -93,8 +103,13 @@ describe('resolveFocusMode', () => {
 
   it('keeps Agent Voice when loading an existing history chat', () => {
     expect(resolveLoadedFocusMode('agentVoice')).toBe('agentVoice');
+    expect(resolveLoadedFocusMode('agentImage')).toBe('agentImage');
     expect(resolveLoadedFocusMode('agentWriting')).toBe('agentWriting');
     expect(resolveLoadedFocusMode('agentGuide')).toBe('agentSFC');
+  });
+
+  it('does not treat Agent Image as a chat focus mode', () => {
+    expect(resolveFocusMode('agentImage')).toBe('agentSFC');
   });
 
   it('uses the same focus state when storage is unavailable', () => {
@@ -120,7 +135,9 @@ describe('resolveFocusMode', () => {
       path.join(__dirname, 'hooks', 'useChat.tsx'),
       'utf8',
     );
-    const stateStart = chat.indexOf('const initialFocus = focusStateFromStored(null)');
+    const stateStart = chat.indexOf(
+      'const initialFocus = focusStateFromStored(null)',
+    );
     const stateEnd = chat.indexOf('const [documentItems', stateStart);
     expect(stateStart).toBeGreaterThanOrEqual(0);
     const initialState = chat.slice(stateStart, stateEnd);
@@ -132,6 +149,7 @@ describe('resolveFocusMode', () => {
 
   it('does not persist tool agents as the next new-chat focus mode', () => {
     expect(shouldPersistFocusMode('agentVoice')).toBe(false);
+    expect(shouldPersistFocusMode('agentImage')).toBe(false);
     expect(shouldPersistFocusMode('agentWriting')).toBe(true);
     expect(shouldPersistFocusMode('agentHtml')).toBe(true);
     expect(shouldPersistFocusMode('agentSFC')).toBe(true);

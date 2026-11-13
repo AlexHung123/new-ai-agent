@@ -74,5 +74,10 @@
   },
   "voice": {
     "typoSummaryInstruction": "help me to find out all the typo, mistakes and correct it, and then summarize it"
+  },
+  "comfy": {
+    "baseUrl": "http://127.0.0.1:8188",
+    "timeoutMs": 600000,
+    "workflowPath": "data/comfy/minimax_h3_t2i.json"
   }
 }

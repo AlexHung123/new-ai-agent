@@ -25,23 +25,24 @@ describe('allAgentPermissionCodes', () => {
       'chatDocumentAgent:execute',
       'chatHtmlAgent:execute',
       'chatVoiceAgent:execute',
+      'chatImageAgent:execute',
     ]);
   });
 });
 
 describe('resolveAgentPermissions', () => {
   it('returns ITMS codes when bypass is off', () => {
-    expect(
-      resolveAgentPermissions(['chatSfcAgent:execute'], false),
-    ).toEqual(['chatSfcAgent:execute']);
+    expect(resolveAgentPermissions(['chatSfcAgent:execute'], false)).toEqual([
+      'chatSfcAgent:execute',
+    ]);
   });
 
   it('returns every agent code and skips ITMS when bypass is on', () => {
     expect(resolveAgentPermissions([], true)).toEqual(
       allAgentPermissionCodes(),
     );
-    expect(
-      resolveAgentPermissions(['chatSfcAgent:execute'], true),
-    ).toEqual(allAgentPermissionCodes());
+    expect(resolveAgentPermissions(['chatSfcAgent:execute'], true)).toEqual(
+      allAgentPermissionCodes(),
+    );
   });
 });

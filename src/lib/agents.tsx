@@ -1,6 +1,7 @@
 import {
   Code2,
   FileText,
+  Image,
   Mic,
   NotepadText,
   UsersRound,
@@ -81,6 +82,16 @@ export const focusModes: AgentMode[] = [
     permissionCode: 'chatVoiceAgent:execute',
     kind: 'tool',
     href: '/voice',
+  },
+  {
+    key: 'agentImage',
+    title: 'Agent Image',
+    description: 'Generate images with ComfyUI',
+    icon: Image,
+    image: '/itms/ai/agent-image.png',
+    permissionCode: 'chatImageAgent:execute',
+    kind: 'tool',
+    href: '/image',
   },
 ];
 

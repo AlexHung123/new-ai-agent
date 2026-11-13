@@ -3,3 +3,5 @@
 !documents/
 !documents/**
 !config.json
+!comfy/
+!comfy/**
