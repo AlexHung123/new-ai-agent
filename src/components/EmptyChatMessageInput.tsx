@@ -12,6 +12,11 @@ import {
   WritingToolbarButtons,
 } from './WritingComposerTools';
 import { HtmlSkillHint } from './HtmlSkillHint';
+import {
+  AttachImageControls,
+  AttachedImageStrip,
+  useAttachedImages,
+} from './AttachImageControls';
 
 const SendArrow = () => (
   <span className="send-btn-icon" aria-hidden>
@@ -55,6 +60,7 @@ const EmptyChatMessageInput = ({
     setValue: setMessage,
     inputRef,
   });
+  const images = useAttachedImages(focusMode);
 
   const currentAgent = findDisplayFocusMode(focusMode);
   let placeholder = currentAgent?.placeholder || 'Ask a question…';
@@ -91,12 +97,15 @@ const EmptyChatMessageInput = ({
 
   const uploading = writingFiles.some((file) => file.status === 'uploading');
   const canSend =
-    message.trim().length > 0 && !documentBlocked && !uploading;
+    (message.trim().length > 0 || images.payload.length > 0) &&
+    !documentBlocked &&
+    !uploading;
 
   const submit = () => {
     if (!canSend) return;
-    sendMessage(message);
+    sendMessage(message.trim(), undefined, false, images.payload);
     setMessage('');
+    images.clear();
   };
 
   return (
@@ -114,6 +123,7 @@ const EmptyChatMessageInput = ({
           onSelect={writing.onSelect}
         />
       ) : null}
+      <AttachedImageStrip images={images} />
       <TextareaAutosize
         ref={inputRef}
         value={message}
@@ -122,6 +132,7 @@ const EmptyChatMessageInput = ({
           writing.setCursor(e.target.selectionStart);
         }}
         onSelect={(e) => writing.setCursor(e.currentTarget.selectionStart)}
+        onPaste={images.onPaste}
         onKeyDown={(e) => {
           if (writing.onKeyDown(e)) return;
           if (e.key === 'Enter' && !e.shiftKey) {
@@ -146,6 +157,7 @@ const EmptyChatMessageInput = ({
               uploadDisabled={writing.uploadDisabled}
             />
           ) : null}
+          <AttachImageControls images={images} />
           <HtmlSkillHint />
         </div>
         <div className="composer-toolbar-right">

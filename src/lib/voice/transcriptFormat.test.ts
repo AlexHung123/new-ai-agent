@@ -3,6 +3,7 @@ import {
   buildTranscriptMarkdown,
   buildTypoSummaryPrompt,
   extractTranscriptBody,
+  resolveTypoSummaryInstruction,
   TYPO_SUMMARY_INSTRUCTION,
 } from './transcriptFormat';
 
@@ -67,5 +68,39 @@ describe('buildTypoSummaryPrompt', () => {
     expect(buildTypoSummaryPrompt('# Title\n\nno heading')).toBe(
       TYPO_SUMMARY_INSTRUCTION,
     );
+  });
+
+  it('uses a configured instruction when one is provided', () => {
+    expect(buildTypoSummaryPrompt(SAMPLE, 'Correct the transcript.')).toBe(
+      [
+        'Correct the transcript.',
+        '',
+        '- [00:00] **[SPK0]** 自一九七八年起國家制定咗包括中華人民共和國國家安全法',
+        '- [00:19] **[SPK0]** 進入咗一個新嘅歷史階段',
+      ].join('\n'),
+    );
+  });
+});
+
+describe('resolveTypoSummaryInstruction', () => {
+  it('uses the built-in default when config omits the instruction', () => {
+    expect(TYPO_SUMMARY_INSTRUCTION).toBe(
+      'help me to find out all the typo, mistakes and correct it, and then summarize it',
+    );
+    expect(resolveTypoSummaryInstruction(undefined)).toBe(
+      TYPO_SUMMARY_INSTRUCTION,
+    );
+    expect(resolveTypoSummaryInstruction({})).toBe(TYPO_SUMMARY_INSTRUCTION);
+    expect(
+      resolveTypoSummaryInstruction({ typoSummaryInstruction: '   ' }),
+    ).toBe(TYPO_SUMMARY_INSTRUCTION);
+  });
+
+  it('reads a non-empty voice.typoSummaryInstruction', () => {
+    expect(
+      resolveTypoSummaryInstruction({
+        typoSummaryInstruction: '  Summarize the typos.  ',
+      }),
+    ).toBe('Summarize the typos.');
   });
 });

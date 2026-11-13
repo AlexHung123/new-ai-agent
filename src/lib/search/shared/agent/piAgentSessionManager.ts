@@ -67,7 +67,10 @@ export type PooledAgent = {
     isStreaming: boolean;
     errorMessage?: string;
   };
-  prompt: (input: string) => Promise<void>;
+  prompt: (
+    input: string,
+    images?: Array<{ type: 'image'; data: string; mimeType: string }>,
+  ) => Promise<void>;
   subscribe: (
     listener: (event: any, signal?: AbortSignal) => void | Promise<void>,
   ) => () => void;

@@ -95,4 +95,24 @@ describe('wrapPromptWithRunLimits', () => {
     expect(results[0]).toBeUndefined();
     expect(results[1]).toBeUndefined();
   });
+
+  it('forwards attached images to the underlying prompt', async () => {
+    const seen: unknown[] = [];
+    const agent = {
+      async prompt(
+        input: string,
+        images?: Array<{ type: 'image'; data: string; mimeType: string }>,
+      ) {
+        seen.push(input, images);
+      },
+      abort() {},
+      subscribe() {
+        return () => {};
+      },
+    };
+    wrapPromptWithRunLimits(agent);
+    const images = [{ type: 'image' as const, data: 'AAAA', mimeType: 'image/png' }];
+    await agent.prompt('look', images);
+    expect(seen).toEqual(['look', images]);
+  });
 });

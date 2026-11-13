@@ -41,10 +41,16 @@ describe('Agent Writing empty HTML hint', () => {
     expect(hint).toMatch(
       /title: 'Turn materials into easy-to-understand visual notes'/,
     );
-    expect(hint).toMatch(
+    expect(hint).not.toMatch(
       /title: 'Generate a UML use case diagram as an SVG'/,
     );
-    expect(hint).toMatch(/RS-RBS-RDM-001 — Room Type Configuration/);
+    expect(hint).not.toMatch(/RS-RBS-RDM-001/);
+    expect(hint).toMatch(
+      /title: 'Sample diagrams for each requirement placeholder'/,
+    );
+    expect(hint).not.toMatch(/CSC_RBS_SAnD/);
+    expect(hint).toMatch(/\[PLACEHOLDER\]/);
+    expect(hint).toMatch(/Reply continue for the next four placeholders/);
     expect(hint).toMatch(/prompt:/);
     expect(hint).toMatch(/HTML_SKILL_HINT/);
     expect(hint).toMatch(/setDraft\(item\.prompt\)/);

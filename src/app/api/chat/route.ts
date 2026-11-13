@@ -11,6 +11,8 @@ import {
   parseChatBody,
   type ChatBody,
 } from '@/lib/chat/chatBodySchema';
+import { imagesForFocus } from '@/lib/chat/attachedImages';
+import { runWithTurnImages } from '@/lib/chat/turnImages';
 import {
   loadConfiguredChatModel,
   NoopEmbeddings,
@@ -91,7 +93,7 @@ const handleHistorySave = async (
       .insert(chats)
       .values({
         id: message.chatId,
-        title: message.content,
+        title: message.content.trim() || 'Image',
         userId: userId,
         createdAt: new Date().toString(),
         focusMode: focusMode,
@@ -183,7 +185,8 @@ export const POST = async (req: Request) => {
     const body = parseBody.data as Body;
     const { message } = body;
 
-    if (message.content === '') {
+    const turnImages = imagesForFocus(body.focusMode, body.images);
+    if (message.content.trim() === '' && turnImages.length === 0) {
       return Response.json(
         {
           message: 'Please provide a message to process',
@@ -254,18 +257,20 @@ export const POST = async (req: Request) => {
     }
 
     const runSearch = () =>
-      handler.searchAndAnswer(
-        message.content,
-        history,
-        llm,
-        embedding,
-        body.optimizationMode,
-        [],
-        body.systemInstructions as string,
-        req.signal,
-        body.sfcExactMatch,
-        body.sfcTrainingRelated,
-        req,
+      runWithTurnImages(turnImages, () =>
+        handler.searchAndAnswer(
+          message.content,
+          history,
+          llm,
+          embedding,
+          body.optimizationMode,
+          [],
+          body.systemInstructions as string,
+          req.signal,
+          body.sfcExactMatch,
+          body.sfcTrainingRelated,
+          req,
+        ),
       );
 
     const withHtml = <T,>(fn: () => T | Promise<T>) =>

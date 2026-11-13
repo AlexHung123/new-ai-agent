@@ -1,3 +1,4 @@
+import type { ChatImageAttachment } from '@/lib/chat/attachedImages';
 import {
   AgentRunToolGuard,
   getAgentRunLimitsConfig,
@@ -5,7 +6,7 @@ import {
 } from './agentRunLimits';
 
 export type RunLimitedAgent = {
-  prompt: (input: string) => Promise<void>;
+  prompt: (input: string, images?: ChatImageAttachment[]) => Promise<void>;
   abort: () => void;
   subscribe: (
     listener: (event: { type?: string }) => void | Promise<void>,
@@ -30,7 +31,7 @@ export function wrapPromptWithRunLimits<T extends RunLimitedAgent>(
 ): T {
   const originalPrompt = agent.prompt.bind(agent);
 
-  agent.prompt = async (input: string) => {
+  agent.prompt = async (input: string, images?: ChatImageAttachment[]) => {
     const guard = new AgentRunToolGuard(cfg);
     const prevBefore = agent.beforeToolCall;
     const prevAfter = agent.afterToolCall;
@@ -73,7 +74,7 @@ export function wrapPromptWithRunLimits<T extends RunLimitedAgent>(
     });
 
     try {
-      await originalPrompt(input);
+      await originalPrompt(input, images);
     } finally {
       unsubscribe();
       agent.beforeToolCall = prevBefore;

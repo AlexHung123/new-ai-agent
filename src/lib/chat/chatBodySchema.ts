@@ -1,9 +1,20 @@
 import { z } from 'zod';
+import {
+  MAX_ATTACHED_IMAGES,
+  acceptsImageAttachments,
+  isChatImageAttachment,
+} from './attachedImages';
 
 const messageSchema = z.object({
   messageId: z.string().min(1, 'Message ID is required'),
   chatId: z.string().min(1, 'Chat ID is required'),
-  content: z.string().min(1, 'Message content is required'),
+  content: z.string(),
+});
+
+const chatImageSchema = z.object({
+  type: z.literal('image'),
+  data: z.string(),
+  mimeType: z.string(),
 });
 
 export const chatBodySchema = z.object({
@@ -36,6 +47,31 @@ export const chatBodySchema = z.object({
   itmsOrigin: z.string().nullish(),
   html: z.string().optional(),
   htmlReady: z.boolean().optional(),
+  images: z.array(chatImageSchema).max(MAX_ATTACHED_IMAGES).optional(),
+}).superRefine((body, ctx) => {
+  const images = body.images ?? [];
+  for (let index = 0; index < images.length; index += 1) {
+    if (!isChatImageAttachment(images[index])) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['images', index],
+        message:
+          'Each image must be valid base64 image data of 10MB or smaller',
+      });
+    }
+  }
+  const hasText = body.message.content.trim().length > 0;
+  const hasImages =
+    acceptsImageAttachments(body.focusMode) &&
+    images.length > 0 &&
+    images.every(isChatImageAttachment);
+  if (!hasText && !hasImages) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['message', 'content'],
+      message: 'Message content is required',
+    });
+  }
 });
 
 export type ChatBody = z.infer<typeof chatBodySchema>;

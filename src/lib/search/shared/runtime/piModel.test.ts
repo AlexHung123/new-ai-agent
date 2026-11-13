@@ -16,6 +16,7 @@ describe('buildPiModelFromConfig', () => {
     expect(model.baseUrl).toBe('http://gw:8000');
     expect(model.compat?.supportsDeveloperRole).toBe(false);
     expect(model.compat?.maxTokensField).toBe('max_tokens');
+    expect(model.input).toEqual(['text', 'image']);
   });
 
   it('falls back to the local Ornith model when modelId is empty', () => {

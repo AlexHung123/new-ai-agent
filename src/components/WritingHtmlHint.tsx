@@ -25,29 +25,20 @@ export const WRITING_HINT_SUGGESTIONS = [
     prompt: `Turn these materials into easy-to-understand visual notes. ${HTML_SKILL_HINT}`,
   },
   {
-    title: 'Generate a UML use case diagram as an SVG',
-    prompt: `Generate a standalone UML Use Case Diagram as an SVG file (light theme, ~820×590 px) for the requirement [RS-RBS-RDM] Room Details Management from the CSC Room Booking System (RBS) Requirement Specification.
+    title: 'Sample diagrams for each requirement placeholder',
+    prompt: `Read the mentioned requirement specification and draw sample diagrams I can paste into Word. Do not rewrite the specification.
 
-TITLE (top, centered, bold): "Use Case Diagram — Room Details Management"
-SUBTITLE: "[RS-RBS-RDM] · RBS Administrator creates & edits room attributes"
+Use the file tools. Find every [PLACEHOLDER] in document order. The heading above each one is the requirement id. The sentence immediately before the placeholder names the diagram.
 
-ACTOR (left side, stick figure, labeled «actor»): RBS Administrator
+Draw the next four placeholders only. Start at the first [PLACEHOLDER] that does not already have a diagram in this chat. After those four, stop and write: Reply continue for the next four placeholders.
 
-SYSTEM BOUNDARY: a rounded rectangle labeled «system» "Room Details Management (RBS)". Place the actor OUTSIDE the boundary (to the left) and the use cases INSIDE. Draw association lines from the actor to every use case, crossing the boundary edge.
+For each diagram:
+- Write one caption line: the requirement id, then the diagram name.
+- Then put a standalone SVG inline, not inside a code fence, so it renders as a picture. Light theme, about 820 px wide, dark text (#263238 / #0D47A1) on white, no heavy shadows.
+- If the sentence says "Use Case Diagram", draw a UML use case diagram. Put the actor outside a rounded system boundary and the use cases inside as rounded rectangles (fill #E3F2FD, border #1565C0). Take the actor from the process text (RBS Administrator, booking user, or an external system). The child requirements under that heading are the use cases. The first placeholder, under User Requirements, is the overview of RBS users, account management, and system configuration.
+- If the sentence says "process", draw a simple activity diagram of the steps in the paragraph above the placeholder. Use a start oval, action rectangles, arrows, and an end oval. Add a decision diamond only when that paragraph describes a branch.
 
-USE CASES (inside boundary, as rounded rectangles, light-blue fill #E3F2FD, blue border #1565C0). Each box shows: process ID (bold, small), use-case name (bold), and a 1–2 line description:
-1. RS-RBS-RDM-001 — Room Type Configuration
-   Define room types: Auditorium, Function Halls, Classrooms, Horseshoe Classrooms, Media & Crisis Management Simulation Training Area, Council Simulation Room, Cubicles, Meeting Rooms, Multi-media Studio, Lactation Rooms, Learning Common Booths.
-2. RS-RBS-RDM-002 — Location & Capacity Management
-   Floor, adjacent rooms (Combine Room mechanism), open/restricted access; capacity metrics: number of seats, square metres, maximum occupants.
-3. RS-RBS-RDM-003 — Timeslot & Signage Configuration
-   Scheduling units (30-minute or hourly slots); customise digital signage display messages for booking status, event names, or welcome messages.
-4. RS-RBS-RDM-004 — Access Restrictions Management
-   Role-based booking permissions (e.g., GGTDS admin group / user role can only book specific room types).
-
-LEGEND (bottom-left): stick figure = Actor (RBS Administrator); rounded rect = Use Case (within RBS).
-
-STYLE: clean, professional; dark text (#263238 / #0D47A1) on white/light background; no heavy shadows.`,
+If that file is not in the mentioned files, ask me to upload and mention it. Do not invent the section list.`,
   },
 ] as const;
 

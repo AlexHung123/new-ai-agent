@@ -784,6 +784,104 @@
   color: var(--wiki-text-tertiary);
 }
 
+.composer-images,
+.message-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.composer-images {
+  padding: 0 4px 8px;
+}
+
+.message-images {
+  margin-bottom: 8px;
+}
+
+.attached-image {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  flex: 0 0 auto;
+}
+
+.attached-image img,
+.attached-image-open {
+  width: 56px;
+  height: 56px;
+}
+
+.attached-image img {
+  object-fit: cover;
+  border-radius: 6px;
+  display: block;
+  border: 1px solid color-mix(in srgb, var(--wiki-text) 12%, transparent);
+}
+
+.attached-image-open {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+}
+
+.attached-image-remove {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--wiki-text) 16%, transparent);
+  background: var(--wiki-bubble, #fff);
+  color: var(--wiki-text-tertiary);
+  cursor: pointer;
+}
+
+.attached-image-dialog {
+  position: relative;
+  max-width: min(92vw, 960px);
+  padding: 12px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--wiki-bubble, #fff);
+}
+
+.attached-image-dialog img {
+  display: block;
+  max-width: min(88vw, 920px);
+  max-height: 80vh;
+  object-fit: contain;
+}
+
+.attached-image-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.attached-image-dialog-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.writing-tool-btn.is-active {
+  color: var(--wiki-primary);
+}
+
 .composer-toolbar {
   display: flex;
   align-items: center;
@@ -1712,6 +1810,16 @@ body:has(.workspace-panel-chrome:not(:has(button))) .chat-topbar {
   min-height: 0;
 }
 
+.app-main > div:has(.agents-picker) {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .chat-topbar-actions {
   display: flex;
   align-items: stretch;
@@ -2297,5 +2405,63 @@ body:has(.html-close-itms) .document-preview-tabs {
   .right-panel-inner {
     width: 100%;
     min-width: 0;
+  }
+}
+
+/* Agent picker: rows of at most five cards, scrolling down the page. */
+.agents-picker {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
+}
+
+.agents-picker-scroll {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 1.25rem calc(1.5rem + var(--mobile-bottom-nav-height));
+}
+
+.agents-picker-grid {
+  display: grid;
+  width: 100%;
+  margin-inline: auto;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: stretch;
+  padding-bottom: 1.5rem;
+}
+
+@media (min-width: 40rem) {
+  .agents-picker-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-width: calc(2 * 18rem + 1.5rem);
+  }
+}
+
+@media (min-width: 64rem) {
+  .agents-picker-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    max-width: calc(3 * 18rem + 3rem);
+  }
+}
+
+@media (min-width: 75rem) {
+  .agents-picker-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    max-width: calc(4 * 18rem + 4.5rem);
+  }
+}
+
+@media (min-width: 90rem) {
+  .agents-picker-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    max-width: calc(5 * 18rem + 6rem);
   }
 }

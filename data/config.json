@@ -43,7 +43,7 @@
       "connectionString": "postgresql://postgres:pass1234@192.168.1.83:5432/limesurveydb"
     },
     "secondary": {
-      "connectionString": "postgresql://postgres:pass1234@192.168.1.49:5432/itmsdb"
+      "connectionString": "postgresql://postgres:pass1234@192.168.1.10:5432/itmsdb"
     },
     "agent": {
       "connectionString": "postgresql://itmsagent:P%40ssw0rd1234@192.168.56.150:5432/itmsagentdb"
@@ -51,8 +51,8 @@
   },
   "base": {
     "apiKey": "test",
-    "baseURL": "http://192.168.1.240:8000/v1",
-    "modelId": "nvidia/Qwen3.6-35B-A3B-NVFP4"
+    "baseURL": "http://192.168.1.56:8003/v1",
+    "modelId": "Qwen3.8-Flash-Next-oQ4e-mtp"
   },
   "adminUserIds": ["1", "29"],
   "AGENT_FS_MAX_READ_LINES": 0,
@@ -63,7 +63,7 @@
     "maxRefAudioBytes": 10485760
   },
   "stt": {
-    "baseUrl": "http://192.168.1.56:443/transcribe",
+    "baseUrl": "http://192.168.1.70:443/transcribe",
     "apiKey": "",
     "model": "sensevoice",
     "defaultLanguage": "yue",
@@ -71,5 +71,8 @@
     "spk": true,
     "mock": false,
     "maxUploadBytes": 2073741824
+  },
+  "voice": {
+    "typoSummaryInstruction": "help me to find out all the typo, mistakes and correct it, and then summarize it"
   }
 }

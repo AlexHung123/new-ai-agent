@@ -83,4 +83,38 @@ describe('parseChatBody', () => {
       expect(result.data.htmlMode).toBe(true);
     }
   });
+
+  it('accepts an image-only Agent HTML turn', () => {
+    const result = parseChatBody({
+      ...validWritingBody,
+      focusMode: 'agentHtml',
+      message: { ...validWritingBody.message, content: '' },
+      images: [{ type: 'image', data: 'AAAA', mimeType: 'image/png' }],
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.message.content).toBe('');
+      expect(result.data.images).toHaveLength(1);
+    }
+  });
+
+  it('rejects an empty message when no image is attached', () => {
+    const result = parseChatBody({
+      ...validWritingBody,
+      message: { ...validWritingBody.message, content: '' },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects an 11th image', () => {
+    const result = parseChatBody({
+      ...validWritingBody,
+      images: Array.from({ length: 11 }, () => ({
+        type: 'image',
+        data: 'AAAA',
+        mimeType: 'image/png',
+      })),
+    });
+    expect(result.success).toBe(false);
+  });
 });

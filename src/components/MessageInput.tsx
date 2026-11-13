@@ -12,6 +12,11 @@ import {
   WritingToolbarButtons,
 } from './WritingComposerTools';
 import { HtmlSkillHint } from './HtmlSkillHint';
+import {
+  AttachImageControls,
+  AttachedImageStrip,
+  useAttachedImages,
+} from './AttachImageControls';
 
 const SendArrow = () => (
   <span className="send-btn-icon" aria-hidden>
@@ -46,6 +51,7 @@ const MessageInput = memo(function MessageInput() {
     setValue: setMessage,
     inputRef,
   });
+  const images = useAttachedImages(focusMode);
 
   const placeholder = useMemo(() => {
     const currentAgent = findDisplayFocusMode(focusMode);
@@ -62,12 +68,13 @@ const MessageInput = memo(function MessageInput() {
     if (focusMode === 'agentDocument' && !documentId) return;
 
     const content = message.trim();
-    if (!content) return;
+    if (!content && images.payload.length === 0) return;
 
-    sendMessage(content);
+    sendMessage(content, undefined, false, images.payload);
     setMessage('');
+    images.clear();
     inputRef.current?.focus();
-  }, [loading, message, sendMessage, focusMode, documentId]);
+  }, [images, loading, message, sendMessage, focusMode, documentId]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -120,7 +127,9 @@ const MessageInput = memo(function MessageInput() {
   const documentBlocked = focusMode === 'agentDocument' && !documentId;
   const uploading = writingFiles.some((file) => file.status === 'uploading');
   const canSend =
-    message.trim().length > 0 && !documentBlocked && !uploading;
+    (message.trim().length > 0 || images.payload.length > 0) &&
+    !documentBlocked &&
+    !uploading;
   const disabled = loading ? false : !canSend;
 
   return (
@@ -132,6 +141,7 @@ const MessageInput = memo(function MessageInput() {
           onSelect={writing.onSelect}
         />
       ) : null}
+      <AttachedImageStrip images={images} />
       <TextareaAutosize
         ref={inputRef}
         value={message}
@@ -140,6 +150,7 @@ const MessageInput = memo(function MessageInput() {
           writing.setCursor(e.target.selectionStart);
         }}
         onSelect={(e) => writing.setCursor(e.currentTarget.selectionStart)}
+        onPaste={images.onPaste}
         onKeyDown={onKeyDown}
         className="composer-input"
         placeholder={placeholder}
@@ -158,6 +169,7 @@ const MessageInput = memo(function MessageInput() {
               uploadDisabled={writing.uploadDisabled}
             />
           ) : null}
+          <AttachImageControls images={images} />
           <HtmlSkillHint />
         </div>
         <div className="composer-toolbar-right">

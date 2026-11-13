@@ -15,6 +15,8 @@ import {
   HTML_AGENT_TOOLS,
   buildHtmlUserPrompt,
 } from './shared/prompts/htmlTurnPrefix';
+import { promptWithImages } from '@/lib/chat/attachedImages';
+import { getTurnImages } from '@/lib/chat/turnImages';
 import { getHtmlAgentTurnContext } from './shared/runtime/htmlAgentTurnContext';
 import { safeJson } from './shared/utils/safeJson';
 
@@ -41,6 +43,7 @@ export default class HtmlAgent implements MetaSearchAgentType {
     };
 
     (async () => {
+      const turnImages = getTurnImages();
       const htmlCtx = getHtmlAgentTurnContext();
       if (htmlCtx) {
         htmlCtx.emitHtml = (html, revision) => {
@@ -104,7 +107,12 @@ export default class HtmlAgent implements MetaSearchAgentType {
               /* ignore */
             }
           } else {
-            await agent.prompt(buildHtmlUserPrompt(message, htmlCtx));
+            const prompt = promptWithImages(
+              buildHtmlUserPrompt(message, htmlCtx),
+              turnImages,
+              'agentHtml',
+            );
+            await agent.prompt(prompt.text, prompt.images);
           }
           await subscriptionPromise;
         } finally {

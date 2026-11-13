@@ -53,6 +53,10 @@ import {
   writingUnsupportedTypeMessage,
   type WritingAttachmentView,
 } from '../writing/types';
+import {
+  imagesForFocus,
+  type ChatImageAttachment,
+} from '../chat/attachedImages';
 
 export type Section = {
   userMessage: UserMessage;
@@ -123,6 +127,7 @@ type ChatContext = {
     message: string,
     messageId?: string,
     rewrite?: boolean,
+    images?: ChatImageAttachment[],
   ) => Promise<void>;
   rewrite: (messageId: string) => void;
   stop: () => void;
@@ -272,7 +277,9 @@ const loadMessages = async (args: {
       string,
       string,
     ][];
-    if (chatTurns.length > 0) document.title = chatTurns[0].content;
+    if (chatTurns.length > 0) {
+      document.title = chatTurns[0].content.trim() || 'Image';
+    }
 
     setChatHistory(history);
     const resolvedFocus = resolveLoadedFocusMode(data.chat.focusMode);
@@ -836,7 +843,8 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       if (index === -1) return;
 
       const prevUserTurn = chatTurns[chatTurnsIndex - 1];
-      if (!prevUserTurn) return;
+      if (!prevUserTurn || prevUserTurn.role !== 'user') return;
+      if (!prevUserTurn.content.trim() && !prevUserTurn.images?.length) return;
 
       setMessages((prev) => {
         const cutIndex = prev.findIndex(
@@ -847,7 +855,12 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
 
       setChatHistory((prev) => prev.slice(0, Math.max(0, chatTurnsIndex - 1)));
 
-      sendMessage(prevUserTurn.content, prevUserTurn.messageId, true);
+      sendMessage(
+        prevUserTurn.content,
+        prevUserTurn.messageId,
+        true,
+        prevUserTurn.images,
+      );
     },
     [chatTurns],
   );
@@ -865,8 +878,11 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     message,
     messageId,
     rewriteMode = false,
+    images,
   ) => {
-    if (loading || !message || !userId) return;
+    const attached = imagesForFocus(focusModeRef.current, images);
+    if (loading || !userId) return;
+    if (!message.trim() && attached.length === 0) return;
     if (
       focusModeRef.current === 'agentDocument' &&
       !documentIdRef.current
@@ -891,6 +907,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       ...prev,
       {
         content: message,
+        ...(attached.length ? { images: attached } : {}),
         messageId: userMsgId,
         chatId: chatId!,
         role: 'user',
@@ -1099,6 +1116,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         body: JSON.stringify({
           content: message,
           message: { messageId: userMsgId, chatId: chatId!, content: message },
+          ...(attached.length ? { images: attached } : {}),
           chatId: chatId!,
           focusMode: fm,
           optimizationMode: optimizationModeRef.current,

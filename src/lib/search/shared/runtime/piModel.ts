@@ -51,7 +51,7 @@ export function buildPiModelFromConfig(config: PiModelConfig): PiModel {
     provider: 'local-openai',
     baseUrl,
     reasoning: false,
-    input: ['text'],
+    input: ['text', 'image'],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow: 256_000,
     maxTokens: 16384,

@@ -15,6 +15,7 @@ import SettingsButtonMobile from './Settings/SettingsButtonMobile';
 import MessageTimeline from './MessageTimeline';
 import { useChat } from '@/lib/hooks/useChat';
 import { usesRightPanel } from '@/lib/chat/rightPanel';
+import type { ChatImageAttachment } from '@/lib/chat/attachedImages';
 
 export interface BaseMessage {
   chatId: string;
@@ -31,6 +32,7 @@ export interface AssistantMessage extends BaseMessage {
 export interface UserMessage extends BaseMessage {
   role: 'user';
   content: string;
+  images?: ChatImageAttachment[];
 }
 
 export interface SourceMessage extends BaseMessage {

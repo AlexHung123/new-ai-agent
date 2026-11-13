@@ -183,13 +183,13 @@ const AgentsPage = () => {
   }
 
   return (
-    <div className="relative min-h-screen w-full">
+    <div className="agents-picker relative w-full">
       {/* Decorative Background Elements */}
       <div className="pointer-events-none fixed -left-40 -top-40 z-0 h-[500px] w-[500px] rounded-full bg-blue-400/10 blur-[100px] dark:bg-blue-900/20" />
       <div className="pointer-events-none fixed -right-40 top-40 z-0 h-[500px] w-[500px] rounded-full bg-purple-400/10 blur-[100px] dark:bg-purple-900/20" />
 
-      <div className="relative z-10 mx-auto w-full pb-24 pt-6 md:pt-10">
-        <div className="mb-10 text-center">
+      <div className="agents-picker-scroll relative z-10 mx-auto w-full">
+        <div className="mb-10 pt-6 text-center md:pt-10">
           <motion.h1
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -209,22 +209,21 @@ const AgentsPage = () => {
           </motion.p>
         </div>
 
-        <div className="overflow-x-auto py-6">
-          <motion.div
-            variants={container}
-            initial="hidden"
-            animate="show"
-            className="flex w-max min-w-full flex-nowrap justify-center gap-6"
-          >
-            {filteredModes.map((mode) => (
-              <motion.button
-                key={mode.key}
-                variants={item}
-                onClick={() => handleSelect(mode.key)}
-                whileHover={{ scale: 1.02, translateY: -5 }}
-                whileTap={{ scale: 0.98 }}
-                className="group relative flex w-[18rem] shrink-0 flex-col overflow-hidden rounded-3xl border border-white/50 bg-white/80 text-left shadow-lg backdrop-blur-sm transition-all hover:border-blue-200 hover:shadow-2xl dark:border-white/10 dark:bg-gray-900/80 dark:hover:border-blue-500/30"
-              >
+        <motion.div
+          variants={container}
+          initial="hidden"
+          animate="show"
+          className="agents-picker-grid"
+        >
+          {filteredModes.map((mode) => (
+            <motion.button
+              key={mode.key}
+              variants={item}
+              onClick={() => handleSelect(mode.key)}
+              whileHover={{ scale: 1.02, translateY: -5 }}
+              whileTap={{ scale: 0.98 }}
+              className="group relative flex h-full min-w-0 w-full flex-col overflow-hidden rounded-3xl border border-white/50 bg-white/80 text-left shadow-lg backdrop-blur-sm transition-all hover:border-blue-200 hover:shadow-2xl dark:border-white/10 dark:bg-gray-900/80 dark:hover:border-blue-500/30"
+            >
               <div className="relative h-52 w-full overflow-hidden bg-gradient-to-b from-gray-50 to-white dark:from-gray-800/50 dark:to-gray-900">
                 <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
@@ -262,7 +261,6 @@ const AgentsPage = () => {
             </motion.button>
           ))}
         </motion.div>
-        </div>
       </div>
     </div>
   );

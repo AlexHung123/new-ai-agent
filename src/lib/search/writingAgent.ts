@@ -9,6 +9,8 @@ import { formatAgentFailureResponse } from '../models/llmProviderError';
 import { streamAgentProgressToEmitter } from '../utils/agentStream';
 import { getSharedAgentContext } from './shared/agent/getSharedAgentContext';
 import { bindTurnHtmlTool } from '@/lib/html/bindTurnHtmlTool';
+import { promptWithImages } from '@/lib/chat/attachedImages';
+import { getTurnImages } from '@/lib/chat/turnImages';
 import {
   buildWritingUserPrompt,
   writingToolsForTurn,
@@ -40,6 +42,7 @@ export default class WritingAgent implements MetaSearchAgentType {
     };
 
     (async () => {
+      const turnImages = getTurnImages();
       const writingCtx = getWritingTurnContext();
       try {
         if (signal?.aborted) return;
@@ -97,7 +100,12 @@ export default class WritingAgent implements MetaSearchAgentType {
               /* ignore */
             }
           } else {
-            await agent.prompt(buildWritingUserPrompt(message, writingCtx));
+            const prompt = promptWithImages(
+              buildWritingUserPrompt(message, writingCtx),
+              turnImages,
+              'agentWriting',
+            );
+            await agent.prompt(prompt.text, prompt.images);
           }
           await subscriptionPromise;
         } finally {

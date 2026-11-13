@@ -13,6 +13,7 @@ import { useRightPanel } from './RightPanelContext';
 import { useChat, Section } from '@/lib/hooks/useChat';
 import { findDisplayFocusMode } from '@/lib/agents';
 import { parseHtmlPageIds } from '@/lib/html/pageLink';
+import { ImagePreview } from './AttachImageControls';
 
 const ThinkTagProcessor = ({
   children,
@@ -97,7 +98,29 @@ const MessageBox = memo(
         <div className="message user">
           <div className="message-user-wrap">
             <div className="message-bubble">
-              <div className="content">{section.userMessage.content}</div>
+              {section.userMessage.images?.length ? (
+                <div className="message-images">
+                  {section.userMessage.images.map((image, index) => (
+                    <div
+                      key={`${section.userMessage.messageId}-${index}`}
+                      className="attached-image"
+                    >
+                      <ImagePreview
+                        src={`data:${image.mimeType};base64,${image.data}`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={`data:${image.mimeType};base64,${image.data}`}
+                          alt=""
+                        />
+                      </ImagePreview>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              {section.userMessage.content ? (
+                <div className="content">{section.userMessage.content}</div>
+              ) : null}
             </div>
             {timestamp ? (
               <time

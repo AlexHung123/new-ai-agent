@@ -74,6 +74,7 @@ export const config = {
     '/api/documents',
     '/api/voice/speech',
     '/api/voice/speech/:path*',
+    '/api/voice/typo-instruction',
     // Job status is small. The upload itself is not matched: middleware would
     // clone the whole body, which breaks multi-gigabyte recordings.
     '/api/voice/transcribe/jobs/:path*',

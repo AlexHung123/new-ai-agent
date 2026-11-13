@@ -50,7 +50,8 @@ const Chat = () => {
 
   useEffect(() => {
     if (chatTurns.length === 1) {
-      document.title = `${chatTurns[0].content.substring(0, 30)} - iTMS`;
+      const title = chatTurns[0].content.trim() || 'Image';
+      document.title = `${title.substring(0, 30)} - iTMS`;
     }
 
     if (chatTurns[chatTurns.length - 1]?.role === 'user') {

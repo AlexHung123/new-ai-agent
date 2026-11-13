@@ -76,6 +76,18 @@ export function buildTranscriptMarkdown(input: TranscriptFormatInput): string {
 export const TYPO_SUMMARY_INSTRUCTION =
   'help me to find out all the typo, mistakes and correct it, and then summarize it';
 
+/** Config value when set, otherwise {@link TYPO_SUMMARY_INSTRUCTION}. */
+export function resolveTypoSummaryInstruction(voice: unknown): string {
+  const section =
+    voice && typeof voice === 'object' && !Array.isArray(voice)
+      ? (voice as Record<string, unknown>)
+      : {};
+  const configured = section.typoSummaryInstruction;
+  if (typeof configured !== 'string') return TYPO_SUMMARY_INSTRUCTION;
+  const trimmed = configured.trim();
+  return trimmed || TYPO_SUMMARY_INSTRUCTION;
+}
+
 /** Body after the `## Transcript` heading. Empty when the heading is missing. */
 export function extractTranscriptBody(markdown: string): string {
   const lines = (markdown || '').split(/\r?\n/);
@@ -86,10 +98,14 @@ export function extractTranscriptBody(markdown: string): string {
   return lines.slice(headingIndex + 1).join('\n').trim();
 }
 
-export function buildTypoSummaryPrompt(markdown: string): string {
+export function buildTypoSummaryPrompt(
+  markdown: string,
+  instruction: string = TYPO_SUMMARY_INSTRUCTION,
+): string {
+  const prefix = instruction.trim() || TYPO_SUMMARY_INSTRUCTION;
   const body = extractTranscriptBody(markdown);
-  if (!body) return TYPO_SUMMARY_INSTRUCTION;
-  return `${TYPO_SUMMARY_INSTRUCTION}\n\n${body}`;
+  if (!body) return prefix;
+  return `${prefix}\n\n${body}`;
 }
 
 export function transcriptDownloadFilename(originalName: string): string {

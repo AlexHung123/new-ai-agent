@@ -28,7 +28,10 @@ import {
   transcribePhaseLabel,
   transcribeUploadHeaders,
 } from '@/lib/voice/transcribeJobProtocol';
-import { buildTypoSummaryPrompt } from '@/lib/voice/transcriptFormat';
+import {
+  buildTypoSummaryPrompt,
+  TYPO_SUMMARY_INSTRUCTION,
+} from '@/lib/voice/transcriptFormat';
 import { DEFAULT_TTS_MODEL, TTS_MODELS } from '@/lib/voice/ttsModels';
 
 const VOICE_PERMISSION = 'chatVoiceAgent:execute';
@@ -69,6 +72,9 @@ const VoicePage = () => {
   const [markdown, setMarkdown] = useState<string | null>(null);
   const [downloadName, setDownloadName] = useState('transcript.md');
   const [copied, setCopied] = useState(false);
+  const [typoInstruction, setTypoInstruction] = useState(
+    TYPO_SUMMARY_INSTRUCTION,
+  );
 
   useEffect(() => {
     initializeAuthToken(searchParams);
@@ -100,6 +106,35 @@ const VoicePage = () => {
     };
 
     void loadAccess();
+  }, [tokenReady]);
+
+  useEffect(() => {
+    if (!tokenReady) return;
+    let cancelled = false;
+
+    const loadTypoInstruction = async () => {
+      try {
+        const response = await fetch('/itms/ai/api/voice/typo-instruction', {
+          headers: getAuthHeaders(),
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (
+          !cancelled &&
+          typeof data.instruction === 'string' &&
+          data.instruction.trim()
+        ) {
+          setTypoInstruction(data.instruction.trim());
+        }
+      } catch {
+        // Keep TYPO_SUMMARY_INSTRUCTION when config cannot be read.
+      }
+    };
+
+    void loadTypoInstruction();
+    return () => {
+      cancelled = true;
+    };
   }, [tokenReady]);
 
   useEffect(() => {
@@ -323,7 +358,9 @@ const VoicePage = () => {
 
   const handleCheckTypoAndSummarize = () => {
     if (!markdown) return;
-    stashPendingInitialChatMessage(buildTypoSummaryPrompt(markdown));
+    stashPendingInitialChatMessage(
+      buildTypoSummaryPrompt(markdown, typoInstruction),
+    );
     setFocusMode('agentWriting');
     window.location.href = '/itms/ai/';
   };
