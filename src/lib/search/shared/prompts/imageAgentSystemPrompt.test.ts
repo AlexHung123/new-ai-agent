@@ -34,6 +34,9 @@ describe('IMAGE_AGENT_SYSTEM_PROMPT', () => {
       /subject, style, composition, aspect ratio/,
     );
     expect(IMAGE_AGENT_SYSTEM_PROMPT).toMatch(
+      /Do not apply grilling to any other agent or task/,
+    );
+    expect(IMAGE_AGENT_SYSTEM_PROMPT).toMatch(
       /Do not dispatch filesystem fact-finding sub-agents/,
     );
     expect(IMAGE_AGENT_SYSTEM_PROMPT).toMatch(/Do not interview endlessly/);
