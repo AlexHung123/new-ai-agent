@@ -410,10 +410,10 @@ const ImagePage = () => {
 
   if (loadingAccess) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0b0b0b]">
+      <div className="flex min-h-screen items-center justify-center bg-light-primary dark:bg-dark-primary">
         <div className="text-center">
-          <div className="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-white/30 border-r-transparent" />
-          <p className="text-white/60">Loading Agent Image...</p>
+          <div className="mb-4 inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent" />
+          <p className="text-black/60 dark:text-white/60">Loading Agent Image...</p>
         </div>
       </div>
     );
@@ -421,17 +421,17 @@ const ImagePage = () => {
 
   if (!allowed) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0b0b0b] px-4">
+      <div className="flex min-h-screen items-center justify-center bg-light-primary px-4 dark:bg-dark-primary">
         <div className="text-center">
-          <p className="text-xl text-white/70">
+          <p className="text-xl text-black/60 dark:text-white/60">
             Agent Image is not available for your account.
           </p>
-          <p className="mt-2 text-sm text-white/40">
+          <p className="mt-2 text-sm text-black/40 dark:text-white/40">
             Please contact your administrator for access.
           </p>
           <Link
             href="/agents"
-            className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-white/70 hover:text-white"
+            className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
           >
             <ArrowLeft size={16} />
             Back to agents
@@ -444,18 +444,18 @@ const ImagePage = () => {
   const generating = canvasStatus === 'queued' || canvasStatus === 'generating';
 
   return (
-    <div className="image-agent-shell fixed bottom-[var(--mobile-bottom-nav-height)] left-0 right-0 top-[var(--chat-topbar-height)] z-20 flex bg-[#0b0b0b] text-white lg:left-[72px]">
+    <div className="image-agent-shell fixed bottom-[var(--mobile-bottom-nav-height)] left-0 right-0 top-[var(--chat-topbar-height)] z-20 flex bg-light-primary text-black dark:bg-dark-primary dark:text-white lg:left-[72px]">
       <section className="relative flex min-w-0 flex-1 flex-col">
-        <header className="relative flex h-14 shrink-0 items-center px-4">
+        <header className="relative flex h-14 shrink-0 items-center border-b border-light-200 px-4 dark:border-dark-200">
           <Link
             href="/agents"
             aria-label="Back to agents"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-white/70 hover:bg-white/10 hover:text-white"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-black/60 hover:bg-light-secondary hover:text-black dark:text-white/60 dark:hover:bg-dark-secondary dark:hover:text-white"
           >
             <ArrowLeft size={18} />
           </Link>
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-medium text-black shadow-sm">
+            <span className="inline-flex items-center gap-2 rounded-full border border-light-200 bg-white px-3 py-1 text-xs font-medium text-black shadow-sm dark:border-white/10 dark:bg-gray-900 dark:text-white">
               <ImageIcon size={12} />
               {AGENT_TITLE}
             </span>
@@ -465,7 +465,7 @@ const ImagePage = () => {
               type="button"
               aria-label="Open history"
               onClick={() => setSidebarOpen(true)}
-              className="ml-auto inline-flex h-9 w-9 items-center justify-center rounded-full text-white/70 hover:bg-white/10 hover:text-white"
+              className="ml-auto inline-flex h-9 w-9 items-center justify-center rounded-full text-black/60 hover:bg-light-secondary hover:text-black dark:text-white/60 dark:hover:bg-dark-secondary dark:hover:text-white"
             >
               <PanelRight size={16} />
             </button>
@@ -473,7 +473,7 @@ const ImagePage = () => {
         </header>
 
         <div className="flex min-h-0 flex-1 items-center justify-center px-6 py-4">
-          <div className="relative flex h-full max-h-[min(780px,calc(100%-1rem))] w-full max-w-3xl items-center justify-center overflow-hidden rounded-sm bg-[#2c2c2c]">
+          <div className="relative flex h-full max-h-[min(780px,calc(100%-1rem))] w-full max-w-3xl items-center justify-center overflow-hidden rounded-3xl border border-light-200 bg-light-secondary shadow-lg dark:border-dark-200 dark:bg-dark-secondary">
             {canvasImage && !generating ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -482,7 +482,7 @@ const ImagePage = () => {
                 className="max-h-full max-w-full object-contain"
               />
             ) : (
-              <span className="inline-flex items-center gap-2 rounded-full bg-black/80 px-4 py-2 text-sm text-white/90 shadow-lg">
+              <span className="inline-flex items-center gap-2 rounded-full border border-light-200 bg-white/80 px-4 py-2 text-sm text-black/70 shadow-sm dark:border-white/10 dark:bg-gray-900/80 dark:text-white/80">
                 <ImageIcon size={14} />
                 {canvasError
                   ? canvasError
@@ -501,7 +501,7 @@ const ImagePage = () => {
             void handleSend();
           }}
         >
-          <div className="mx-auto flex w-full max-w-3xl items-center gap-2 rounded-full bg-[#1a1a1a] px-4 py-2 ring-1 ring-white/10 focus-within:ring-white/25">
+          <div className="mx-auto flex w-full max-w-3xl items-center gap-2 rounded-full border border-light-200 bg-white px-4 py-2 shadow-sm focus-within:ring-2 focus-within:ring-[#24A0ED] dark:border-white/10 dark:bg-gray-950">
             <input
               value={prompt}
               onChange={(event) => {
@@ -510,13 +510,13 @@ const ImagePage = () => {
               }}
               aria-label="Image prompt"
               placeholder="Describe the image you want, or just say hello"
-              className="min-w-0 flex-1 bg-transparent px-2 py-2 text-sm text-white outline-none placeholder:text-white/35"
+              className="min-w-0 flex-1 bg-transparent px-2 py-2 text-sm text-black outline-none placeholder:text-black/35 dark:text-white dark:placeholder:text-white/35"
               disabled={sending}
             />
             <button
               type="submit"
               disabled={!canSend}
-              className="shrink-0 rounded-full bg-white/10 px-4 py-1.5 text-sm font-medium text-white/90 transition hover:bg-white/20 disabled:cursor-not-allowed disabled:text-white/30"
+              className="inline-flex shrink-0 items-center justify-center rounded-full bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-600/40"
             >
               {sending
                 ? generating
@@ -526,7 +526,7 @@ const ImagePage = () => {
             </button>
           </div>
           {promptHint ? (
-            <p className="mx-auto mt-2 max-w-3xl text-center text-xs text-white/45">
+            <p className="mx-auto mt-2 max-w-3xl text-center text-xs text-black/45 dark:text-white/45">
               Enter a message to chat or a prompt to generate an image.
             </p>
           ) : null}
@@ -534,25 +534,25 @@ const ImagePage = () => {
       </section>
 
       {sidebarOpen ? (
-        <aside className="flex w-[min(100%,22rem)] shrink-0 flex-col border-l border-white/10 bg-[#111111]">
-          <header className="relative flex h-14 shrink-0 items-center px-3">
+        <aside className="flex w-[min(100%,22rem)] shrink-0 flex-col border-l border-light-200 bg-white/80 backdrop-blur-sm dark:border-white/10 dark:bg-gray-900/80">
+          <header className="relative flex h-14 shrink-0 items-center border-b border-light-200 px-3 dark:border-dark-200">
             <button
               type="button"
               aria-label="Close history"
               onClick={() => setSidebarOpen(false)}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-white/70 hover:bg-white/10 hover:text-white"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-black/60 hover:bg-light-secondary hover:text-black dark:text-white/60 dark:hover:bg-dark-secondary dark:hover:text-white"
             >
               <X size={16} />
             </button>
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <span className="text-sm font-medium text-white/90">
+              <span className="text-sm font-medium text-black dark:text-white">
                 {AGENT_TITLE}
               </span>
             </div>
           </header>
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3">
             {history.length === 0 ? (
-              <p className="pt-6 text-sm leading-6 text-white/55">
+              <p className="pt-6 text-sm leading-6 text-black/55 dark:text-white/55">
                 Say hello, or describe an image and I will generate it with
                 ComfyUI.
               </p>
@@ -560,17 +560,17 @@ const ImagePage = () => {
             {history.map((item) =>
               item.role === 'user' ? (
                 <div key={item.id} className="flex justify-end">
-                  <p className="max-w-[85%] rounded-2xl bg-[#2a2a2a] px-3 py-2 text-sm leading-6 text-white">
+                  <p className="max-w-[85%] rounded-2xl bg-light-secondary px-3 py-2 text-sm leading-6 text-black dark:bg-white/10 dark:text-white">
                     {item.text}
                   </p>
                 </div>
               ) : (
                 <div key={item.id} className="flex justify-start">
-                  <div className="max-w-[85%] space-y-2 text-sm leading-6 text-white/85">
+                  <div className="max-w-[85%] space-y-2 text-sm leading-6 text-black/85 dark:text-white/85">
                     {item.imageUrl ? (
                       <button
                         type="button"
-                        className="block overflow-hidden rounded-lg bg-[#2c2c2c]"
+                        className="block overflow-hidden rounded-lg bg-light-secondary dark:bg-dark-secondary"
                         onClick={() => {
                           setCanvasImage(item.imageUrl ?? null);
                           setCanvasError(null);
@@ -591,12 +591,12 @@ const ImagePage = () => {
                       </p>
                     ) : item.status === 'queued' ||
                       item.status === 'generating' ? (
-                      <p className="text-white/60">
+                      <p className="text-black/60 dark:text-white/60">
                         {imagePhaseLabel(item.status)}
                       </p>
                     ) : null}
                     {item.error ? (
-                      <p className="text-red-300">{item.error}</p>
+                      <p className="text-red-700 dark:text-red-300">{item.error}</p>
                     ) : null}
                   </div>
                 </div>

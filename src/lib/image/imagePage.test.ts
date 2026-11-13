@@ -22,5 +22,10 @@ describe('Agent Image page contract', () => {
     expect(page).not.toMatch(/\/itms\/ai\/api\/image\/generate/);
     expect(page).not.toMatch(/正在等待输入/);
     expect(page).not.toMatch(/127\.0\.0\.1:8188/);
+    expect(page).toMatch(/bg-light-primary/);
+    expect(page).toMatch(/dark:bg-dark-primary/);
+    expect(page).toMatch(/bg-blue-600/);
+    expect(page).not.toMatch(/#0b0b0b/);
+    expect(page).not.toMatch(/#111111/);
   });
 });
