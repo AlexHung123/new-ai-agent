@@ -62,7 +62,7 @@ describe('HTML explainer composer and embed', () => {
     expect(ctx).toMatch(
       /tools: \[\s*'fs_ls',\s*'fs_read',\s*'fs_grep',\s*'fs_find',\s*'read_skill',\s*'am_render',\s*\]/,
     );
-    expect(ctx).toMatch(/SHARED_AGENT_CONTEXT_REV = 14/);
+    expect(ctx).toMatch(/SHARED_AGENT_CONTEXT_REV = 15/);
     expect(ctx).toMatch(/'html-agent-template'/);
     expect(ctx).toMatch(/tools: \['html_get', 'html_set'\]/);
     expect(ctx).toMatch(/'image-agent-template'/);
