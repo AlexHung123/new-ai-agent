@@ -219,19 +219,14 @@ describe('bindChatEmitterToWriter abort handling', () => {
       persistSources: () => {},
     });
 
-    stream.emit(
-      'data',
-      JSON.stringify({ type: 'response', data: 'partial' }),
-    );
+    stream.emit('data', JSON.stringify({ type: 'response', data: 'partial' }));
     ac.abort();
     await flush();
     expect(persistAssistant).toHaveLength(0);
 
     stream.emit('end');
     await flush();
-    expect(persistAssistant).toEqual([
-      { content: 'partial', aborted: true },
-    ]);
+    expect(persistAssistant).toEqual([{ content: 'partial', aborted: true }]);
   });
 
   it('keeps accumulating assistant text after abort until end', async () => {
@@ -293,7 +288,9 @@ describe('bindChatEmitterToWriter abort handling', () => {
     stream.emit('data', JSON.stringify({ type: 'response', data: 'after' }));
     await flush();
 
-    const payloads = parseWrites(writes).filter((row) => row.type === 'message');
+    const payloads = parseWrites(writes).filter(
+      (row) => row.type === 'message',
+    );
     expect(payloads.map((row) => row.data)).toEqual(['before']);
   });
 });
@@ -417,6 +414,49 @@ describe('bindChatEmitterToWriter html_document', () => {
 
     expect(parseWrites(writes)).toEqual([
       { type: 'html_document', data: { html: '<p>live</p>' } },
+    ]);
+  });
+});
+
+describe('bindChatEmitterToWriter generated_image', () => {
+  it('forwards generated_image events to the client', async () => {
+    const stream = new EventEmitter();
+    const { writer, writes } = createMockWriter();
+
+    bindChatEmitterToWriter({
+      stream,
+      writer,
+      encoder: new TextEncoder(),
+      signal: new AbortController().signal,
+      chatId: 'chat-1',
+      userId: 'user-1',
+      createMessageId: () => 'asst-1',
+      persistAssistant: () => {},
+      persistSources: () => {},
+    });
+
+    stream.emit(
+      'data',
+      JSON.stringify({
+        type: 'generated_image',
+        data: {
+          status: 'succeeded',
+          jobId: 'job-1',
+          imageUrl: '/itms/ai/api/image/view?jobId=job-1',
+        },
+      }),
+    );
+    await flush();
+
+    expect(parseWrites(writes)).toEqual([
+      {
+        type: 'generated_image',
+        data: {
+          status: 'succeeded',
+          jobId: 'job-1',
+          imageUrl: '/itms/ai/api/image/view?jobId=job-1',
+        },
+      },
     ]);
   });
 });

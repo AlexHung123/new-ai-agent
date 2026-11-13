@@ -7,20 +7,14 @@ import { chats, messages as messagesSchema } from '@/lib/db/schema';
 import { and, eq, gt } from 'drizzle-orm';
 import { searchHandlers } from '@/lib/search';
 import { bindChatEmitterToWriter } from '@/lib/chat/bindChatEmitter';
-import {
-  parseChatBody,
-  type ChatBody,
-} from '@/lib/chat/chatBodySchema';
+import { parseChatBody, type ChatBody } from '@/lib/chat/chatBodySchema';
 import { imagesForFocus } from '@/lib/chat/attachedImages';
 import { runWithTurnImages } from '@/lib/chat/turnImages';
 import {
   loadConfiguredChatModel,
   NoopEmbeddings,
 } from '@/lib/models/configuredChatModel';
-import {
-  documentRootAbs,
-  resolveDocument,
-} from '@/lib/documents/catalog';
+import { documentRootAbs, resolveDocument } from '@/lib/documents/catalog';
 import { resolveBoundDocument } from '@/lib/documents/resolveBoundDocument';
 import {
   runWithDocumentTurn,
@@ -37,6 +31,7 @@ import { resolveAgentHtmlSnapshot } from '@/lib/html/agentHtmlSnapshot';
 import { allowedAssetOrigin } from '@/lib/html/allowedAssetOrigin';
 import { loadWcmsPage } from '@/lib/html/wcmsContent';
 import { runWithHtmlAgentTurn } from '@/lib/search/shared/runtime/htmlAgentTurnContext';
+import { runWithImageAgentTurn } from '@/lib/search/shared/runtime/imageAgentTurnContext';
 import { inlineHtmlAssets } from '@/lib/html/inlineHtmlAssets';
 import { toTinyMceBodyFragment } from '@/lib/html/tinyMceFragment';
 import { parseItmsOrigin } from '@/lib/html/wcmsQuery';
@@ -273,7 +268,7 @@ export const POST = async (req: Request) => {
         ),
       );
 
-    const withHtml = <T,>(fn: () => T | Promise<T>) =>
+    const withHtml = <T>(fn: () => T | Promise<T>) =>
       runWithHtmlTurn({ userId, htmlMode: false }, fn);
 
     const wcmsBound = resolveBoundWcms({
@@ -350,6 +345,15 @@ export const POST = async (req: Request) => {
           titleEn,
           fileBaseHref: fileBase,
           userMessage: message.content,
+        },
+        runSearch,
+      );
+    } else if (body.focusMode === 'agentImage') {
+      stream = await runWithImageAgentTurn(
+        {
+          userId,
+          userMessage: message.content,
+          signal: req.signal,
         },
         runSearch,
       );

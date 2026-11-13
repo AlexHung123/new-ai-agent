@@ -41,8 +41,7 @@ export function bindChatEmitterToWriter(options: BindChatEmitterOptions) {
     persistSources,
   } = options;
   const createMessageId =
-    options.createMessageId ??
-    (() => crypto.randomBytes(7).toString('hex'));
+    options.createMessageId ?? (() => crypto.randomBytes(7).toString('hex'));
 
   let receivedMessage = '';
   let finished = false;
@@ -192,6 +191,11 @@ export function bindChatEmitterToWriter(options: BindChatEmitterOptions) {
     } else if (parsedData.type === 'html_document') {
       writeChunk({
         type: 'html_document',
+        data: parsedData.data,
+      });
+    } else if (parsedData.type === 'generated_image') {
+      writeChunk({
+        type: 'generated_image',
         data: parsedData.data,
       });
     } else if (

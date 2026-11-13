@@ -60,11 +60,13 @@ describe('HTML explainer composer and embed', () => {
     const ctx = readSrc('../search/shared/agent/getSharedAgentContext.ts');
     expect(ctx).toMatch(/createReadSkillTool/);
     expect(ctx).toMatch(
-      /tools: \['fs_ls', 'fs_read', 'fs_grep', 'fs_find', 'read_skill', 'am_render'\]/,
+      /tools: \[\s*'fs_ls',\s*'fs_read',\s*'fs_grep',\s*'fs_find',\s*'read_skill',\s*'am_render',\s*\]/,
     );
-    expect(ctx).toMatch(/SHARED_AGENT_CONTEXT_REV = 13/);
+    expect(ctx).toMatch(/SHARED_AGENT_CONTEXT_REV = 14/);
     expect(ctx).toMatch(/'html-agent-template'/);
     expect(ctx).toMatch(/tools: \['html_get', 'html_set'\]/);
+    expect(ctx).toMatch(/'image-agent-template'/);
+    expect(ctx).toMatch(/tools: \['generate_image'\]/);
   });
 
   it('keeps read_skill and am_render on Writing and Document even when the HTML tag is off', () => {

@@ -5,10 +5,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ArrowLeft, Image as ImageIcon, PanelRight, X } from 'lucide-react';
 import {
+  GENERATED_IMAGE_EVENT_TYPE,
+  isGeneratedImageEvent,
+  type GeneratedImageEvent,
+} from '@/lib/image/generatedImageEvent';
+import {
   canvasPhaseLabel,
-  IMAGE_POLL_MS,
   imagePhaseLabel,
-  isTerminalImageStatus,
 } from '@/lib/image/imageJobProtocol';
 import {
   getAuthHeaders,
@@ -18,17 +21,61 @@ import {
 
 const IMAGE_PERMISSION = 'chatImageAgent:execute';
 const AGENT_TITLE = 'Agent Image';
+const CHAT_ID_KEY = 'itms-agent-image-chat-id';
 
 type JobStatus = 'queued' | 'generating' | 'succeeded' | 'failed' | 'cancelled';
 
-type HistoryTurn = {
+type HistoryItem = {
   id: string;
-  prompt: string;
-  status: JobStatus;
+  role: 'user' | 'assistant';
+  text: string;
+  status?: JobStatus | null;
   jobId?: string;
   error?: string | null;
   imageUrl?: string | null;
 };
+
+function newId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function readStoredChatId(): string {
+  try {
+    const existing = sessionStorage.getItem(CHAT_ID_KEY);
+    if (existing && existing.trim()) return existing;
+    const next = newId();
+    sessionStorage.setItem(CHAT_ID_KEY, next);
+    return next;
+  } catch {
+    return newId();
+  }
+}
+
+function parseJsonLines(buffer: string) {
+  const lines = buffer.split('\n');
+  const rest = lines.pop() ?? '';
+  const jsonObjects: unknown[] = [];
+
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    try {
+      jsonObjects.push(JSON.parse(line));
+    } catch (err) {
+      console.warn('[Agent Image] skip invalid SSE JSON line', err);
+    }
+  }
+
+  return { jsonObjects, rest };
+}
+
+function eventType(data: unknown): string | null {
+  if (!data || typeof data !== 'object') return null;
+  const type = (data as { type?: unknown }).type;
+  return typeof type === 'string' ? type : null;
+}
 
 const ImagePage = () => {
   const searchParams = useSearchParams();
@@ -40,15 +87,18 @@ const ImagePage = () => {
   const [canvasImage, setCanvasImage] = useState<string | null>(null);
   const [canvasStatus, setCanvasStatus] = useState<JobStatus | null>(null);
   const [canvasError, setCanvasError] = useState<string | null>(null);
-  const [history, setHistory] = useState<HistoryTurn[]>([]);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
   const [promptHint, setPromptHint] = useState(false);
+  const [sending, setSending] = useState(false);
   const historyEndRef = useRef<HTMLDivElement | null>(null);
-  const runId = useRef(0);
-  const activeJobId = useRef<string | null>(null);
+  const chatIdRef = useRef<string>('');
+  const chatHistoryRef = useRef<Array<[string, string]>>([]);
+  const abortRef = useRef<AbortController | null>(null);
   const objectUrls = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     initializeAuthToken(searchParams);
+    chatIdRef.current = readStoredChatId();
     setTokenReady(true);
   }, [searchParams]);
 
@@ -85,20 +135,7 @@ const ImagePage = () => {
 
   useEffect(() => {
     return () => {
-      runId.current += 1;
-      const jobId = activeJobId.current;
-      activeJobId.current = null;
-      if (jobId) {
-        const token = getAuthToken();
-        const headers: HeadersInit = token
-          ? { Authorization: `Bearer ${token}` }
-          : {};
-        void fetch(`/itms/ai/api/image/jobs/${jobId}`, {
-          method: 'DELETE',
-          headers,
-          keepalive: true,
-        });
-      }
+      abortRef.current?.abort();
       for (const url of objectUrls.current) {
         URL.revokeObjectURL(url);
       }
@@ -116,148 +153,258 @@ const ImagePage = () => {
     return token ? { Authorization: `Bearer ${token}` } : {};
   };
 
-  const readError = async (response: Response, fallback: string) => {
-    try {
-      const body = await response.json();
-      if (typeof body.error === 'string' && body.error) return body.error;
-    } catch {
-      // keep fallback
-    }
-    return fallback;
+  const patchItem = (id: string, patch: Partial<HistoryItem>) => {
+    setHistory((current) =>
+      current.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+    );
   };
 
-  const fetchJobImage = async (jobId: string): Promise<string> => {
-    const response = await fetch(
-      `/itms/ai/api/image/view?jobId=${encodeURIComponent(jobId)}`,
-      { headers: authHeaders() },
-    );
+  const fetchJobImage = async (imageUrl: string): Promise<string> => {
+    const response = await fetch(imageUrl, { headers: authHeaders() });
     if (!response.ok) {
-      throw new Error(await readError(response, 'Image could not be loaded.'));
+      throw new Error('Image could not be loaded.');
     }
     const blob = await response.blob();
     return rememberUrl(URL.createObjectURL(blob));
   };
 
-  const updateTurn = (id: string, patch: Partial<HistoryTurn>) => {
-    setHistory((current) =>
-      current.map((turn) => (turn.id === id ? { ...turn, ...patch } : turn)),
-    );
+  const handleGeneratedImage = async (
+    assistantId: string,
+    event: GeneratedImageEvent,
+  ) => {
+    if (event.status === 'queued' || event.status === 'generating') {
+      setCanvasStatus(event.status);
+      setCanvasError(null);
+      patchItem(assistantId, { status: event.status, jobId: event.jobId });
+      return;
+    }
+    if (event.status === 'succeeded' && event.imageUrl) {
+      try {
+        const blobUrl = await fetchJobImage(event.imageUrl);
+        setCanvasImage(blobUrl);
+        setCanvasStatus(null);
+        setCanvasError(null);
+        patchItem(assistantId, {
+          status: 'succeeded',
+          jobId: event.jobId,
+          imageUrl: blobUrl,
+          error: null,
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Image could not be loaded.';
+        setCanvasStatus(null);
+        setCanvasError(message);
+        patchItem(assistantId, { status: 'failed', error: message });
+      }
+      return;
+    }
+    const message = event.error || 'Image generation failed.';
+    setCanvasStatus(null);
+    setCanvasError(message);
+    patchItem(assistantId, {
+      status: event.status === 'cancelled' ? 'cancelled' : 'failed',
+      error: message,
+      jobId: event.jobId,
+    });
   };
 
-  const generating = canvasStatus === 'queued' || canvasStatus === 'generating';
-  const canGenerate = prompt.trim().length > 0 && !generating;
+  const canSend = prompt.trim().length > 0 && !sending;
 
-  const handleGenerate = async () => {
+  const handleSend = async () => {
     const nextPrompt = prompt.trim();
     if (!nextPrompt) {
       setPromptHint(true);
       return;
     }
-    if (generating) return;
+    if (sending) return;
 
     setPromptHint(false);
     setPrompt('');
+    setSending(true);
     setCanvasError(null);
-    setCanvasStatus('queued');
 
-    const turnId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const userId = newId();
+    const assistantId = newId();
+    const messageId = newId();
+    const chatId = chatIdRef.current || readStoredChatId();
+    chatIdRef.current = chatId;
+
     setHistory((current) => [
       ...current,
-      { id: turnId, prompt: nextPrompt, status: 'queued' },
+      { id: userId, role: 'user', text: nextPrompt },
+      { id: assistantId, role: 'assistant', text: '' },
     ]);
 
-    const thisRun = ++runId.current;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    let received = '';
     try {
-      const created = await fetch('/itms/ai/api/image/generate', {
+      const response = await fetch('/itms/ai/api/chat', {
         method: 'POST',
         headers: {
-          ...authHeaders(),
+          ...getAuthHeaders(),
           'content-type': 'application/json',
+          'x-chat-id': chatId,
+          'x-agent-id': `image-chat-agent-${chatId}`,
         },
-        body: JSON.stringify({ prompt: nextPrompt }),
+        body: JSON.stringify({
+          content: nextPrompt,
+          message: { messageId, chatId, content: nextPrompt },
+          chatId,
+          focusMode: 'agentImage',
+          optimizationMode: 'balanced',
+          history: chatHistoryRef.current,
+          systemInstructions: '',
+        }),
+        signal: controller.signal,
       });
-      if (!created.ok) {
-        const message = await readError(
-          created,
-          `Generation failed (${created.status})`,
-        );
-        if (thisRun !== runId.current) return;
-        setCanvasStatus(null);
-        setCanvasError(message);
-        updateTurn(turnId, { status: 'failed', error: message });
-        return;
-      }
-      const body = await created.json();
-      const jobId = typeof body.jobId === 'string' ? body.jobId : '';
-      if (!jobId) {
-        const message = 'Image service returned an invalid job.';
-        setCanvasStatus(null);
-        setCanvasError(message);
-        updateTurn(turnId, { status: 'failed', error: message });
-        return;
-      }
 
-      activeJobId.current = jobId;
-      updateTurn(turnId, { jobId, status: 'queued' });
-
-      while (thisRun === runId.current) {
-        const polled = await fetch(`/itms/ai/api/image/jobs/${jobId}`, {
-          headers: authHeaders(),
-          cache: 'no-store',
+      if (!response.ok) {
+        let message = `Chat failed (${response.status})`;
+        try {
+          const body = await response.json();
+          if (typeof body.message === 'string' && body.message) {
+            message = body.message;
+          } else if (typeof body.error === 'string' && body.error) {
+            message = body.error;
+          }
+        } catch {
+          // keep fallback
+        }
+        setCanvasStatus(null);
+        patchItem(assistantId, {
+          text: message,
+          status: 'failed',
+          error: message,
         });
-        if (!polled.ok) {
-          const message = await readError(
-            polled,
-            `Generation failed (${polled.status})`,
-          );
-          if (thisRun !== runId.current) return;
-          activeJobId.current = null;
-          setCanvasStatus(null);
-          setCanvasError(message);
-          updateTurn(turnId, { status: 'failed', error: message });
-          return;
-        }
-        const view = await polled.json();
-        const status =
-          typeof view.status === 'string' ? view.status : 'generating';
-        if (thisRun !== runId.current) return;
+        chatHistoryRef.current = [
+          ...chatHistoryRef.current,
+          ['human', nextPrompt],
+          ['assistant', message],
+        ];
+        return;
+      }
 
-        if (status === 'succeeded') {
-          const imageUrl = await fetchJobImage(jobId);
-          if (thisRun !== runId.current) return;
-          activeJobId.current = null;
-          setCanvasImage(imageUrl);
-          setCanvasStatus(null);
-          setCanvasError(null);
-          updateTurn(turnId, { status: 'succeeded', imageUrl });
-          return;
-        }
+      if (!response.body) {
+        throw new Error('No response body');
+      }
 
-        if (isTerminalImageStatus(status)) {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+
+      const handleEvent = async (data: unknown) => {
+        const type = eventType(data);
+        const record =
+          data && typeof data === 'object'
+            ? (data as Record<string, unknown>)
+            : {};
+        if (type === 'error') {
           const message =
-            typeof view.error === 'string' && view.error
-              ? view.error
-              : 'Image generation failed.';
-          activeJobId.current = null;
+            typeof record.data === 'string' && record.data
+              ? record.data
+              : 'Something went wrong.';
           setCanvasStatus(null);
           setCanvasError(message);
-          updateTurn(turnId, { status: status as JobStatus, error: message });
+          patchItem(assistantId, { error: message, status: 'failed' });
           return;
         }
+        if (type === 'progress') return;
+        if (
+          type === GENERATED_IMAGE_EVENT_TYPE &&
+          isGeneratedImageEvent(record.data)
+        ) {
+          await handleGeneratedImage(assistantId, record.data);
+          return;
+        }
+        if (type === 'tool_execution') {
+          const tool =
+            record.data && typeof record.data === 'object'
+              ? (record.data as { name?: unknown; state?: unknown })
+              : {};
+          if (tool.name === 'generate_image') {
+            if (tool.state === 'RUNNING') {
+              setCanvasStatus('generating');
+              setCanvasError(null);
+              patchItem(assistantId, { status: 'generating' });
+            }
+          }
+          return;
+        }
+        if (type === 'tool_error') {
+          const tool =
+            record.data && typeof record.data === 'object'
+              ? (record.data as { name?: unknown; error?: unknown })
+              : {};
+          if (tool.name === 'generate_image') {
+            const message =
+              typeof tool.error === 'string' && tool.error
+                ? tool.error
+                : 'Image generation failed.';
+            setCanvasStatus(null);
+            setCanvasError(message);
+            patchItem(assistantId, { status: 'failed', error: message });
+          }
+          return;
+        }
+        if (type === 'message' && typeof record.data === 'string') {
+          received += record.data;
+          patchItem(assistantId, { text: received });
+          return;
+        }
+      };
 
-        setCanvasStatus(status === 'queued' ? 'queued' : 'generating');
-        updateTurn(turnId, {
-          status: status === 'queued' ? 'queued' : 'generating',
-        });
-        await new Promise((resolve) => setTimeout(resolve, IMAGE_POLL_MS));
+      while (true) {
+        if (controller.signal.aborted) {
+          await reader.cancel().catch(() => undefined);
+          break;
+        }
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const { jsonObjects, rest } = parseJsonLines(buffer);
+        buffer = rest;
+        for (const obj of jsonObjects) {
+          await handleEvent(obj);
+        }
       }
-    } catch {
-      if (thisRun !== runId.current) return;
-      activeJobId.current = null;
-      const message = 'ComfyUI server is not reachable.';
+      if (buffer.trim() && !controller.signal.aborted) {
+        try {
+          await handleEvent(JSON.parse(buffer));
+        } catch (err) {
+          console.warn('[Agent Image] skip leftover SSE JSON', err);
+        }
+      }
+
+      chatHistoryRef.current = [
+        ...chatHistoryRef.current,
+        ['human', nextPrompt],
+        ['assistant', received],
+      ];
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : 'Chat request failed.';
       setCanvasStatus(null);
       setCanvasError(message);
-      updateTurn(turnId, { status: 'failed', error: message });
+      patchItem(assistantId, {
+        text: message,
+        status: 'failed',
+        error: message,
+      });
+      chatHistoryRef.current = [
+        ...chatHistoryRef.current,
+        ['human', nextPrompt],
+        ['assistant', message],
+      ];
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null;
+      setSending(false);
     }
   };
 
@@ -293,6 +440,8 @@ const ImagePage = () => {
       </div>
     );
   }
+
+  const generating = canvasStatus === 'queued' || canvasStatus === 'generating';
 
   return (
     <div className="image-agent-shell fixed bottom-[var(--mobile-bottom-nav-height)] left-0 right-0 top-[var(--chat-topbar-height)] z-20 flex bg-[#0b0b0b] text-white lg:left-[72px]">
@@ -349,7 +498,7 @@ const ImagePage = () => {
           className="shrink-0 px-6 pb-6 pt-2"
           onSubmit={(event) => {
             event.preventDefault();
-            void handleGenerate();
+            void handleSend();
           }}
         >
           <div className="mx-auto flex w-full max-w-3xl items-center gap-2 rounded-full bg-[#1a1a1a] px-4 py-2 ring-1 ring-white/10 focus-within:ring-white/25">
@@ -360,23 +509,25 @@ const ImagePage = () => {
                 if (event.target.value.trim()) setPromptHint(false);
               }}
               aria-label="Image prompt"
-              placeholder="Describe the image you want to generate"
+              placeholder="Describe the image you want, or just say hello"
               className="min-w-0 flex-1 bg-transparent px-2 py-2 text-sm text-white outline-none placeholder:text-white/35"
-              disabled={generating}
+              disabled={sending}
             />
             <button
               type="submit"
-              disabled={!canGenerate}
+              disabled={!canSend}
               className="shrink-0 rounded-full bg-white/10 px-4 py-1.5 text-sm font-medium text-white/90 transition hover:bg-white/20 disabled:cursor-not-allowed disabled:text-white/30"
             >
-              {generating
-                ? imagePhaseLabel(canvasStatus ?? 'generating')
-                : 'Generate'}
+              {sending
+                ? generating
+                  ? imagePhaseLabel(canvasStatus ?? 'generating')
+                  : 'Thinking…'
+                : 'Send'}
             </button>
           </div>
           {promptHint ? (
             <p className="mx-auto mt-2 max-w-3xl text-center text-xs text-white/45">
-              Enter a prompt to generate an image.
+              Enter a message to chat or a prompt to generate an image.
             </p>
           ) : null}
         </form>
@@ -402,49 +553,55 @@ const ImagePage = () => {
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3">
             {history.length === 0 ? (
               <p className="pt-6 text-sm leading-6 text-white/55">
-                Describe an image and I will generate it with ComfyUI.
+                Say hello, or describe an image and I will generate it with
+                ComfyUI.
               </p>
             ) : null}
-            {history.map((turn) => (
-              <div key={turn.id} className="flex flex-col gap-3">
-                <div className="flex justify-end">
+            {history.map((item) =>
+              item.role === 'user' ? (
+                <div key={item.id} className="flex justify-end">
                   <p className="max-w-[85%] rounded-2xl bg-[#2a2a2a] px-3 py-2 text-sm leading-6 text-white">
-                    {turn.prompt}
+                    {item.text}
                   </p>
                 </div>
-                <div className="flex justify-start">
-                  <div className="max-w-[85%] text-sm leading-6 text-white/85">
-                    {turn.status === 'succeeded' && turn.imageUrl ? (
+              ) : (
+                <div key={item.id} className="flex justify-start">
+                  <div className="max-w-[85%] space-y-2 text-sm leading-6 text-white/85">
+                    {item.imageUrl ? (
                       <button
                         type="button"
                         className="block overflow-hidden rounded-lg bg-[#2c2c2c]"
                         onClick={() => {
-                          setCanvasImage(turn.imageUrl ?? null);
+                          setCanvasImage(item.imageUrl ?? null);
                           setCanvasError(null);
                           setCanvasStatus(null);
                         }}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={turn.imageUrl}
+                          src={item.imageUrl}
                           alt="Generated result"
                           className="h-auto w-full object-cover"
                         />
                       </button>
-                    ) : turn.status === 'failed' ||
-                      turn.status === 'cancelled' ? (
-                      <p className="text-red-300">
-                        {turn.error || 'Image generation failed.'}
+                    ) : null}
+                    {item.text ? (
+                      <p className="whitespace-pre-wrap break-words">
+                        {item.text}
                       </p>
-                    ) : (
+                    ) : item.status === 'queued' ||
+                      item.status === 'generating' ? (
                       <p className="text-white/60">
-                        {imagePhaseLabel(turn.status)}
+                        {imagePhaseLabel(item.status)}
                       </p>
-                    )}
+                    ) : null}
+                    {item.error ? (
+                      <p className="text-red-300">{item.error}</p>
+                    ) : null}
                   </div>
                 </div>
-              </div>
-            ))}
+              ),
+            )}
             <div ref={historyEndRef} />
           </div>
         </aside>

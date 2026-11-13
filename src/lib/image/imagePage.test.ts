@@ -7,15 +7,19 @@ function readSrc(...parts: string[]): string {
 }
 
 describe('Agent Image page contract', () => {
-  it('uses the Grok-style layout labels and server proxy', () => {
+  it('chats through /api/chat and only shows images from generated_image events', () => {
     const page = readSrc('../../app/image/page.tsx');
     expect(page).toMatch(/Waiting for input/);
     expect(page).toMatch(/Agent Image/);
     expect(page).toMatch(/chatImageAgent:execute/);
-    expect(page).toMatch(/\/itms\/ai\/api\/image\/generate/);
-    expect(page).toMatch(/\/itms\/ai\/api\/image\/jobs\//);
-    expect(page).toMatch(/\/itms\/ai\/api\/image\/view/);
+    expect(page).toMatch(/\/itms\/ai\/api\/chat/);
+    expect(page).toMatch(/focusMode: 'agentImage'/);
+    expect(page).toMatch(/GENERATED_IMAGE_EVENT_TYPE/);
+    expect(page).toMatch(/generate_image/);
     expect(page).toMatch(/getAuthHeaders/);
+    expect(page).toMatch(/x-agent-id/);
+    expect(page).toMatch(/x-chat-id/);
+    expect(page).not.toMatch(/\/itms\/ai\/api\/image\/generate/);
     expect(page).not.toMatch(/正在等待输入/);
     expect(page).not.toMatch(/127\.0\.0\.1:8188/);
   });

@@ -23,7 +23,9 @@ import {
   createHtmlGetTool,
   createHtmlSetTool,
 } from '../tools/htmlDocumentTool';
+import { createGenerateImageTool } from '../tools/generateImageTool';
 import { HTML_AGENT_SYSTEM_PROMPT } from '../prompts/htmlAgentSystemPrompt';
+import { IMAGE_AGENT_SYSTEM_PROMPT } from '../prompts/imageAgentSystemPrompt';
 import {
   createPiAgentSessionManager,
   type NamedTool,
@@ -42,6 +44,7 @@ function initSharedAgentDependencies() {
   const readSkillTool = createReadSkillTool();
   const htmlGetTool = createHtmlGetTool();
   const htmlSetTool = createHtmlSetTool();
+  const generateImageTool = createGenerateImageTool();
   const fsTools = createAgentFsTools({
     isAdmin: true,
     getProjectRootAbs: () =>
@@ -62,6 +65,7 @@ function initSharedAgentDependencies() {
   tools[amRenderTool.name] = amRenderTool;
   tools[htmlGetTool.name] = htmlGetTool;
   tools[htmlSetTool.name] = htmlSetTool;
+  tools[generateImageTool.name] = generateImageTool;
 
   const templates: Record<string, PiTemplate> = {
     [DEFAULT_TEMPLATE_ID]: {
@@ -87,17 +91,36 @@ function initSharedAgentDependencies() {
     'writing-agent-template': {
       id: 'writing-agent-template',
       systemPrompt: WRITING_AGENT_SYSTEM_PROMPT,
-      tools: ['fs_ls', 'fs_read', 'fs_grep', 'fs_find', 'read_skill', 'am_render'],
+      tools: [
+        'fs_ls',
+        'fs_read',
+        'fs_grep',
+        'fs_find',
+        'read_skill',
+        'am_render',
+      ],
     },
     'document-agent-template': {
       id: 'document-agent-template',
       systemPrompt: DOCUMENT_AGENT_SYSTEM_PROMPT,
-      tools: ['fs_ls', 'fs_read', 'fs_grep', 'fs_find', 'read_skill', 'am_render'],
+      tools: [
+        'fs_ls',
+        'fs_read',
+        'fs_grep',
+        'fs_find',
+        'read_skill',
+        'am_render',
+      ],
     },
     'html-agent-template': {
       id: 'html-agent-template',
       systemPrompt: HTML_AGENT_SYSTEM_PROMPT,
       tools: ['html_get', 'html_set'],
+    },
+    'image-agent-template': {
+      id: 'image-agent-template',
+      systemPrompt: IMAGE_AGENT_SYSTEM_PROMPT,
+      tools: ['generate_image'],
     },
   };
 
@@ -132,7 +155,7 @@ declare global {
 }
 
 /** Bump when session-manager behavior changes so Next.js HMR rebuilds the pool. */
-const SHARED_AGENT_CONTEXT_REV = 13;
+const SHARED_AGENT_CONTEXT_REV = 14;
 
 export function getSharedAgentContext(): SharedAgentContext {
   if (
