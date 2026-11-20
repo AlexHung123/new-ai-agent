@@ -1276,6 +1276,12 @@
       clamp(10.5rem, calc(10.5rem + 0.55 * (100vw - 80rem)), 18.75rem) + 0.75rem
     );
   }
+
+  :has(.writing-knowledge-files) .empty-chat-body {
+    padding-left: calc(
+      clamp(10.5rem, calc(10.5rem + 0.55 * (100vw - 80rem)), 18.75rem) + 0.75rem
+    );
+  }
 }
 
 .writing-knowledge-files {

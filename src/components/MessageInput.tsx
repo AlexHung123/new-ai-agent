@@ -13,6 +13,7 @@ import {
   useAttachedImages,
 } from './AttachImageControls';
 import WritingKnowledgeAtMenu from './WritingKnowledgeAtMenu';
+import { atQueryAtCursor } from '@/lib/writing/mentions';
 
 const SendArrow = () => (
   <span className="send-btn-icon" aria-hidden>
@@ -106,14 +107,17 @@ const MessageInput = memo(function MessageInput() {
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       syncCursor(e.currentTarget);
       if (e.key === 'Enter' && !e.shiftKey) {
-        if (focusMode === 'agentWriting' && message.includes('@')) {
+        if (
+          focusMode === 'agentWriting' &&
+          atQueryAtCursor(message, cursor)
+        ) {
           return;
         }
         e.preventDefault();
         submit();
       }
     },
-    [focusMode, message, submit, syncCursor],
+    [cursor, focusMode, message, submit, syncCursor],
   );
 
   const onActionClick = useCallback(

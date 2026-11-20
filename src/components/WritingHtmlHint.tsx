@@ -28,7 +28,7 @@ export const WRITING_HINT_SUGGESTIONS = [
     title: 'Sample diagrams for each requirement placeholder',
     prompt: `Read the mentioned requirement specification and draw sample diagrams I can paste into Word. Do not rewrite the specification.
 
-Use the file tools. Find every [PLACEHOLDER] in document order. The heading above each one is the requirement id. The sentence immediately before the placeholder names the diagram.
+Use query then get. Find every [PLACEHOLDER] in document order. The heading above each one is the requirement id. The sentence immediately before the placeholder names the diagram.
 
 Draw the next four placeholders only. Start at the first [PLACEHOLDER] that does not already have a diagram in this chat. After those four, stop and write: Reply continue for the next four placeholders.
 
@@ -38,7 +38,7 @@ For each diagram:
 - If the sentence says "Use Case Diagram", draw a UML use case diagram. Put the actor outside a rounded system boundary and the use cases inside as rounded rectangles (fill #E3F2FD, border #1565C0). Take the actor from the process text (RBS Administrator, booking user, or an external system). The child requirements under that heading are the use cases. The first placeholder, under User Requirements, is the overview of RBS users, account management, and system configuration.
 - If the sentence says "process", draw a simple activity diagram of the steps in the paragraph above the placeholder. Use a start oval, action rectangles, arrows, and an end oval. Add a decision diamond only when that paragraph describes a branch.
 
-If that file is not in the mentioned files, ask me to upload and mention it. Do not invent the section list.`,
+If that file is not @-mentioned, ask me to @-mention it from Knowledge. Do not invent the section list.`,
   },
 ] as const;
 

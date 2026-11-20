@@ -51,6 +51,9 @@ describe('Agent Writing empty HTML hint', () => {
     expect(hint).not.toMatch(/CSC_RBS_SAnD/);
     expect(hint).toMatch(/\[PLACEHOLDER\]/);
     expect(hint).toMatch(/Reply continue for the next four placeholders/);
+    expect(hint).not.toMatch(/Use the file tools/);
+    expect(hint).not.toMatch(/ask me to upload/);
+    expect(hint).toMatch(/query then get/);
     expect(hint).toMatch(/prompt:/);
     expect(hint).toMatch(/HTML_SKILL_HINT/);
     expect(hint).toMatch(/setDraft\(item\.prompt\)/);

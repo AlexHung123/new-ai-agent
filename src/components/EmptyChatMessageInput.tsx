@@ -13,6 +13,7 @@ import {
   useAttachedImages,
 } from './AttachImageControls';
 import WritingKnowledgeAtMenu from './WritingKnowledgeAtMenu';
+import { atQueryAtCursor } from '@/lib/writing/mentions';
 
 const SendArrow = () => (
   <span className="send-btn-icon" aria-hidden>
@@ -134,7 +135,10 @@ const EmptyChatMessageInput = ({
           onPaste={images.onPaste}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
-              if (focusMode === 'agentWriting' && message.includes('@')) {
+              if (
+                focusMode === 'agentWriting' &&
+                atQueryAtCursor(message, cursor)
+              ) {
                 return;
               }
               e.preventDefault();

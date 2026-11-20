@@ -52,6 +52,13 @@ describe('writing Knowledge FILES rail', () => {
     expect(menu).toMatch(/insertMention/);
     const chat = readSrc('../hooks/useChat.tsx');
     expect(chat).toMatch(/knowledgeFolder:/);
+    for (const src of [
+      readSrc('../../components/MessageInput.tsx'),
+      readSrc('../../components/EmptyChatMessageInput.tsx'),
+    ]) {
+      expect(src).toMatch(/atQueryAtCursor/);
+      expect(src).not.toMatch(/message\.includes\(['"]@['"]\)/);
+    }
   });
 
   it('keeps the FILES rail visible when the preview panel is open', () => {
@@ -60,6 +67,13 @@ describe('writing Knowledge FILES rail', () => {
     expect(css).toMatch(/\.writing-left-rail\s*\{[^}]*position:\s*fixed/s);
     expect(css).not.toMatch(
       /\.chat-workspace:has\(\.right-panel-open\)\s+\.writing-left-rail\s*\{[^}]*display:\s*none/s,
+    );
+  });
+
+  it('pads empty writing chat so it clears the FILES rail', () => {
+    const css = readSrc('../../app/globals.css');
+    expect(css).toMatch(
+      /:has\(\.writing-knowledge-files\)\s+\.empty-chat-body\s*\{[^}]*padding-left/s,
     );
   });
 });

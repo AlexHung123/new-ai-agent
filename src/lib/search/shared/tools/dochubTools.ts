@@ -51,6 +51,26 @@ function matchGlob(name: string, pattern: string): boolean {
   }
 }
 
+function basename(path: string): string {
+  const i = path.lastIndexOf('/');
+  return i >= 0 ? path.slice(i + 1) : path;
+}
+
+function fileMatchesGlob(child: KnowledgeTreeNode, pattern: string): boolean {
+  if (child.type !== 'file') return false;
+  const names = new Set<string>();
+  if (child.name) names.add(child.name);
+  if (child.path) names.add(basename(child.path));
+  if (child.file?.original_filename) names.add(child.file.original_filename);
+  if (child.file?.markdown_relpath) {
+    names.add(basename(child.file.markdown_relpath));
+  }
+  for (const name of names) {
+    if (matchGlob(name, pattern)) return true;
+  }
+  return false;
+}
+
 function lastSegmentGlob(
   path: string,
 ): { folder: string; pattern: string } | null {
@@ -93,7 +113,7 @@ function expandFiles(
     const children = node?.children || [];
     for (const child of children) {
       if (out.length >= 10) break;
-      if (child.type === 'file' && matchGlob(child.name, glob.pattern)) {
+      if (fileMatchesGlob(child, glob.pattern)) {
         out.push(child.path || `${glob.folder}/${child.name}`);
       }
     }
@@ -154,10 +174,12 @@ export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
           limit: mapped.limit,
           ...(path ? { path } : {}),
         });
+        const { user_id: _userId, results: rawResults, ...rest } = raw;
+        void _userId;
         const results = stripHitFiles(
-          Array.isArray(raw.results) ? raw.results : [],
+          Array.isArray(rawResults) ? rawResults : [],
         );
-        return jsonToolResult({ ...raw, results, ok: true });
+        return jsonToolResult({ ...rest, results, ok: true });
       } catch (error) {
         return errorResult(
           error instanceof Error ? error.message : String(error),
