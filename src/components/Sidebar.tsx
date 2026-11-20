@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { getAuthHeaders, initializeAuthToken } from '@/lib/utils/auth';
 import {
   BookOpenText,
+  FolderOpen,
   LayoutGrid,
   Shield,
 } from 'lucide-react';
@@ -55,6 +56,12 @@ const Sidebar = ({ children }: { children: React.ReactNode }) => {
       href: '/library',
       active: segments.includes('library'),
       label: 'History',
+    },
+    {
+      icon: FolderOpen,
+      href: '/knowledge',
+      active: segments.includes('knowledge'),
+      label: 'Knowledge',
     },
     ...(isAdmin
       ? [
@@ -119,7 +126,7 @@ const Sidebar = ({ children }: { children: React.ReactNode }) => {
       </div>
 
       <Layout
-        wide={segments.includes('agents')}
+        wide={segments.includes('agents') || segments.includes('knowledge')}
         flush={segments.length === 0 || segments[0] === 'c'}
       >
         {children}
