@@ -14,6 +14,7 @@ export default function KnowledgeListing({
   tasks,
   onOpenDir,
   onOpenFile,
+  onOpenHit,
   onDropFiles,
 }: {
   items: KnowledgeTreeNode[];
@@ -22,6 +23,7 @@ export default function KnowledgeListing({
   tasks: Record<string, KnowledgeTask>;
   onOpenDir: (path: string) => void;
   onOpenFile: (id: string) => void;
+  onOpenHit: (hit: KnowledgeSearchHit) => void;
   onDropFiles: (files: FileList) => void;
 }) {
   return (
@@ -44,7 +46,7 @@ export default function KnowledgeListing({
                   type="button"
                   className="knowledge-hit"
                   data-hit-file={hit.file}
-                  onClick={() => undefined}
+                  onClick={() => onOpenHit(hit)}
                 >
                   <strong>{hit.title || hit.file}</strong>
                   <span>{hit.snippet}</span>

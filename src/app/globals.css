@@ -2541,6 +2541,19 @@ body:has(.html-close-itms) .document-preview-tabs {
   display: none;
 }
 
+.knowledge-preview.is-open {
+  display: block;
+  width: 36%;
+  overflow: auto;
+  border-left: 1px solid var(--wiki-border);
+  padding: 12px;
+}
+
+.knowledge-preview-error {
+  color: #b42318;
+  font-size: 14px;
+}
+
 .knowledge-empty {
   color: var(--wiki-text-secondary);
   font-size: 14px;

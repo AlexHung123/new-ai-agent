@@ -32,4 +32,24 @@ describe('knowledge UI contracts', () => {
     expect(listing).toMatch(/onDrop/);
     expect(listing).toMatch(/Create a folder or drop files here/);
   });
+
+  it('searches through the app API and previews markdown', () => {
+    const manager = readSrc('../../components/knowledge/KnowledgeFileManager.tsx');
+    const listing = readSrc('../../components/knowledge/KnowledgeListing.tsx');
+    const preview = readSrc('../../components/knowledge/KnowledgePreview.tsx');
+    expect(manager).toMatch(/\/itms\/ai\/api\/knowledge\/search/);
+    expect(manager).toMatch(/limit: 10/);
+    expect(manager).toMatch(/vsearch/);
+    expect(manager).toMatch(/content\?tree=markdown/);
+    expect(manager).toMatch(/findFileForSearchHit/);
+    expect(listing).toMatch(/onOpenHit/);
+    expect(preview).toMatch(/markdown-to-jsx/);
+    expect(preview).toMatch(/File not found/);
+  });
+
+  it('does not call Dochub or QMD from the browser', () => {
+    const manager = readSrc('../../components/knowledge/KnowledgeFileManager.tsx');
+    expect(manager).not.toMatch(/\/v1\/search/);
+    expect(manager).not.toMatch(/qmd mcp/i);
+  });
 });

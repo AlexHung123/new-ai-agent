@@ -1,13 +1,14 @@
 'use client';
 
 import KnowledgeListing from '@/components/knowledge/KnowledgeListing';
+import KnowledgePreview from '@/components/knowledge/KnowledgePreview';
 import KnowledgeTree from '@/components/knowledge/KnowledgeTree';
 import {
   KNOWLEDGE_ACCEPT,
   KNOWLEDGE_UNSUPPORTED_TYPE_MESSAGE,
   isAllowedKnowledgeFilename,
 } from '@/lib/knowledge/convert';
-import { childrenAtPath } from '@/lib/knowledge/tree';
+import { childrenAtPath, findFileForSearchHit } from '@/lib/knowledge/tree';
 import {
   buildRelativePath,
   joinKnowledgePath,
@@ -20,7 +21,14 @@ import type {
   KnowledgeTreeNode,
 } from '@/lib/knowledge/types';
 import { getAuthBearerHeaders, getAuthHeaders } from '@/lib/utils/auth';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from 'react';
 import { toast } from 'sonner';
 
 const TREE_URL = '/itms/ai/api/knowledge/tree';
@@ -42,6 +50,8 @@ export default function KnowledgeFileManager() {
   const [searchDraft, setSearchDraft] = useState('');
   const [searchMode, setSearchMode] = useState<KnowledgeSearchMode>('search');
   const [hits, setHits] = useState<KnowledgeSearchHit[] | null>(null);
+  const [previewMarkdown, setPreviewMarkdown] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const startedAt = useRef<Record<string, number>>({});
 
@@ -147,6 +157,47 @@ export default function KnowledgeFileManager() {
     await loadTree();
   };
 
+  const onOpenFile = async (id: string) => {
+    const res = await fetch(
+      `/itms/ai/api/knowledge/files/${encodeURIComponent(id)}/content?tree=markdown`,
+      { headers: getAuthHeaders() },
+    );
+    if (res.status === 404 || !res.ok) {
+      setPreviewMarkdown(null);
+      setPreviewError('File not found.');
+      return;
+    }
+    setPreviewError(null);
+    setPreviewMarkdown(await res.text());
+  };
+
+  const onOpenHit = (hit: KnowledgeSearchHit) => {
+    const meta = findFileForSearchHit(tree, hit);
+    if (meta) void onOpenFile(meta.id);
+  };
+
+  const runSearch = async (event: FormEvent) => {
+    event.preventDefault();
+    const query = searchDraft.trim();
+    if (!query) {
+      setHits(null);
+      return;
+    }
+    const res = await fetch('/itms/ai/api/knowledge/search', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ query, mode: searchMode, limit: 10 }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      toast.error(
+        typeof body.message === 'string' ? body.message : 'Search failed',
+      );
+      return;
+    }
+    setHits(Array.isArray(body.results) ? body.results : []);
+  };
+
   return (
     <div className="knowledge-manager">
       {bannerError ? <p className="knowledge-banner">{bannerError}</p> : null}
@@ -185,12 +236,7 @@ export default function KnowledgeFileManager() {
             event.target.value = '';
           }}
         />
-        <form
-          className="knowledge-search-form"
-          onSubmit={(event) => {
-            event.preventDefault();
-          }}
-        >
+        <form className="knowledge-search-form" onSubmit={(event) => void runSearch(event)}>
           <input
             className="knowledge-search"
             value={searchDraft}
@@ -241,12 +287,14 @@ export default function KnowledgeFileManager() {
         <KnowledgeListing
           items={items}
           hits={hits}
-          searching={false}
+          searching={hits !== null}
           tasks={tasks}
           onOpenDir={setCurrentPath}
-          onOpenFile={() => undefined}
+          onOpenFile={(id) => void onOpenFile(id)}
+          onOpenHit={onOpenHit}
           onDropFiles={(files) => void uploadFiles(currentPath, files)}
         />
+        <KnowledgePreview markdown={previewMarkdown} error={previewError} />
       </div>
     </div>
   );
