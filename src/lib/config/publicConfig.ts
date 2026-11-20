@@ -1,4 +1,8 @@
-const SECRET_CONFIG_KEYS = ['adminUserIds', 'bypassPermissionCheck'] as const;
+const SECRET_CONFIG_KEYS = [
+  'adminUserIds',
+  'bypassPermissionCheck',
+  'dochub',
+] as const;
 
 export function publicConfigValues<T extends Record<string, unknown>>(
   config: T,

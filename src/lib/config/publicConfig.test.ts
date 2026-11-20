@@ -24,6 +24,20 @@ describe('publicConfigValues', () => {
     expect(input.bypassPermissionCheck).toBe(true);
     expect(published.preferences).not.toBe(input.preferences);
   });
+
+  it('omits dochub without mutating the input', () => {
+    const input = {
+      version: 1,
+      adminUserIds: ['1'],
+      bypassPermissionCheck: false,
+      dochub: { baseUrl: 'http://192.168.1.56:8787' },
+      preferences: { theme: 'dark' },
+      personalization: { systemInstructions: 'be brief' },
+    };
+    const published = publicConfigValues(input);
+    expect(published).not.toHaveProperty('dochub');
+    expect(input.dochub.baseUrl).toBe('http://192.168.1.56:8787');
+  });
 });
 
 describe('isForbiddenConfigKey', () => {
@@ -37,5 +51,10 @@ describe('isForbiddenConfigKey', () => {
   it('blocks bypassPermissionCheck and nested paths', () => {
     expect(isForbiddenConfigKey('bypassPermissionCheck')).toBe(true);
     expect(isForbiddenConfigKey('bypassPermissionCheck.enabled')).toBe(true);
+  });
+
+  it('blocks dochub and nested paths', () => {
+    expect(isForbiddenConfigKey('dochub')).toBe(true);
+    expect(isForbiddenConfigKey('dochub.baseUrl')).toBe(true);
   });
 });
