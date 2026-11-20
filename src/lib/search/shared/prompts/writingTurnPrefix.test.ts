@@ -1,33 +1,54 @@
 import { describe, expect, it } from 'vitest';
-import { runWithHtmlTurn } from '@/lib/html/htmlTurnContext';
 import {
   buildWritingUserPrompt,
   writingToolsForTurn,
 } from './writingTurnPrefix';
+import type { WritingTurnContext } from '../runtime/writingTurnContext';
+
+const ctx: WritingTurnContext = {
+  userId: '1',
+  pin: 'contracts/2024',
+  mentionedDocuments: [
+    {
+      fileId: 'p1',
+      path: 'contracts/2024/plan.docx',
+      name: 'plan.docx',
+      markdownRelpath: 'contracts/2024/plan.md',
+    },
+  ],
+  tree: { type: 'dir', name: '', path: '', children: [] },
+};
 
 describe('writingToolsForTurn', () => {
-  it('always includes read_skill and am_render', () => {
-    expect(writingToolsForTurn()).toEqual(['read_skill', 'am_render']);
+  it('always returns Dochub tools plus read_skill and am_render', () => {
+    expect(writingToolsForTurn()).toEqual([
+      'query',
+      'get',
+      'multi_get',
+      'tree',
+      'status',
+      'read_skill',
+      'am_render',
+    ]);
   });
 });
 
 describe('buildWritingUserPrompt', () => {
-  it('returns the user request when no writing turn is bound', () => {
+  it('returns only the user request without context', () => {
     expect(buildWritingUserPrompt('Draft a memo')).toBe(
       '[User request]\nDraft a memo',
     );
   });
 
-  it('keeps HTML skill instructions off the user turn', async () => {
-    const on = await runWithHtmlTurn({ userId: 'user-42', htmlMode: true }, () =>
-      buildWritingUserPrompt('explain the flow to buy a server'),
-    );
-    expect(on).toBe('[User request]\nexplain the flow to buy a server');
-
-    const off = await runWithHtmlTurn(
-      { userId: 'user-42', htmlMode: false },
-      () => buildWritingUserPrompt('幫我總結一下 需要100字'),
-    );
-    expect(off).toBe('[User request]\n幫我總結一下 需要100字');
+  it('adds pin and mention notes and does not inject file bodies', () => {
+    const prompt = buildWritingUserPrompt('季度規劃喺邊份合約', ctx);
+    expect(prompt).toContain('[Pinned folder]\ncontracts/2024');
+    expect(prompt).toContain('[Mentioned documents]');
+    expect(prompt).toContain('contracts/2024/plan.md');
+    expect(prompt).toContain('plan.docx');
+    expect(prompt).toContain('[User request]\n季度規劃喺邊份合約');
+    expect(prompt).not.toMatch(/fs_/);
+    expect(prompt).not.toContain('[Attachments]');
+    expect(prompt).not.toContain('# ');
   });
 });

@@ -7,12 +7,13 @@ function readSrc(...parts: string[]): string {
 }
 
 describe('HTML explainer composer and embed', () => {
-  it('puts the HTML hint label immediately after the writing attach buttons', () => {
+  it('puts the HTML hint label immediately after the attach-image controls', () => {
     const input = readSrc('../../components/MessageInput.tsx');
     const empty = readSrc('../../components/EmptyChatMessageInput.tsx');
     for (const src of [input, empty]) {
-      expect(src).toMatch(/WritingToolbarButtons[\s\S]*HtmlSkillHint/);
+      expect(src).toMatch(/AttachImageControls[\s\S]*HtmlSkillHint/);
       expect(src).toMatch(/<HtmlSkillHint\s*\/>/);
+      expect(src).not.toMatch(/WritingToolbarButtons/);
     }
   });
 
@@ -71,7 +72,7 @@ describe('HTML explainer composer and embed', () => {
     const writing = readSrc('../search/shared/prompts/writingTurnPrefix.ts');
     const document = readSrc('../search/documentAgent.ts');
     expect(writing).toMatch(
-      /return \[\.\.\.fsTools,\s*READ_SKILL_TOOL,\s*AM_RENDER_TOOL\]/,
+      /return \[\.\.\.WRITING_DOCHUB_TOOLS,\s*READ_SKILL_TOOL,\s*AM_RENDER_TOOL\]/,
     );
     expect(writing).not.toMatch(/if \(htmlMode\)/);
     expect(document).toMatch(
