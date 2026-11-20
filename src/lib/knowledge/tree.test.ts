@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { KnowledgeTreeNode } from './types';
 import {
   childrenAtPath,
+  fileTaskIds,
   findFileForSearchHit,
   nodeAtPath,
 } from './tree';
@@ -65,5 +66,12 @@ describe('tree walk', () => {
         snippet: 'nope',
       }),
     ).toBeNull();
+  });
+
+  it('collects file task ids from the tree', () => {
+    expect(fileTaskIds(tree)).toEqual(['task-1']);
+    expect(
+      fileTaskIds({ type: 'dir', name: '', path: '', children: [] }),
+    ).toEqual([]);
   });
 });

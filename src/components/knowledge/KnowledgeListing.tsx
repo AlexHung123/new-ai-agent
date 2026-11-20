@@ -81,7 +81,12 @@ export default function KnowledgeListing({
                     <span className="knowledge-badge">Embedding</span>
                   ) : null}
                   {badge === 'failed' ? (
-                    <span className="knowledge-badge is-failed">Failed</span>
+                    <span
+                      className="knowledge-badge is-failed"
+                      title={tasks[taskId]?.last_error || undefined}
+                    >
+                      Failed
+                    </span>
                   ) : null}
                 </button>
               </li>

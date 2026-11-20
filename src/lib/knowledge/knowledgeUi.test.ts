@@ -52,4 +52,37 @@ describe('knowledge UI contracts', () => {
     expect(manager).not.toMatch(/\/v1\/search/);
     expect(manager).not.toMatch(/qmd mcp/i);
   });
+
+  it('keeps knowledge client modules off convert, config, and dochubClient', () => {
+    const files = [
+      '../../components/knowledge/KnowledgeFileManager.tsx',
+      '../../components/knowledge/KnowledgeListing.tsx',
+      '../../components/knowledge/KnowledgeTree.tsx',
+      '../../components/knowledge/KnowledgePreview.tsx',
+      '../../app/knowledge/page.tsx',
+    ];
+    for (const file of files) {
+      const src = readSrc(file);
+      expect(src).not.toMatch(/knowledge\/convert['"]/);
+      expect(src).not.toMatch(/knowledge\/config['"]/);
+      expect(src).not.toMatch(/knowledge\/dochubClient['"]/);
+      expect(src).not.toMatch(/192\.168\.1\.56/);
+      expect(src).not.toMatch(/\/v1\//);
+    }
+    const manager = readSrc('../../components/knowledge/KnowledgeFileManager.tsx');
+    expect(manager).toMatch(/@\/lib\/knowledge\/filenames/);
+    const filenames = readSrc('./filenames.ts');
+    expect(filenames).not.toMatch(/from ['"]\.\/config['"]/);
+    expect(filenames).not.toMatch(/from ['"]\.\/convert['"]/);
+    expect(filenames).not.toMatch(/node:fs|configManager|Buffer/);
+  });
+
+  it('seeds ingest polling from tree task ids, times out, and shows last_error', () => {
+    const manager = readSrc('../../components/knowledge/KnowledgeFileManager.tsx');
+    const listing = readSrc('../../components/knowledge/KnowledgeListing.tsx');
+    expect(manager).toMatch(/fileTaskIds/);
+    expect(manager).toMatch(/timed_out/);
+    expect(manager).toMatch(/clearPreview/);
+    expect(listing).toMatch(/last_error/);
+  });
 });

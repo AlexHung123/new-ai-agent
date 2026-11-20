@@ -16,5 +16,6 @@ describe('ingestBadge', () => {
       ingestBadge({ status: 'failed', stage: 'qmd_update', last_error: 'boom' }),
     ).toBe('failed');
     expect(ingestBadge(null)).toBeNull();
+    expect(ingestBadge({ status: 'timed_out' })).toBeNull();
   });
 });

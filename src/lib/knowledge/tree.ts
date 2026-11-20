@@ -39,6 +39,14 @@ function walkFiles(
   for (const child of node.children || []) walkFiles(child, visit);
 }
 
+export function fileTaskIds(root: KnowledgeTreeNode): string[] {
+  const ids: string[] = [];
+  walkFiles(root, (file) => {
+    if (file.task_id) ids.push(file.task_id);
+  });
+  return ids;
+}
+
 export function findFileForSearchHit(
   root: KnowledgeTreeNode,
   hit: KnowledgeSearchHit,

@@ -7,8 +7,12 @@ import {
   KNOWLEDGE_ACCEPT,
   KNOWLEDGE_UNSUPPORTED_TYPE_MESSAGE,
   isAllowedKnowledgeFilename,
-} from '@/lib/knowledge/convert';
-import { childrenAtPath, findFileForSearchHit } from '@/lib/knowledge/tree';
+} from '@/lib/knowledge/filenames';
+import {
+  childrenAtPath,
+  fileTaskIds,
+  findFileForSearchHit,
+} from '@/lib/knowledge/tree';
 import {
   buildRelativePath,
   joinKnowledgePath,
@@ -67,7 +71,34 @@ export default function KnowledgeFileManager() {
       return;
     }
     setBannerError(null);
-    setTree(body.tree || { type: 'dir', name: '', path: '', children: [] });
+    const nextTree = body.tree || {
+      type: 'dir',
+      name: '',
+      path: '',
+      children: [],
+    };
+    setTree(nextTree);
+    const ids = fileTaskIds(nextTree);
+    if (ids.length === 0) return;
+    setTasks((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const id of ids) {
+        if (!next[id]) {
+          next[id] = {
+            id,
+            user_id: '',
+            kind: '',
+            file_id: '',
+            status: 'pending',
+            stage: null,
+            last_error: null,
+          };
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
   }, []);
 
   useEffect(() => {
@@ -76,14 +107,34 @@ export default function KnowledgeFileManager() {
 
   useEffect(() => {
     const pending = Object.values(tasks).filter(
-      (task) => task.status !== 'succeeded' && task.status !== 'failed',
+      (task) =>
+        task.status !== 'succeeded' &&
+        task.status !== 'failed' &&
+        task.status !== 'timed_out',
     );
     if (pending.length === 0) return;
     const timer = window.setInterval(async () => {
       for (const task of pending) {
         const started = startedAt.current[task.id] || Date.now();
         startedAt.current[task.id] = started;
-        if (Date.now() - started > 120_000) continue;
+        if (Date.now() - started > 120_000) {
+          setTasks((prev) => {
+            const current = prev[task.id];
+            if (
+              !current ||
+              current.status === 'succeeded' ||
+              current.status === 'failed' ||
+              current.status === 'timed_out'
+            ) {
+              return prev;
+            }
+            return {
+              ...prev,
+              [task.id]: { ...current, status: 'timed_out' },
+            };
+          });
+          continue;
+        }
         const res = await fetch(
           `/itms/ai/api/knowledge/tasks/${encodeURIComponent(task.id)}`,
           { headers: getAuthHeaders() },
@@ -102,6 +153,16 @@ export default function KnowledgeFileManager() {
     () => childrenAtPath(tree, currentPath),
     [tree, currentPath],
   );
+
+  const clearPreview = () => {
+    setPreviewMarkdown(null);
+    setPreviewError(null);
+  };
+
+  const selectFolder = (path: string) => {
+    setCurrentPath(path);
+    clearPreview();
+  };
 
   const createFolder = async () => {
     const segment = sanitizePathSegment(newFolderName);
@@ -122,7 +183,7 @@ export default function KnowledgeFileManager() {
     setNewFolderName('');
     setNewFolderOpen(false);
     await loadTree();
-    setCurrentPath(path);
+    selectFolder(path);
   };
 
   const uploadFiles = async (folderPath: string, list: FileList | File[]) => {
@@ -173,7 +234,11 @@ export default function KnowledgeFileManager() {
 
   const onOpenHit = (hit: KnowledgeSearchHit) => {
     const meta = findFileForSearchHit(tree, hit);
-    if (meta) void onOpenFile(meta.id);
+    if (meta) {
+      void onOpenFile(meta.id);
+      return;
+    }
+    clearPreview();
   };
 
   const runSearch = async (event: FormEvent) => {
@@ -266,7 +331,7 @@ export default function KnowledgeFileManager() {
                 ? 'knowledge-tree-item is-active'
                 : 'knowledge-tree-item'
             }
-            onClick={() => setCurrentPath('')}
+            onClick={() => selectFolder('')}
             onDragOver={(event) => event.preventDefault()}
             onDrop={(event) => {
               event.preventDefault();
@@ -280,7 +345,7 @@ export default function KnowledgeFileManager() {
           <KnowledgeTree
             node={tree}
             currentPath={currentPath}
-            onSelect={setCurrentPath}
+            onSelect={selectFolder}
             onDropFiles={(path, files) => void uploadFiles(path, files)}
           />
         </nav>
@@ -289,7 +354,7 @@ export default function KnowledgeFileManager() {
           hits={hits}
           searching={hits !== null}
           tasks={tasks}
-          onOpenDir={setCurrentPath}
+          onOpenDir={selectFolder}
           onOpenFile={(id) => void onOpenFile(id)}
           onOpenHit={onOpenHit}
           onDropFiles={(files) => void uploadFiles(currentPath, files)}
