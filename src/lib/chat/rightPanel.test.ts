@@ -144,7 +144,7 @@ describe('right panel layout contract', () => {
     expect(context).toMatch(/setOpenState\(true\)/);
   });
 
-  it('hides the writing left rail when the right panel is open', () => {
+  it('keeps the writing left rail when the right panel is open', () => {
     const css = readSrc('../../app/globals.css');
     expect(css).not.toMatch(
       /\.chat-workspace:has\(\.right-panel-open\) \.writing-left-rail \.agent-card\s*\{[^}]*display:\s*none/,
@@ -152,7 +152,7 @@ describe('right panel layout contract', () => {
     expect(css).not.toMatch(
       /\.chat-workspace:has\(\.right-panel-open\) \.writing-left-rail:has\(\.writing-file-browser\)\s*\{[^}]*width:\s*280px/,
     );
-    expect(css).toMatch(
+    expect(css).not.toMatch(
       /\.chat-workspace:has\(\.right-panel-open\) \.writing-left-rail\s*\{[^}]*display:\s*none/,
     );
     expect(css).not.toMatch(/writing-file-browser/);

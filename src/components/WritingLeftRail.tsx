@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import AgentCard from './AgentCard';
-import WritingFileBrowser from './WritingFileBrowser';
+import WritingKnowledgeFiles from './WritingKnowledgeFiles';
 
 const WritingLeftRail = () => {
   return (
@@ -13,7 +13,7 @@ const WritingLeftRail = () => {
       className="writing-left-rail"
     >
       <AgentCard />
-      <WritingFileBrowser />
+      <WritingKnowledgeFiles />
     </motion.div>
   );
 };

@@ -42,17 +42,11 @@ import { takePendingInitialChatMessage } from '../chat/pendingInitialMessage';
 import { messageFromChatHttpError } from '../chat/readChatHttpError';
 import {
   extractUserIdFromToken,
-  getAuthBearerHeaders,
   getAuthHeaders,
   initializeAuthToken,
 } from '../utils/auth';
 import { shouldApplyFetchedWcmsHtml } from '../html/wcmsLoad';
 import { parseItmsOrigin, parseWcmsBind, urlWcmsBoot } from '../html/wcmsQuery';
-import {
-  isAllowedWritingFilename,
-  writingUnsupportedTypeMessage,
-  type WritingAttachmentView,
-} from '../writing/types';
 import {
   imagesForFocus,
   type ChatImageAttachment,
@@ -116,13 +110,8 @@ type ChatContext = {
   setWcmsHtml: (html: string) => void;
   wcmsTitle: string | null;
   wcmsFileBaseHref: string | null;
-  writingFiles: WritingAttachmentView[];
-  refreshWritingFiles: () => Promise<void>;
-  uploadWritingFile: (file: File) => Promise<void>;
-  removeWritingFile: (fileId: string) => Promise<void>;
-  mentionRequest: string | null;
-  requestMention: (name: string) => void;
-  clearMentionRequest: () => void;
+  knowledgeFolder: string;
+  setKnowledgeFolder: (path: string) => void;
   sendMessage: (
     message: string,
     messageId?: string,
@@ -170,13 +159,8 @@ export const chatContext = createContext<ChatContext>({
   setWcmsHtml: () => {},
   wcmsTitle: null,
   wcmsFileBaseHref: null,
-  writingFiles: [],
-  refreshWritingFiles: async () => {},
-  uploadWritingFile: async () => {},
-  removeWritingFile: async () => {},
-  mentionRequest: null,
-  requestMention: () => {},
-  clearMentionRequest: () => {},
+  knowledgeFolder: '',
+  setKnowledgeFolder: () => {},
   stop: () => {},
 });
 
@@ -426,10 +410,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   const [wcmsHtml, setWcmsHtmlState] = useState('');
   const [wcmsTitle, setWcmsTitle] = useState<string | null>(null);
   const [wcmsFileBaseHref, setWcmsFileBaseHref] = useState<string | null>(null);
-  const [writingFiles, setWritingFiles] = useState<WritingAttachmentView[]>(
-    [],
-  );
-  const [mentionRequest, setMentionRequest] = useState<string | null>(null);
+  const [knowledgeFolder, setKnowledgeFolder] = useState('');
   const [isMessagesLoaded, setIsMessagesLoaded] = useState(false);
   const [notFound, setNotFound] = useState(false);
 
@@ -453,6 +434,8 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   const wcmsLoadGen = useRef(0);
   const wcmsEditedDuringLoad = useRef(false);
   const wcmsHtmlReadyRef = useRef(false);
+  const knowledgeFolderRef = useRef(knowledgeFolder);
+  knowledgeFolderRef.current = knowledgeFolder;
   const setWcmsHtml = useCallback((html: string) => {
     wcmsEditedDuringLoad.current = true;
     wcmsHtmlReadyRef.current = true;
@@ -587,98 +570,6 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       cancelled = true;
     };
   }, [focusMode]);
-
-  const refreshWritingFiles = useCallback(async () => {
-    if (focusModeRef.current !== 'agentWriting') {
-      setWritingFiles([]);
-      return;
-    }
-    try {
-      const res = await fetch('/itms/ai/api/writing/files', {
-        headers: getAuthHeaders(),
-      });
-      if (!res.ok) {
-        setWritingFiles([]);
-        return;
-      }
-      const data = await res.json();
-      setWritingFiles(Array.isArray(data.items) ? data.items : []);
-    } catch {
-      setWritingFiles([]);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (focusMode !== 'agentWriting' || !userId) {
-      if (focusMode !== 'agentWriting') setWritingFiles([]);
-      return;
-    }
-    void refreshWritingFiles();
-  }, [focusMode, userId, refreshWritingFiles]);
-
-  const uploadWritingFile = useCallback(async (file: File) => {
-    if (!isAllowedWritingFilename(file.name)) {
-      toast.error(writingUnsupportedTypeMessage());
-      return;
-    }
-    const tempId = `tmp-${crypto.randomBytes(4).toString('hex')}`;
-    setWritingFiles((prev) => [
-      ...prev,
-      {
-        fileId: tempId,
-        name: file.name,
-        status: 'uploading',
-        sizeBytes: file.size,
-      },
-    ]);
-    try {
-      const form = new FormData();
-      form.append('file', file);
-      const res = await fetch('/itms/ai/api/writing/files', {
-        method: 'POST',
-        headers: getAuthBearerHeaders(),
-        body: form,
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        toast.error(data.message || 'Could not upload file');
-        setWritingFiles((prev) => prev.filter((f) => f.fileId !== tempId));
-        return;
-      }
-      setWritingFiles((prev) => [
-        ...prev.filter((f) => f.fileId !== tempId),
-        data.item,
-      ]);
-    } catch {
-      toast.error('Could not upload file');
-      setWritingFiles((prev) => prev.filter((f) => f.fileId !== tempId));
-    }
-  }, []);
-
-  const removeWritingFile = useCallback(async (fileId: string) => {
-    setWritingFiles((list) => list.filter((f) => f.fileId !== fileId));
-    try {
-      const res = await fetch(
-        `/itms/ai/api/writing/files?fileId=${encodeURIComponent(fileId)}`,
-        { method: 'DELETE', headers: getAuthHeaders() },
-      );
-      if (!res.ok) {
-        toast.error('Could not delete file');
-        void refreshWritingFiles();
-      }
-    } catch {
-      toast.error('Could not delete file');
-      void refreshWritingFiles();
-    }
-  }, [refreshWritingFiles]);
-
-  const requestMention = useCallback((name: string) => {
-    setMentionRequest(name);
-  }, []);
-
-  const clearMentionRequest = useCallback(() => {
-    setMentionRequest(null);
-  }, []);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const sendMessageRef = useRef<ChatContext['sendMessage'] | null>(null);
@@ -1286,13 +1177,8 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       setWcmsHtml,
       wcmsTitle,
       wcmsFileBaseHref,
-      writingFiles,
-      refreshWritingFiles,
-      uploadWritingFile,
-      removeWritingFile,
-      mentionRequest,
-      requestMention,
-      clearMentionRequest,
+      knowledgeFolder,
+      setKnowledgeFolder,
       rewrite,
       sendMessage,
       stop,
@@ -1325,13 +1211,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       wcmsHtml,
       wcmsTitle,
       wcmsFileBaseHref,
-      writingFiles,
-      refreshWritingFiles,
-      uploadWritingFile,
-      removeWritingFile,
-      mentionRequest,
-      requestMention,
-      clearMentionRequest,
+      knowledgeFolder,
       handleSetFocusMode,
       rewrite,
       sendMessage,
