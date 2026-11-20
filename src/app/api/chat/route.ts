@@ -28,7 +28,6 @@ import {
 } from '@/lib/search/shared/runtime/documentTurnContext';
 import { runWithWritingTurn } from '@/lib/search/shared/runtime/writingTurnContext';
 import { runWithHtmlTurn } from '@/lib/html/htmlTurnContext';
-import { ensureUserWritingWorkspace } from '@/lib/writing/userFiles';
 import {
   resolveBoundWcms,
   wcmsBindPatchForExistingChat,
@@ -295,13 +294,13 @@ export const POST = async (req: Request) => {
         runWithDocumentTurn(documentTurn, runSearch),
       );
     } else if (body.focusMode === 'agentWriting') {
-      const writing = await ensureUserWritingWorkspace(userId);
       stream = await withHtml(() =>
         runWithWritingTurn(
           {
             userId,
-            rootAbs: writing.rootAbs,
-            files: writing.files,
+            pin: null,
+            mentionedDocuments: [],
+            tree: null,
           },
           runSearch,
         ),

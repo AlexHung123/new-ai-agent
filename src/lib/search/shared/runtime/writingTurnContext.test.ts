@@ -9,17 +9,27 @@ describe('writingTurnContext', () => {
     expect(getWritingTurnContext()).toBeUndefined();
   });
 
-  it('does not leak nested inner root to the outer turn', async () => {
-    const outer = { userId: 'u1', rootAbs: '/tmp/w1', files: [] };
-    const inner = { userId: 'u2', rootAbs: '/tmp/w2', files: [] };
-    const roots: string[] = [];
+  it('does not leak nested inner pin to the outer turn', async () => {
+    const outer = {
+      userId: 'u1',
+      pin: 'a',
+      mentionedDocuments: [],
+      tree: null,
+    };
+    const inner = {
+      userId: 'u2',
+      pin: 'b',
+      mentionedDocuments: [],
+      tree: null,
+    };
+    const pins: Array<string | null> = [];
     await runWithWritingTurn(outer, async () => {
-      roots.push(getWritingTurnContext()!.rootAbs);
+      pins.push(getWritingTurnContext()!.pin);
       await runWithWritingTurn(inner, async () => {
-        roots.push(getWritingTurnContext()!.rootAbs);
+        pins.push(getWritingTurnContext()!.pin);
       });
-      roots.push(getWritingTurnContext()!.rootAbs);
+      pins.push(getWritingTurnContext()!.pin);
     });
-    expect(roots).toEqual(['/tmp/w1', '/tmp/w2', '/tmp/w1']);
+    expect(pins).toEqual(['a', 'b', 'a']);
   });
 });

@@ -9,7 +9,6 @@ import { RAG_SURVEY_CHAT_SYSTEM_PROMPT } from '../prompts/ragSurveyChatSystemPro
 import { WRITING_AGENT_SYSTEM_PROMPT } from '../prompts/writingAgentSystemPrompt';
 import { DOCUMENT_AGENT_SYSTEM_PROMPT } from '../prompts/documentAgentSystemPrompt';
 import { getDocumentTurnContext } from '../runtime/documentTurnContext';
-import { getWritingTurnContext } from '../runtime/writingTurnContext';
 import { createAgentFsTools } from '../tools/fs/fsTools';
 import { createPiRuntime } from '../runtime/createPiRuntime';
 import { createPgAgentTranscriptStoreFromUrl } from '../runtime/agentTranscriptStore';
@@ -44,8 +43,7 @@ function initSharedAgentDependencies() {
   const htmlSetTool = createHtmlSetTool();
   const fsTools = createAgentFsTools({
     isAdmin: true,
-    getProjectRootAbs: () =>
-      getWritingTurnContext()?.rootAbs ?? getDocumentTurnContext()?.rootAbs,
+    getProjectRootAbs: () => getDocumentTurnContext()?.rootAbs,
   });
 
   const tools: Record<string, NamedTool> = {

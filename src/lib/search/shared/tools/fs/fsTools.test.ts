@@ -148,7 +148,12 @@ describe('createAgentFsTools', () => {
       projectRootAbs: root,
     });
     const read = tools.find((t) => t.name === 'fs_read')!;
-    const writing = { userId: 'u', rootAbs: root, files: [] };
+    const writing = {
+      userId: 'u',
+      pin: null,
+      mentionedDocuments: [],
+      tree: null,
+    };
 
     const outside = await read.execute('1', { path: 'long.md' });
     expect(outside.details.fromLine).toBeUndefined();
@@ -200,7 +205,7 @@ describe('createAgentFsTools', () => {
     });
     const read = tools.find((t) => t.name === 'fs_read')!;
     const out = await runWithWritingTurn(
-      { userId: 'u', rootAbs: root, files: [] },
+      { userId: 'u', pin: null, mentionedDocuments: [], tree: null },
       () => read.execute('1', { path: 'long.md' }),
     );
     expect(out.details.fromLine).toBe(1);

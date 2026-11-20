@@ -1,6 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { resolveMentionedFiles } from '@/lib/writing/mentions';
 import {
   getWritingTurnContext,
   type WritingTurnContext,
@@ -13,20 +12,18 @@ export const READ_SKILL_TOOL = 'read_skill';
 export const AM_RENDER_TOOL = 'am_render';
 
 export function writingToolsForTurn(
-  userMessage: string,
-  ctx: WritingTurnContext | undefined = getWritingTurnContext(),
+  _userMessage?: string,
+  _ctx: WritingTurnContext | undefined = getWritingTurnContext(),
 ): string[] {
-  const fsTools = writingFsToolsForTurn(userMessage, ctx);
+  const fsTools = writingFsToolsForTurn();
   return [...fsTools, READ_SKILL_TOOL, AM_RENDER_TOOL];
 }
 
 export function writingFsToolsForTurn(
-  userMessage: string,
-  ctx: WritingTurnContext | undefined = getWritingTurnContext(),
+  _userMessage?: string,
+  _ctx?: WritingTurnContext,
 ): string[] {
-  if (!ctx) return [];
-  const mentioned = resolveMentionedFiles(userMessage, ctx.files || []);
-  return mentioned.length > 0 ? [...WRITING_FS_TOOLS] : [];
+  return [];
 }
 
 export function loadWritingIndexMd(
@@ -51,31 +48,7 @@ export function loadWritingIndexMd(
 
 export function buildWritingUserPrompt(
   userMessage: string,
-  ctx: WritingTurnContext | undefined = getWritingTurnContext(),
+  _ctx: WritingTurnContext | undefined = getWritingTurnContext(),
 ): string {
-  const question = `[User request]\n${userMessage}`;
-  if (!ctx) return question;
-  const mentioned = resolveMentionedFiles(userMessage, ctx.files || []);
-  if (mentioned.length === 0) return question;
-  const index = loadWritingIndexMd(ctx.rootAbs);
-  const mentionBlock =
-    `[Mentioned files]\nThe user @-mentioned these files. Search inside them with fs_grep, then fs_read only the matching line range (fromLine/maxLines or path:from:count). Do not read a whole part:\n` +
-    mentioned
-      .map(
-        (file) =>
-          `- \`${file.relDir}/INDEX.md\` — ${file.name} (${file.parts} part${file.parts === 1 ? '' : 's'})`,
-      )
-      .join('\n') +
-    '\n\n';
-  return (
-    `[Attachments]\n` +
-    `These files belong to this user. INDEX.md is already below when present.\n` +
-    `Do not fs_read INDEX.md just to reload it.\n` +
-    `Grep the @-mentioned files first, then peek with fs_read around the hits. Do not load a whole part-*.md.\n\n` +
-    mentionBlock +
-    (index
-      ? index.content + (index.truncated ? '\n…(truncated)\n' : '\n')
-      : '') +
-    `\n${question}`
-  );
+  return `[User request]\n${userMessage}`;
 }

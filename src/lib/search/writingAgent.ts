@@ -79,10 +79,7 @@ export default class WritingAgent implements MetaSearchAgentType {
 
         harnessAgentManager.markBusy(stableAgentId);
         harnessAgentManager.touchAgent(stableAgentId);
-        const restoreFs = bindTurnFsTools(
-          agent,
-          writingCtx ? { writing: writingCtx } : {},
-        );
+        const restoreFs = bindTurnFsTools(agent, {});
         const restoreHtml = bindTurnHtmlTool(agent);
 
         try {

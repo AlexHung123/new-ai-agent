@@ -1,10 +1,12 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import type { WritingAttachment } from '@/lib/writing/types';
+import type { KnowledgeTreeNode } from '@/lib/knowledge/types';
+import type { WritingMentionedDocument } from '@/lib/knowledge/writingPin';
 
 export type WritingTurnContext = {
   userId: string;
-  rootAbs: string;
-  files: WritingAttachment[];
+  pin: string | null;
+  mentionedDocuments: WritingMentionedDocument[];
+  tree: KnowledgeTreeNode | null;
 };
 
 const globalForAls = globalThis as typeof globalThis & {
