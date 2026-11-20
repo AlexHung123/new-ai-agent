@@ -1335,6 +1335,68 @@
   color: var(--wiki-muted, #64748b);
 }
 
+.composer-input-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.writing-knowledge-at-menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  z-index: 20;
+  margin: 0 0 0.35rem;
+  padding: 0.25rem;
+  list-style: none;
+  max-height: 12rem;
+  overflow: auto;
+  border: 1px solid var(--wiki-border);
+  border-radius: 0.5rem;
+  background: var(--wiki-surface, #fff);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+
+.writing-knowledge-at-item {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.35rem;
+  cursor: pointer;
+}
+
+.writing-knowledge-at-item:hover {
+  background: color-mix(in srgb, var(--wiki-border) 55%, transparent);
+}
+
+.writing-knowledge-at-kind {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--wiki-muted, #64748b);
+}
+
+.writing-knowledge-at-path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.85rem;
+}
+
+.writing-knowledge-at-empty {
+  padding: 0.4rem 0.5rem;
+  font-size: 0.8rem;
+  color: var(--wiki-muted, #64748b);
+}
+
 .chat-workspace {
   display: flex;
   flex-direction: row;

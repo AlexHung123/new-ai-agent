@@ -38,6 +38,22 @@ describe('writing Knowledge FILES rail', () => {
     expect(chat).toMatch(/setKnowledgeFolder/);
   });
 
+  it('offers an @ picker on Agent Writing composers', () => {
+    for (const src of [
+      readSrc('../../components/MessageInput.tsx'),
+      readSrc('../../components/EmptyChatMessageInput.tsx'),
+    ]) {
+      expect(src).toMatch(/WritingKnowledgeAtMenu/);
+      expect(src).not.toMatch(/WritingToolbarButtons/);
+      expect(src).not.toMatch(/uploadWritingFile/);
+    }
+    const menu = readSrc('../../components/WritingKnowledgeAtMenu.tsx');
+    expect(menu).toMatch(/atQueryAtCursor/);
+    expect(menu).toMatch(/insertMention/);
+    const chat = readSrc('../hooks/useChat.tsx');
+    expect(chat).toMatch(/knowledgeFolder:/);
+  });
+
   it('keeps the FILES rail visible when the preview panel is open', () => {
     const css = readSrc('../../app/globals.css');
     expect(css).toMatch(/\.writing-knowledge-files/);

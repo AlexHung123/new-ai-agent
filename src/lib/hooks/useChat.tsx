@@ -1024,6 +1024,9 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
               : undefined,
           htmlReady:
             fm === 'agentHtml' && wcmsHtmlReadyRef.current ? true : undefined,
+          ...(fm === 'agentWriting' && knowledgeFolderRef.current
+            ? { knowledgeFolder: knowledgeFolderRef.current }
+            : {}),
           history: rewriteMode
             ? chatHistoryRef.current.slice(
                 0,

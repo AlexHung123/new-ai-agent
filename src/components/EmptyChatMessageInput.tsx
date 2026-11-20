@@ -6,17 +6,13 @@ import {
   findDisplayFocusMode,
 } from '@/lib/agents';
 import SfcExactMatchToggle from './SfcExactMatchToggle';
-import {
-  useWritingMention,
-  WritingAtMenu,
-  WritingToolbarButtons,
-} from './WritingComposerTools';
 import { HtmlSkillHint } from './HtmlSkillHint';
 import {
   AttachImageControls,
   AttachedImageStrip,
   useAttachedImages,
 } from './AttachImageControls';
+import WritingKnowledgeAtMenu from './WritingKnowledgeAtMenu';
 
 const SendArrow = () => (
   <span className="send-btn-icon" aria-hidden>
@@ -41,13 +37,7 @@ const EmptyChatMessageInput = ({
   draft,
   onDraftChange,
 }: EmptyChatMessageInputProps = {}) => {
-  const {
-    sendMessage,
-    focusMode,
-    sfcExactMatch,
-    documentId,
-    writingFiles,
-  } = useChat();
+  const { sendMessage, focusMode, sfcExactMatch, documentId } = useChat();
   const [internalMessage, setInternalMessage] = useState('');
   const message = onDraftChange ? (draft ?? '') : internalMessage;
   const setMessage = (next: string) => {
@@ -55,12 +45,11 @@ const EmptyChatMessageInput = ({
     else setInternalMessage(next);
   };
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
-  const writing = useWritingMention({
-    value: message,
-    setValue: setMessage,
-    inputRef,
-  });
+  const [cursor, setCursor] = useState(0);
   const images = useAttachedImages(focusMode);
+  const syncCursor = (el: HTMLTextAreaElement | null) => {
+    if (el) setCursor(el.selectionStart ?? 0);
+  };
 
   const currentAgent = findDisplayFocusMode(focusMode);
   let placeholder = currentAgent?.placeholder || 'Ask a question…';
@@ -95,11 +84,9 @@ const EmptyChatMessageInput = ({
     };
   }, []);
 
-  const uploading = writingFiles.some((file) => file.status === 'uploading');
   const canSend =
     (message.trim().length > 0 || images.payload.length > 0) &&
-    !documentBlocked &&
-    !uploading;
+    !documentBlocked;
 
   const submit = () => {
     if (!canSend) return;
@@ -116,47 +103,55 @@ const EmptyChatMessageInput = ({
       }}
       className="composer"
     >
-      {writing.enabled && writing.menuOpen ? (
-        <WritingAtMenu
-          matches={writing.matches}
-          activeIndex={writing.activeIndex}
-          onSelect={writing.onSelect}
-        />
-      ) : null}
       <AttachedImageStrip images={images} />
-      <TextareaAutosize
-        ref={inputRef}
-        value={message}
-        onChange={(e) => {
-          setMessage(e.target.value);
-          writing.setCursor(e.target.selectionStart);
-        }}
-        onSelect={(e) => writing.setCursor(e.currentTarget.selectionStart)}
-        onPaste={images.onPaste}
-        onKeyDown={(e) => {
-          if (writing.onKeyDown(e)) return;
-          if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            submit();
-          }
-        }}
-        minRows={1}
-        maxRows={8}
-        className="composer-input"
-        placeholder={placeholder}
-      />
+      <div className="composer-input-wrap">
+        {focusMode === 'agentWriting' ? (
+          <WritingKnowledgeAtMenu
+            text={message}
+            cursor={cursor}
+            onPick={(next) => {
+              setMessage(next.text);
+              setCursor(next.cursor);
+              requestAnimationFrame(() => {
+                const el = inputRef.current;
+                if (!el) return;
+                el.focus();
+                el.setSelectionRange(next.cursor, next.cursor);
+              });
+            }}
+          />
+        ) : null}
+        <TextareaAutosize
+          ref={inputRef}
+          value={message}
+          onChange={(e) => {
+            setMessage(e.target.value);
+            syncCursor(e.target);
+          }}
+          onSelect={(e) => syncCursor(e.currentTarget)}
+          onKeyUp={(e) => syncCursor(e.currentTarget)}
+          onClick={(e) => syncCursor(e.currentTarget)}
+          onPaste={images.onPaste}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              if (focusMode === 'agentWriting' && message.includes('@')) {
+                return;
+              }
+              e.preventDefault();
+              submit();
+            } else {
+              syncCursor(e.currentTarget);
+            }
+          }}
+          minRows={1}
+          maxRows={8}
+          className="composer-input"
+          placeholder={placeholder}
+        />
+      </div>
       <div className="composer-toolbar">
         <div className="composer-toolbar-left">
           <SfcExactMatchToggle />
-          {writing.enabled ? (
-            <WritingToolbarButtons
-              onAtClick={writing.onAtClick}
-              onUploadClick={writing.onUploadClick}
-              fileInputRef={writing.fileInputRef}
-              onFilesPicked={writing.onFilesPicked}
-              uploadDisabled={writing.uploadDisabled}
-            />
-          ) : null}
           <AttachImageControls images={images} />
           <HtmlSkillHint />
         </div>

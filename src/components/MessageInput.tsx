@@ -6,17 +6,13 @@ import {
   findDisplayFocusMode,
 } from '@/lib/agents';
 import SfcExactMatchToggle from './SfcExactMatchToggle';
-import {
-  useWritingMention,
-  WritingAtMenu,
-  WritingToolbarButtons,
-} from './WritingComposerTools';
 import { HtmlSkillHint } from './HtmlSkillHint';
 import {
   AttachImageControls,
   AttachedImageStrip,
   useAttachedImages,
 } from './AttachImageControls';
+import WritingKnowledgeAtMenu from './WritingKnowledgeAtMenu';
 
 const SendArrow = () => (
   <span className="send-btn-icon" aria-hidden>
@@ -40,17 +36,12 @@ const MessageInput = memo(function MessageInput() {
     focusMode,
     sfcExactMatch,
     documentId,
-    writingFiles,
   } = useChat();
 
   const [message, setMessage] = useState('');
+  const [cursor, setCursor] = useState(0);
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
-  const writing = useWritingMention({
-    value: message,
-    setValue: setMessage,
-    inputRef,
-  });
   const images = useAttachedImages(focusMode);
 
   const placeholder = useMemo(() => {
@@ -104,15 +95,25 @@ const MessageInput = memo(function MessageInput() {
     [submit],
   );
 
+  const syncCursor = useCallback(
+    (el: HTMLTextAreaElement | null) => {
+      if (el) setCursor(el.selectionStart ?? 0);
+    },
+    [],
+  );
+
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (writing.onKeyDown(e)) return;
+      syncCursor(e.currentTarget);
       if (e.key === 'Enter' && !e.shiftKey) {
+        if (focusMode === 'agentWriting' && message.includes('@')) {
+          return;
+        }
         e.preventDefault();
         submit();
       }
     },
-    [submit, writing],
+    [focusMode, message, submit, syncCursor],
   );
 
   const onActionClick = useCallback(
@@ -125,50 +126,52 @@ const MessageInput = memo(function MessageInput() {
   );
 
   const documentBlocked = focusMode === 'agentDocument' && !documentId;
-  const uploading = writingFiles.some((file) => file.status === 'uploading');
   const canSend =
     (message.trim().length > 0 || images.payload.length > 0) &&
-    !documentBlocked &&
-    !uploading;
+    !documentBlocked;
   const disabled = loading ? false : !canSend;
 
   return (
     <form onSubmit={onSubmit} className="composer">
-      {writing.enabled && writing.menuOpen ? (
-        <WritingAtMenu
-          matches={writing.matches}
-          activeIndex={writing.activeIndex}
-          onSelect={writing.onSelect}
-        />
-      ) : null}
       <AttachedImageStrip images={images} />
-      <TextareaAutosize
-        ref={inputRef}
-        value={message}
-        onChange={(e) => {
-          setMessage(e.target.value);
-          writing.setCursor(e.target.selectionStart);
-        }}
-        onSelect={(e) => writing.setCursor(e.currentTarget.selectionStart)}
-        onPaste={images.onPaste}
-        onKeyDown={onKeyDown}
-        className="composer-input"
-        placeholder={placeholder}
-        maxRows={8}
-      />
+      <div className="composer-input-wrap">
+        {focusMode === 'agentWriting' ? (
+          <WritingKnowledgeAtMenu
+            text={message}
+            cursor={cursor}
+            onPick={(next) => {
+              setMessage(next.text);
+              setCursor(next.cursor);
+              requestAnimationFrame(() => {
+                const el = inputRef.current;
+                if (!el) return;
+                el.focus();
+                el.setSelectionRange(next.cursor, next.cursor);
+              });
+            }}
+          />
+        ) : null}
+        <TextareaAutosize
+          ref={inputRef}
+          value={message}
+          onChange={(e) => {
+            setMessage(e.target.value);
+            syncCursor(e.target);
+          }}
+          onSelect={(e) => syncCursor(e.currentTarget)}
+          onKeyUp={(e) => syncCursor(e.currentTarget)}
+          onClick={(e) => syncCursor(e.currentTarget)}
+          onPaste={images.onPaste}
+          onKeyDown={onKeyDown}
+          className="composer-input"
+          placeholder={placeholder}
+          maxRows={8}
+        />
+      </div>
 
       <div className="composer-toolbar">
         <div className="composer-toolbar-left">
           <SfcExactMatchToggle />
-          {writing.enabled ? (
-            <WritingToolbarButtons
-              onAtClick={writing.onAtClick}
-              onUploadClick={writing.onUploadClick}
-              fileInputRef={writing.fileInputRef}
-              onFilesPicked={writing.onFilesPicked}
-              uploadDisabled={writing.uploadDisabled}
-            />
-          ) : null}
           <AttachImageControls images={images} />
           <HtmlSkillHint />
         </div>
