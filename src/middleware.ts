@@ -13,6 +13,7 @@ const PROTECTED_ROUTES = [
   '/api/writing',
   '/api/html-pages',
   '/api/wcms-content',
+  '/api/knowledge',
 ];
 
 export async function middleware(request: NextRequest) {
@@ -82,5 +83,6 @@ export const config = {
     '/api/writing/:path*',
     '/api/html-pages/:path*',
     '/api/wcms-content/:path*',
+    '/api/knowledge/:path*',
   ],
 };
