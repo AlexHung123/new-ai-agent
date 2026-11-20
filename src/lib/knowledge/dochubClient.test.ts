@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DochubError } from './errors';
 import {
   createFolder,
+  getHealth,
   getTree,
   search,
   uploadFile,
@@ -24,6 +25,8 @@ const config = {
   timeoutMs: 1000,
   uploadTimeoutMs: 2000,
   maxUploadBytes: 1024,
+  maxUserBytes: 5 * 1024 * 1024 * 1024,
+  userQuotaBytes: {},
 };
 
 describe('dochubClient', () => {
@@ -93,6 +96,42 @@ describe('dochubClient', () => {
     await expect(
       search('1', { query: 'q', mode: 'search', limit: 10 }, { fetch: fetchMock, config }),
     ).rejects.toBeInstanceOf(DochubError);
+  });
+
+  it('forwards optional search path and omits it when unset', async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse(200, { user_id: '1', mode: 'search', query: 'q', results: [] }),
+    );
+    await search(
+      '1',
+      { query: 'q', mode: 'search', limit: 5, path: 'contracts/2024' },
+      { fetch: fetchMock, config },
+    );
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({
+      query: 'q',
+      mode: 'search',
+      limit: 5,
+      path: 'contracts/2024',
+    });
+    fetchMock.mockClear();
+    await search('1', { query: 'q', mode: 'search', limit: 5 }, { fetch: fetchMock, config });
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({
+      query: 'q',
+      mode: 'search',
+      limit: 5,
+    });
+  });
+
+  it('getHealth calls /health without X-User-Id', async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse(200, { ok: true, service: 'dochub' }),
+    );
+    await expect(getHealth({ fetch: fetchMock, config })).resolves.toEqual({
+      ok: true,
+      service: 'dochub',
+    });
+    expect(String(fetchMock.mock.calls[0][0])).toBe('http://dochub.test/health');
+    expect(new Headers(fetchMock.mock.calls[0][1]?.headers).get('X-User-Id')).toBeNull();
   });
 
   it('throws unavailable when baseUrl is empty', async () => {

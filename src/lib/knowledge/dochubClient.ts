@@ -208,7 +208,12 @@ export async function getFileContent(
 
 export async function search(
   userId: string,
-  input: { query: string; mode: KnowledgeSearchMode; limit: number },
+  input: {
+    query: string;
+    mode: KnowledgeSearchMode;
+    limit: number;
+    path?: string;
+  },
   deps?: DochubDeps,
 ): Promise<{
   user_id: string;
@@ -217,13 +222,19 @@ export async function search(
   results: unknown[];
 }> {
   const { config } = depsOf(deps);
+  const body: Record<string, unknown> = {
+    query: input.query,
+    mode: input.mode,
+    limit: input.limit,
+  };
+  if (input.path) body.path = input.path;
   return send(
     userId,
     '/v1/search',
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
+      body: JSON.stringify(body),
     },
     config.timeoutMs,
     deps,
@@ -233,4 +244,26 @@ export async function search(
     query: string;
     results: unknown[];
   }>;
+}
+
+export async function getHealth(
+  deps?: DochubDeps,
+): Promise<{ ok: boolean; service?: string }> {
+  const { fetch: doFetch, config } = depsOf(deps);
+  if (!isDochubConfigured(config)) throw unavailableError();
+  try {
+    const res = await doFetch(`${config.baseUrl}/health`, {
+      method: 'GET',
+      signal: AbortSignal.timeout(config.timeoutMs),
+    });
+    const body = await readJson(res);
+    const rec =
+      body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+    return {
+      ok: rec.ok === true,
+      service: typeof rec.service === 'string' ? rec.service : undefined,
+    };
+  } catch {
+    throw unavailableError();
+  }
 }
