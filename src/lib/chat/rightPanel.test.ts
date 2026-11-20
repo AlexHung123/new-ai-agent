@@ -71,30 +71,15 @@ describe('right panel layout contract', () => {
     expect(empty).not.toMatch(/HtmlCanvas/);
   });
 
-  it('lets Agent Writing open files in the same panel', () => {
+  it('keeps the writing preview panel for HTML explainer pages', () => {
     const panel = readSrc('../../components/ChatRightPanel.tsx');
     const preview = readSrc('../../components/WritingPreviewPanel.tsx');
-    const browser = readSrc('../../components/WritingFileBrowser.tsx');
     const box = readSrc('../../components/MessageBox.tsx');
     expect(panel).toMatch(/WritingPreviewPanel/);
     expect(panel).not.toMatch(/DocumentPreviewPanel/);
-    expect(preview).toMatch(/\/api\/writing\/files\/\$\{.*\}\/file/);
     expect(preview).toMatch(/Select a file to preview/);
     expect(preview).toMatch(/Source/);
     expect(preview).toMatch(/Preview/);
-    expect(browser).toMatch(/openWritingFile\(file\.fileId, file\.name\)/);
-    const rowClick = browser.slice(
-      browser.indexOf('writing-file-row-main'),
-      browser.indexOf('writing-file-mention'),
-    );
-    const mentionClick = browser.slice(
-      browser.indexOf('writing-file-mention'),
-      browser.indexOf('writing-file-remove'),
-    );
-    expect(rowClick).toMatch(/openWritingFile/);
-    expect(rowClick).not.toMatch(/mentionFile/);
-    expect(mentionClick).toMatch(/mentionFile/);
-    expect(mentionClick).not.toMatch(/openWritingFile/);
     expect(preview).toMatch(/PreviewTabBar/);
     expect(preview).toMatch(/file-viewer-toolbar/);
     expect(preview).toMatch(/file-viewer-mode-switch/);
@@ -103,6 +88,15 @@ describe('right panel layout contract', () => {
     );
     expect(box).toMatch(/focusMode === 'agentWriting'/);
     expect(box).toMatch(/Open HTML page/);
+    expect(readSrc('../../components/WritingLeftRail.tsx')).not.toMatch(
+      /openWritingFile/,
+    );
+    expect(readSrc('../../components/RightPanelContext.tsx')).toMatch(
+      /openKnowledgeFile/,
+    );
+    expect(readSrc('../../components/WritingPreviewPanel.tsx')).toMatch(
+      /\/api\/knowledge\/files\//,
+    );
   });
 
   it('styles Close and panel expand as header-bar icons', () => {
@@ -150,7 +144,7 @@ describe('right panel layout contract', () => {
     expect(context).toMatch(/setOpenState\(true\)/);
   });
 
-  it('keeps the Agent Writing card visible when the right panel is open', () => {
+  it('hides the writing left rail when the right panel is open', () => {
     const css = readSrc('../../app/globals.css');
     expect(css).not.toMatch(
       /\.chat-workspace:has\(\.right-panel-open\) \.writing-left-rail \.agent-card\s*\{[^}]*display:\s*none/,
@@ -159,29 +153,16 @@ describe('right panel layout contract', () => {
       /\.chat-workspace:has\(\.right-panel-open\) \.writing-left-rail:has\(\.writing-file-browser\)\s*\{[^}]*width:\s*280px/,
     );
     expect(css).toMatch(
-      /\.chat-workspace:has\(\.right-panel-open\) \.writing-left-rail:not\(:has\(\.writing-file-browser\)\)\s*\{[^}]*display:\s*none/,
+      /\.chat-workspace:has\(\.right-panel-open\) \.writing-left-rail\s*\{[^}]*display:\s*none/,
     );
+    expect(css).not.toMatch(/writing-file-browser/);
   });
 
-  it('keeps empty-chat left padding only for the Writing FILES rail', () => {
+  it('does not pad chat for a Writing FILES rail', () => {
     const css = readSrc('../../app/globals.css');
     expect(css).not.toMatch(
       /\.chat-workspace:has\(\.right-panel-open\) \.empty-chat-body \{[^}]*padding-left:\s*20rem/,
     );
-    expect(css).toMatch(
-      /\.chat-workspace:has\(\.right-panel-open\):has\(\.writing-file-browser\) \.empty-chat-body \{[^}]*padding-left:\s*20rem/,
-    );
-    expect(css).toMatch(
-      /\.chat-workspace:has\(\.right-panel-open\):has\(\.writing-file-browser\) \.welcome-wiki \{[^}]*width:\s*100%/,
-    );
-    expect(css).not.toMatch(
-      /\.chat-workspace:has\(\.right-panel-open\):has\(\.writing-file-browser\) \.welcome-wiki \{[^}]*36rem/,
-    );
-    expect(css).toMatch(
-      /\.chat-workspace:has\(\.right-panel-open\):has\(\.writing-file-browser\) \.message-turn[\s\S]*?width:\s*100%/,
-    );
-    expect(css).toMatch(
-      /\.chat-workspace:has\(\.right-panel-open\):has\(\.writing-file-browser\) \.wiki-chat-composer-dock[\s\S]*?width:\s*100%/,
-    );
+    expect(css).not.toMatch(/writing-file-browser/);
   });
 });

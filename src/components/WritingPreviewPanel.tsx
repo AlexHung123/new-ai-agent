@@ -32,7 +32,15 @@ function downloadMarkdown(name: string, content: string) {
   URL.revokeObjectURL(url);
 }
 
-function WritingFileView({ fileId }: { fileId: string }) {
+function WritingFileView({
+  fileId,
+  source,
+  label,
+}: {
+  fileId: string;
+  source?: 'knowledge' | 'writing';
+  label?: string;
+}) {
   const [file, setFile] = useState<FilePayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<ViewMode>('preview');
@@ -43,6 +51,29 @@ function WritingFileView({ fileId }: { fileId: string }) {
     setFile(null);
     void (async () => {
       try {
+        if (source === 'knowledge') {
+          const res = await fetch(
+            `/itms/ai/api/knowledge/files/${encodeURIComponent(fileId)}/content?tree=markdown`,
+            { headers: getAuthHeaders() },
+          );
+          if (!res.ok) {
+            const data = await res.json().catch(() => null);
+            throw new Error(
+              (data && typeof data.message === 'string' && data.message) ||
+                'Could not load file',
+            );
+          }
+          const content = await res.text();
+          if (cancelled) return;
+          setFile({
+            path: label || fileId,
+            name: label || fileId,
+            content,
+            language: 'markdown',
+          });
+          setView('preview');
+          return;
+        }
         const res = await fetch(
           `/itms/ai/api/writing/files/${encodeURIComponent(fileId)}/file`,
           { headers: getAuthHeaders() },
@@ -71,7 +102,7 @@ function WritingFileView({ fileId }: { fileId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [fileId]);
+  }, [fileId, label, source]);
 
   const title = file?.name || 'File';
   const lineCount = file ? file.content.split('\n').length : 0;
@@ -180,7 +211,12 @@ export default function WritingPreviewPanel() {
           <HtmlPageEmbed pageId={active.pageId} />
         </div>
       ) : active?.kind === 'file' && active.fileId ? (
-        <WritingFileView key={active.fileId} fileId={active.fileId} />
+        <WritingFileView
+          key={active.id}
+          fileId={active.fileId}
+          source={active.source}
+          label={active.label}
+        />
       ) : (
         <p className="document-preview-empty">Select a file to preview.</p>
       )}

@@ -21,6 +21,7 @@ import {
   activeTabAfterClose,
   closePreviewTab as removePreviewTab,
   htmlPageTabId,
+  knowledgeFileTabId,
   openPreviewTab,
   shouldHidePanel,
   writingFileTabId,
@@ -39,6 +40,7 @@ type RightPanelContextValue = {
   selectPreviewTab: (id: string) => void;
   closePreviewTab: (id: string) => void;
   openWritingFile: (id: string, label?: string) => void;
+  openKnowledgeFile: (id: string, label?: string) => void;
 };
 
 const RightPanelContext = createContext<RightPanelContextValue>({
@@ -53,6 +55,7 @@ const RightPanelContext = createContext<RightPanelContextValue>({
   selectPreviewTab: () => {},
   closePreviewTab: () => {},
   openWritingFile: () => {},
+  openKnowledgeFile: () => {},
 });
 
 export function useRightPanel() {
@@ -158,6 +161,27 @@ export function RightPanelProvider({ children }: { children: ReactNode }) {
     [showPanel],
   );
 
+  const openKnowledgeFile = useCallback(
+    (id: string, label?: string) => {
+      const fileId = id.trim();
+      if (!fileId) return;
+      const tab: PreviewTab = {
+        id: knowledgeFileTabId(fileId),
+        label: label?.trim() || fileId,
+        kind: 'file',
+        source: 'knowledge',
+        fileId,
+      };
+      const next = openPreviewTab(previewTabsRef.current, tab);
+      previewTabsRef.current = next;
+      activePreviewTabIdRef.current = tab.id;
+      setPreviewTabs(next);
+      setActivePreviewTabId(tab.id);
+      showPanel();
+    },
+    [showPanel],
+  );
+
   const selectPreviewTab = useCallback((id: string) => {
     activePreviewTabIdRef.current = id;
     setActivePreviewTabId(id);
@@ -198,6 +222,7 @@ export function RightPanelProvider({ children }: { children: ReactNode }) {
       selectPreviewTab,
       closePreviewTab,
       openWritingFile,
+      openKnowledgeFile,
     }),
     [
       activeHtmlPageId,
@@ -206,6 +231,7 @@ export function RightPanelProvider({ children }: { children: ReactNode }) {
       enabled,
       open,
       openHtmlPage,
+      openKnowledgeFile,
       openWritingFile,
       previewTabs,
       selectPreviewTab,

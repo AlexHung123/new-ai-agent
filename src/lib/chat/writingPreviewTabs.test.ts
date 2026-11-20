@@ -3,6 +3,7 @@ import {
   activeTabAfterClose,
   closePreviewTab,
   htmlPageTabId,
+  knowledgeFileTabId,
   openPreviewTab,
   shouldHidePanel,
   writingFileTabId,
@@ -64,6 +65,18 @@ describe('writing preview tabs', () => {
     };
     const tabs = [report, agents, html];
     expect(activeTabAfterClose(tabs, html.id, html.id)).toBe(agents.id);
+  });
+
+  it('uses a knowledge tab id distinct from writing file ids', () => {
+    const tab: PreviewTab = {
+      id: knowledgeFileTabId('file-a'),
+      label: 'plan.docx',
+      kind: 'file',
+      source: 'knowledge',
+      fileId: 'file-a',
+    };
+    expect(tab.id).toBe('knowledge:file-a');
+    expect(openPreviewTab([], tab)[0].source).toBe('knowledge');
   });
 
   it('hides the panel when the last document tab closes', () => {

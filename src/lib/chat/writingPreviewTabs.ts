@@ -2,12 +2,17 @@ export type PreviewTab = {
   id: string;
   label: string;
   kind: 'file' | 'html';
+  source?: 'knowledge' | 'writing';
   fileId?: string;
   pageId?: string;
 };
 
 export function writingFileTabId(fileId: string): string {
   return `file:${fileId}`;
+}
+
+export function knowledgeFileTabId(fileId: string): string {
+  return `knowledge:${fileId}`;
 }
 
 export function htmlPageTabId(pageId: string): string {
@@ -21,6 +26,7 @@ export function openPreviewTab(tabs: PreviewTab[], tab: PreviewTab): PreviewTab[
   if (
     existing.label === tab.label &&
     existing.kind === tab.kind &&
+    existing.source === tab.source &&
     existing.fileId === tab.fileId &&
     existing.pageId === tab.pageId
   ) {
