@@ -47,6 +47,66 @@ export function fileTaskIds(root: KnowledgeTreeNode): string[] {
   return ids;
 }
 
+export function usedBytesFromTree(root: KnowledgeTreeNode): number {
+  let sum = 0;
+  walkFiles(root, (file) => {
+    sum += Number(file.size_bytes) || 0;
+  });
+  return sum;
+}
+
+export function fileCountInNode(node: KnowledgeTreeNode): number {
+  let count = 0;
+  walkFiles(node, () => {
+    count += 1;
+  });
+  return count;
+}
+
+export function latestCreatedAt(node: KnowledgeTreeNode): string | null {
+  let latest: string | null = null;
+  walkFiles(node, (file) => {
+    if (file.created_at && (!latest || file.created_at > latest)) {
+      latest = file.created_at;
+    }
+  });
+  return latest;
+}
+
+export function flattenKnowledgeNodes(
+  root: KnowledgeTreeNode,
+): KnowledgeTreeNode[] {
+  const out: KnowledgeTreeNode[] = [root];
+  for (const child of root.children || []) {
+    out.push(...flattenKnowledgeNodes(child));
+  }
+  return out;
+}
+
+export function findFileByDochubPath(
+  root: KnowledgeTreeNode,
+  path: string,
+): KnowledgeFileMeta | null {
+  const rel = stripQmdMarkdownPath(path || '');
+  if (!rel) return null;
+  let found: KnowledgeFileMeta | null = null;
+  const visit = (node: KnowledgeTreeNode) => {
+    if (found) return;
+    if (node.type === 'file' && node.file) {
+      if (
+        node.file.markdown_relpath === rel ||
+        node.file.inbox_relpath === rel ||
+        node.path === rel
+      ) {
+        found = node.file;
+      }
+    }
+    for (const child of node.children || []) visit(child);
+  };
+  visit(root);
+  return found;
+}
+
 export function findFileForSearchHit(
   root: KnowledgeTreeNode,
   hit: KnowledgeSearchHit,

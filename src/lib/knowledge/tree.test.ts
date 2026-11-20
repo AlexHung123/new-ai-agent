@@ -2,9 +2,14 @@ import { describe, expect, it } from 'vitest';
 import type { KnowledgeTreeNode } from './types';
 import {
   childrenAtPath,
+  fileCountInNode,
   fileTaskIds,
+  findFileByDochubPath,
   findFileForSearchHit,
+  flattenKnowledgeNodes,
+  latestCreatedAt,
   nodeAtPath,
+  usedBytesFromTree,
 } from './tree';
 
 const tree: KnowledgeTreeNode = {
@@ -33,6 +38,7 @@ const tree: KnowledgeTreeNode = {
                 markdown_relpath: 'contracts/2024/report.md',
                 size_bytes: 16,
                 task_id: 'task-1',
+                created_at: '2026-11-08T11:38:01Z',
               },
             },
           ],
@@ -73,5 +79,30 @@ describe('tree walk', () => {
     expect(
       fileTaskIds({ type: 'dir', name: '', path: '', children: [] }),
     ).toEqual([]);
+  });
+
+  it('sums size_bytes and counts files under a folder', () => {
+    expect(usedBytesFromTree(tree)).toBe(16);
+    expect(fileCountInNode(tree)).toBe(1);
+    expect(fileCountInNode(nodeAtPath(tree, 'contracts')!)).toBe(1);
+    expect(latestCreatedAt(tree)).toBe('2026-11-08T11:38:01Z');
+  });
+
+  it('flattens dirs and files', () => {
+    expect(flattenKnowledgeNodes(tree).map((n) => n.path)).toEqual([
+      '',
+      'contracts',
+      'contracts/2024',
+      'contracts/2024/report.pdf',
+    ]);
+  });
+
+  it('finds a file by markdown, inbox, node path, or qmd prefix', () => {
+    expect(findFileByDochubPath(tree, 'contracts/2024/report.md')?.id).toBe('file-1');
+    expect(findFileByDochubPath(tree, 'qmd://markdown/contracts/2024/report.md')?.id).toBe(
+      'file-1',
+    );
+    expect(findFileByDochubPath(tree, 'contracts/2024/report.pdf')?.id).toBe('file-1');
+    expect(findFileByDochubPath(tree, 'missing.md')).toBeNull();
   });
 });
