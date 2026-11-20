@@ -47,6 +47,7 @@ export const chatBodySchema = z.object({
   itmsOrigin: z.string().nullish(),
   html: z.string().optional(),
   htmlReady: z.boolean().optional(),
+  knowledgeFolder: z.string().optional(),
   images: z.array(chatImageSchema).max(MAX_ATTACHED_IMAGES).optional(),
 }).superRefine((body, ctx) => {
   const images = body.images ?? [];

@@ -27,6 +27,7 @@ import {
   type DocumentTurnContext,
 } from '@/lib/search/shared/runtime/documentTurnContext';
 import { runWithWritingTurn } from '@/lib/search/shared/runtime/writingTurnContext';
+import { loadWritingTurnContext } from '@/lib/search/shared/runtime/loadWritingTurnContext';
 import { runWithHtmlTurn } from '@/lib/html/htmlTurnContext';
 import {
   resolveBoundWcms,
@@ -294,17 +295,12 @@ export const POST = async (req: Request) => {
         runWithDocumentTurn(documentTurn, runSearch),
       );
     } else if (body.focusMode === 'agentWriting') {
-      stream = await withHtml(() =>
-        runWithWritingTurn(
-          {
-            userId,
-            pin: null,
-            mentionedDocuments: [],
-            tree: null,
-          },
-          runSearch,
-        ),
-      );
+      const writingTurn = await loadWritingTurnContext({
+        userId,
+        text: body.message.content,
+        selectedFolder: body.knowledgeFolder,
+      });
+      stream = await withHtml(() => runWithWritingTurn(writingTurn, runSearch));
     } else if (body.focusMode === 'agentHtml') {
       const bind =
         wcmsBound.status === 'ok'

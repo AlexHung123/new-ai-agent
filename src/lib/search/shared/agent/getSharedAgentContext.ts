@@ -10,6 +10,7 @@ import { WRITING_AGENT_SYSTEM_PROMPT } from '../prompts/writingAgentSystemPrompt
 import { DOCUMENT_AGENT_SYSTEM_PROMPT } from '../prompts/documentAgentSystemPrompt';
 import { getDocumentTurnContext } from '../runtime/documentTurnContext';
 import { createAgentFsTools } from '../tools/fs/fsTools';
+import { createDochubTools } from '../tools/dochubTools';
 import { createPiRuntime } from '../runtime/createPiRuntime';
 import { createPgAgentTranscriptStoreFromUrl } from '../runtime/agentTranscriptStore';
 import { createPgPiSessionStoreFromUrl } from '../runtime/piSessionStore';
@@ -45,6 +46,7 @@ function initSharedAgentDependencies() {
     isAdmin: true,
     getProjectRootAbs: () => getDocumentTurnContext()?.rootAbs,
   });
+  const dochubTools = createDochubTools();
 
   const tools: Record<string, NamedTool> = {
     [esBm25SearchTool.name]: esBm25SearchTool,
@@ -54,6 +56,9 @@ function initSharedAgentDependencies() {
     tools[tool.name] = tool;
   }
   for (const tool of fsTools) {
+    tools[tool.name] = tool;
+  }
+  for (const tool of dochubTools) {
     tools[tool.name] = tool;
   }
   tools[readSkillTool.name] = readSkillTool;
@@ -85,7 +90,7 @@ function initSharedAgentDependencies() {
     'writing-agent-template': {
       id: 'writing-agent-template',
       systemPrompt: WRITING_AGENT_SYSTEM_PROMPT,
-      tools: ['fs_ls', 'fs_read', 'fs_grep', 'fs_find', 'read_skill', 'am_render'],
+      tools: ['query', 'get', 'multi_get', 'tree', 'status', 'read_skill', 'am_render'],
     },
     'document-agent-template': {
       id: 'document-agent-template',
@@ -130,7 +135,7 @@ declare global {
 }
 
 /** Bump when session-manager behavior changes so Next.js HMR rebuilds the pool. */
-const SHARED_AGENT_CONTEXT_REV = 13;
+const SHARED_AGENT_CONTEXT_REV = 14;
 
 export function getSharedAgentContext(): SharedAgentContext {
   if (

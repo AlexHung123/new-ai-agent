@@ -15,7 +15,7 @@ import {
   buildWritingUserPrompt,
   writingToolsForTurn,
 } from './shared/prompts/writingTurnPrefix';
-import { bindTurnFsTools } from './shared/runtime/bindTurnFsTools';
+import { bindTurnDochubTools } from './shared/runtime/bindTurnDochubTools';
 import { getWritingTurnContext } from './shared/runtime/writingTurnContext';
 import { safeJson } from './shared/utils/safeJson';
 
@@ -70,7 +70,7 @@ export default class WritingAgent implements MetaSearchAgentType {
         const stableAgentId =
           harnessAgentManager.normalizeAgentId(requestAgentId);
 
-        const tools = writingToolsForTurn(message, writingCtx);
+        const tools = writingToolsForTurn();
         const agent = await harnessAgentManager.getOrCreateAgent(
           stableAgentId,
           tools,
@@ -79,7 +79,9 @@ export default class WritingAgent implements MetaSearchAgentType {
 
         harnessAgentManager.markBusy(stableAgentId);
         harnessAgentManager.touchAgent(stableAgentId);
-        const restoreFs = bindTurnFsTools(agent, {});
+        const restoreDochub = writingCtx
+          ? bindTurnDochubTools(agent, writingCtx)
+          : () => undefined;
         const restoreHtml = bindTurnHtmlTool(agent);
 
         try {
@@ -107,7 +109,7 @@ export default class WritingAgent implements MetaSearchAgentType {
           await subscriptionPromise;
         } finally {
           restoreHtml();
-          restoreFs();
+          restoreDochub();
           await harnessAgentManager.markIdle(stableAgentId);
         }
       } catch (error: unknown) {

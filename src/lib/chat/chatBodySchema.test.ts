@@ -25,6 +25,15 @@ describe('parseChatBody', () => {
     }
   });
 
+  it('accepts optional knowledgeFolder', () => {
+    const result = parseChatBody({
+      ...validWritingBody,
+      knowledgeFolder: 'contracts/2024',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.knowledgeFolder).toBe('contracts/2024');
+  });
+
   it('defaults htmlMode to false', () => {
     const result = parseChatBody(validWritingBody);
     expect(result.success).toBe(true);
