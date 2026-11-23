@@ -87,4 +87,17 @@ describe('writing Knowledge FILES rail', () => {
       /:has\(\.writing-knowledge-files\)\s+\.empty-chat-body\s*\{[^}]*padding-left/s,
     );
   });
+
+  it('keeps the FILES rail mounted when the first message arrives', () => {
+    const windowSrc = readSrc('../../components/ChatWindow.tsx');
+    const empty = readSrc('../../components/EmptyChat.tsx');
+    expect(windowSrc).toMatch(/WritingLeftRail/);
+    expect(empty).not.toMatch(/WritingLeftRail/);
+    expect(windowSrc).toMatch(
+      /<WritingLeftRail \/>\s*\{messages\.length > 0 \? /s,
+    );
+    const files = readSrc('../../components/WritingKnowledgeFiles.tsx');
+    expect(files).toMatch(/loading && \(tree\.children \|\| \[\]\)\.length === 0/);
+    expect(files).toMatch(/Loading files/);
+  });
 });

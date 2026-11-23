@@ -127,9 +127,9 @@ const ChatWindow = () => {
               : undefined
           }
         >
+          <WritingLeftRail />
           {messages.length > 0 ? (
             <>
-              <WritingLeftRail />
               <Chat />
               {split ? null : (
                 <div className="message-outline-host hidden xl:block">

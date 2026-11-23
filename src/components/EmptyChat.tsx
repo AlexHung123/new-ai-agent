@@ -4,7 +4,6 @@ import { useChat } from '@/lib/hooks/useChat';
 import { SFC_DOCUMENT_FOCUS_MODE, SFC_REPLY_FOCUS_MODE } from '@/lib/agents';
 import DocumentPicker from './DocumentPicker';
 import WritingHtmlHint from './WritingHtmlHint';
-import WritingLeftRail from './WritingLeftRail';
 
 const EmptyChat = () => {
   const { focusMode, documentId, documentItems } = useChat();
@@ -31,8 +30,6 @@ const EmptyChat = () => {
 
   return (
     <div className="relative h-full min-h-full">
-      <WritingLeftRail />
-
       <div className="absolute w-full flex flex-row items-center justify-end gap-1 mr-5 pr-2 top-[var(--chat-topbar-height)]">
         <SettingsButtonMobile />
       </div>

@@ -129,7 +129,7 @@ function TreeRows({
 }
 
 export default function WritingKnowledgeFiles() {
-  const { tree, error } = useKnowledgeTree('/itms/ai/api/knowledge/tree');
+  const { tree, error, loading } = useKnowledgeTree('/itms/ai/api/knowledge/tree');
   const { knowledgeFolder, setKnowledgeFolder } = useChat();
   const { openKnowledgeFile } = useRightPanel();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -168,14 +168,18 @@ export default function WritingKnowledgeFiles() {
         </div>
       </div>
       {error ? <p className="writing-knowledge-error">{error}</p> : null}
-      <TreeRows
-        node={tree}
-        knowledgeFolder={knowledgeFolder}
-        collapsed={collapsed}
-        onToggle={onToggle}
-        onSelectFolder={setKnowledgeFolder}
-        onOpenFile={openKnowledgeFile}
-      />
+      {loading && (tree.children || []).length === 0 ? (
+        <p className="writing-knowledge-empty">Loading files…</p>
+      ) : (
+        <TreeRows
+          node={tree}
+          knowledgeFolder={knowledgeFolder}
+          collapsed={collapsed}
+          onToggle={onToggle}
+          onSelectFolder={setKnowledgeFolder}
+          onOpenFile={openKnowledgeFile}
+        />
+      )}
     </div>
   );
 }
