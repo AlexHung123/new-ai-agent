@@ -56,6 +56,8 @@ describe('knowledge UI contracts', () => {
     const listing = readSrc('../../components/knowledge/KnowledgeListing.tsx');
     expect(manager).toMatch(/knowledge-detail-layout/);
     expect(manager).toMatch(/Create folder/);
+    expect(manager).toMatch(/knowledge-search-combo/);
+    expect(manager).toMatch(/FolderPlus/);
     expect(manager).not.toMatch(/knowledge base/i);
     expect(manager).not.toMatch(/knowledge-folder-grid/);
     expect(manager).not.toMatch(/knowledge-page-title/);

@@ -43,6 +43,7 @@ import {
   useState,
   type FormEvent,
 } from 'react';
+import { ChevronDown, FolderPlus, Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 const TREE_URL = '/itms/ai/api/knowledge/tree';
@@ -359,27 +360,36 @@ export default function KnowledgeFileManager() {
       className="knowledge-search-form"
       onSubmit={(event) => void runSearch(event)}
     >
-      <input
-        className="knowledge-search"
-        value={searchDraft}
-        onChange={(event) => {
-          setSearchDraft(event.target.value);
-          setHits(null);
-        }}
-        placeholder="Search"
-        aria-label="Search"
-      />
-      <select
-        className="knowledge-search-mode"
-        value={searchMode}
-        onChange={(event) =>
-          setSearchMode(event.target.value as KnowledgeSearchMode)
-        }
-      >
-        <option value="search">Keyword</option>
-        <option value="vsearch">Semantic</option>
-        <option value="query">Hybrid</option>
-      </select>
+      <div className="knowledge-search-combo">
+        <label className="knowledge-search-field">
+          <Search className="knowledge-search-icon" size={16} aria-hidden />
+          <input
+            className="knowledge-search"
+            value={searchDraft}
+            onChange={(event) => {
+              setSearchDraft(event.target.value);
+              setHits(null);
+            }}
+            placeholder="Search files"
+            aria-label="Search"
+          />
+        </label>
+        <div className="knowledge-search-mode-wrap">
+          <select
+            className="knowledge-search-mode"
+            value={searchMode}
+            onChange={(event) =>
+              setSearchMode(event.target.value as KnowledgeSearchMode)
+            }
+            aria-label="Search mode"
+          >
+            <option value="search">Keyword</option>
+            <option value="vsearch">Semantic</option>
+            <option value="query">Hybrid</option>
+          </select>
+          <ChevronDown className="knowledge-search-mode-caret" size={14} aria-hidden />
+        </div>
+      </div>
     </form>
   );
 
@@ -414,7 +424,8 @@ export default function KnowledgeFileManager() {
         }
         onClick={() => fileInputRef.current?.click()}
       >
-        + Add file
+        <Plus size={16} aria-hidden />
+        Add file
       </button>
       <input
         ref={fileInputRef}
@@ -515,7 +526,8 @@ export default function KnowledgeFileManager() {
                 className="knowledge-btn-secondary"
                 onClick={() => setNewFolderOpen(true)}
               >
-                + Create folder
+                <FolderPlus size={16} aria-hidden />
+                Create folder
               </button>
               {newFolderForm}
               {uploadInput}
