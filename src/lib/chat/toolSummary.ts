@@ -201,6 +201,66 @@ export function buildToolEndSummary(
     case 'assemble_markdown_report':
       return { summary: 'Report ready' };
 
+    case 'tree': {
+      if (details && details.ok === false && typeof details.error === 'string') {
+        return { summary: clip(details.error, MAX_SUMMARY_CHARS) };
+      }
+      const n =
+        details && typeof details.fileCount === 'number'
+          ? Math.max(0, Math.floor(details.fileCount))
+          : undefined;
+      const trunc = details && details.truncated === true ? ' (truncated)' : '';
+      return {
+        summary: clip(
+          n === undefined
+            ? 'Library listed'
+            : n === 1
+              ? `1 file${trunc}`
+              : `${n} files${trunc}`,
+          MAX_SUMMARY_CHARS,
+        ),
+        ...(n !== undefined ? { hitCount: n } : {}),
+      };
+    }
+
+    case 'query': {
+      if (details && details.ok === false && typeof details.error === 'string') {
+        return { summary: clip(details.error, MAX_SUMMARY_CHARS) };
+      }
+      const n =
+        details && Array.isArray(details.results) ? details.results.length : undefined;
+      return {
+        summary: clip(
+          n === undefined ? 'Search finished' : n === 1 ? '1 hit' : `${n} hits`,
+          MAX_SUMMARY_CHARS,
+        ),
+        ...(n !== undefined ? { hitCount: n } : {}),
+      };
+    }
+
+    case 'get': {
+      if (details && details.ok === false && typeof details.error === 'string') {
+        return { summary: clip(details.error, MAX_SUMMARY_CHARS) };
+      }
+      const rel =
+        details && typeof details.dochub_path === 'string'
+          ? details.dochub_path
+          : undefined;
+      return { summary: clip(rel ? `Read ${rel}` : 'Read file', MAX_SUMMARY_CHARS) };
+    }
+
+    case 'multi_get': {
+      const files = details && Array.isArray(details.files) ? details.files : undefined;
+      const n = files?.length;
+      return {
+        summary: clip(
+          n === undefined ? 'Read files' : n === 1 ? '1 file' : `${n} files`,
+          MAX_SUMMARY_CHARS,
+        ),
+        ...(n !== undefined ? { hitCount: n } : {}),
+      };
+    }
+
     case 'fs_ls': {
       const n =
         details && typeof details.entryCount === 'number'

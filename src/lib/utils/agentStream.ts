@@ -113,6 +113,7 @@ export function streamAgentProgressToEmitter(
 
   let hasEmittedWarning = false;
   let hasTextResponse = false;
+  let pendingText = '';
   let settled = false;
   let providerError: unknown;
   const collectedSources: Array<{
@@ -182,13 +183,16 @@ export function streamAgentProgressToEmitter(
         case 'message_update': {
           const ame = event.assistantMessageEvent;
           if (ame?.type !== 'text_delta' || typeof ame.delta !== 'string') break;
+          pendingText += ame.delta;
+          if (!pendingText.trim()) break;
           hasTextResponse = true;
-          onTextChunk?.(ame.delta);
+          onTextChunk?.(pendingText);
           if (!hasEmittedWarning) {
             emitJson(emitter, { type: 'response', data: DISCLAIMER });
             hasEmittedWarning = true;
           }
-          emitJson(emitter, { type: 'response', data: ame.delta });
+          emitJson(emitter, { type: 'response', data: pendingText });
+          pendingText = '';
           break;
         }
         case 'tool_execution_start': {

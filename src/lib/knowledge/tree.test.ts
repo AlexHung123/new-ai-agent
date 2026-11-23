@@ -4,6 +4,7 @@ import {
   childrenAtPath,
   fileCountInNode,
   fileTaskIds,
+  listKnowledgeFiles,
   findFileByDochubPath,
   findFileForSearchHit,
   flattenKnowledgeNodes,
@@ -83,6 +84,9 @@ describe('tree walk', () => {
 
   it('sums size_bytes and counts files under a folder', () => {
     expect(usedBytesFromTree(tree)).toBe(16);
+    expect(listKnowledgeFiles(tree)).toEqual([
+      { path: 'contracts/2024/report.md', name: 'report.pdf' },
+    ]);
     expect(fileCountInNode(tree)).toBe(1);
     expect(fileCountInNode(nodeAtPath(tree, 'contracts')!)).toBe(1);
     expect(latestCreatedAt(tree)).toBe('2026-11-08T11:38:01Z');

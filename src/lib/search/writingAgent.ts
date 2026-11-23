@@ -16,6 +16,7 @@ import {
   writingToolsForTurn,
 } from './shared/prompts/writingTurnPrefix';
 import { bindTurnDochubTools } from './shared/runtime/bindTurnDochubTools';
+import { WRITING_AGENT_EMPTY_REPLY } from './shared/prompts/writingAgentSystemPrompt';
 import { getWritingTurnContext } from './shared/runtime/writingTurnContext';
 import { safeJson } from './shared/utils/safeJson';
 
@@ -90,6 +91,7 @@ export default class WritingAgent implements MetaSearchAgentType {
             emitter,
             signal,
             safeJson,
+            emptyResponseFallback: WRITING_AGENT_EMPTY_REPLY,
           });
 
           if (signal?.aborted) {

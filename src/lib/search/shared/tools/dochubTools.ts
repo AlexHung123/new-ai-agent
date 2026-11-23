@@ -8,7 +8,7 @@ import {
 import { getDochubMarkdown, type DochubGetResult } from '@/lib/knowledge/dochubGet';
 import { mapDochubQueryArgs } from '@/lib/knowledge/dochubQuery';
 import { stripQmdMarkdownPath } from '@/lib/knowledge/search';
-import { nodeAtPath } from '@/lib/knowledge/tree';
+import { listKnowledgeFiles, nodeAtPath } from '@/lib/knowledge/tree';
 import type { KnowledgeTreeNode } from '@/lib/knowledge/types';
 import { clampPathToPin } from '@/lib/knowledge/writingPin';
 import { jsonToolResult } from '../runtime/piToolResult';
@@ -35,8 +35,33 @@ function asRecord(args: unknown): Record<string, unknown> {
     : {};
 }
 
+const MAX_TREE_FILES = 400;
+const STOP_RETRY =
+  ' Do not retry this call. If the user wants a file list, answer from the tree tool files array.';
+
 function errorResult(error: string) {
   return jsonToolResult({ ok: false, error });
+}
+
+function presentError(error: string): string {
+  if (
+    error === 'Knowledge service is unavailable.' ||
+    error === 'Knowledge library is unavailable.' ||
+    error === 'file not found'
+  ) {
+    return `${error}${STOP_RETRY}`;
+  }
+  return error;
+}
+
+function rawFilesArg(rec: Record<string, unknown>): unknown {
+  const files = rec.files;
+  const hasFiles =
+    (typeof files === 'string' && files.trim().length > 0) ||
+    (Array.isArray(files) && files.length > 0);
+  if (hasFiles) return files;
+  if (typeof rec.file === 'string' && rec.file.trim()) return rec.file;
+  return undefined;
 }
 
 function matchGlob(name: string, pattern: string): boolean {
@@ -139,7 +164,7 @@ export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
     name: 'query',
     label: 'Search knowledge',
     description:
-      'Search this user\'s Knowledge library. Prefer structured searches (lex/vec/hyde). The host supplies identity and folder pin; never pass user_id.',
+      'Search inside this user\'s Knowledge documents. Do not use this to list every file; call tree for an inventory. Prefer structured searches (lex/vec/hyde). The host supplies identity and folder pin; never pass user_id.',
     parameters: Type.Object({
       query: Type.Optional(
         Type.String({ description: 'Bare search string when searches is omitted' }),
@@ -182,7 +207,7 @@ export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
         return jsonToolResult({ ...rest, results, ok: true });
       } catch (error) {
         return errorResult(
-          error instanceof Error ? error.message : String(error),
+          presentError(error instanceof Error ? error.message : String(error)),
         );
       }
     },
@@ -208,20 +233,20 @@ export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
       const file = typeof rec.file === 'string' ? rec.file : '';
       if (!file) return errorResult('file is required');
       try {
-        return jsonToolResult(
-          await doGet({
-            userId: ctx.userId,
-            tree: ctx.tree,
-            pin: ctx.pin,
-            mentionedDocuments: ctx.mentionedDocuments,
-            file,
-            fromLine: rec.fromLine,
-            maxLines: rec.maxLines,
-          }),
-        );
+        const result = await doGet({
+          userId: ctx.userId,
+          tree: ctx.tree,
+          pin: ctx.pin,
+          mentionedDocuments: ctx.mentionedDocuments,
+          file,
+          fromLine: rec.fromLine,
+          maxLines: rec.maxLines,
+        });
+        if (!result.ok) return errorResult(presentError(result.error));
+        return jsonToolResult(result);
       } catch (error) {
         return errorResult(
-          error instanceof Error ? error.message : String(error),
+          presentError(error instanceof Error ? error.message : String(error)),
         );
       }
     },
@@ -231,30 +256,43 @@ export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
     name: 'multi_get',
     label: 'Get several knowledge files',
     description:
-      'Read markdown for up to 10 Knowledge paths. files may be a comma-separated string, an array, or a last-segment glob like folder/*.md.',
+      'Read markdown for up to 10 Knowledge paths. files may be a comma-separated string, an array, or a last-segment glob like folder/*.md. file is the one-path form of files.',
     parameters: Type.Object({
-      files: Type.Union([Type.String(), Type.Array(Type.String())]),
+      files: Type.Optional(
+        Type.Union([Type.String(), Type.Array(Type.String())]),
+      ),
+      file: Type.Optional(
+        Type.String({ description: 'One path when files is omitted' }),
+      ),
     }),
     execute: async (_id, args) => {
       const ctx = getWritingTurnContext();
       if (!ctx?.userId) return errorResult('No user bound');
-      const files = expandFiles(asRecord(args).files, ctx.tree);
+      const rec = asRecord(args);
+      const raw = rawFilesArg(rec);
+      if (raw === undefined) return errorResult('files is required');
+      const files = expandFiles(raw, ctx.tree);
       const results: DochubGetResult[] = [];
       for (const file of files) {
         try {
+          const result = await doGet({
+            userId: ctx.userId,
+            tree: ctx.tree,
+            pin: ctx.pin,
+            mentionedDocuments: ctx.mentionedDocuments,
+            file,
+            fromLine: rec.fromLine,
+            maxLines: rec.maxLines,
+          });
           results.push(
-            await doGet({
-              userId: ctx.userId,
-              tree: ctx.tree,
-              pin: ctx.pin,
-              mentionedDocuments: ctx.mentionedDocuments,
-              file,
-            }),
+            result.ok ? result : { ok: false, error: presentError(result.error) },
           );
         } catch (error) {
           results.push({
             ok: false,
-            error: error instanceof Error ? error.message : String(error),
+            error: presentError(
+              error instanceof Error ? error.message : String(error),
+            ),
           });
         }
       }
@@ -266,7 +304,7 @@ export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
     name: 'tree',
     label: 'Knowledge tree',
     description:
-      'Return this user\'s Knowledge folder tree, clamped to the host pin.',
+      'List this user\'s Knowledge files. files is the full inventory ({path, name}). Use this once when the user asks what files exist, then answer from files. Do not follow with query or get just to name files.',
     parameters: Type.Object({
       path: Type.Optional(
         Type.String({ description: 'Optional subfolder; clamped to the host pin' }),
@@ -276,7 +314,7 @@ export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
       const ctx = getWritingTurnContext();
       if (!ctx?.userId) return errorResult('No user bound');
       if (!ctx.tree) {
-        return errorResult('Knowledge library is unavailable.');
+        return errorResult(presentError('Knowledge library is unavailable.'));
       }
       const rec = asRecord(args);
       const requested =
@@ -289,7 +327,19 @@ export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
           path: '',
           children: [],
         };
-      return jsonToolResult({ ok: true, tree: node });
+      const listed = listKnowledgeFiles(node);
+      const truncated = listed.length > MAX_TREE_FILES;
+      const files = truncated ? listed.slice(0, MAX_TREE_FILES) : listed;
+      return jsonToolResult({
+        ok: true,
+        path,
+        fileCount: listed.length,
+        truncated,
+        files,
+        note: truncated
+          ? 'List truncated. Answer with these paths and say there are more. Do not open files to continue the list.'
+          : 'This is the full file list. Answer with these names and paths. Do not call query, get, or multi_get just to list files.',
+      });
     },
   };
 

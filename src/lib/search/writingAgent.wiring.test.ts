@@ -12,6 +12,7 @@ describe('writing agent Dochub wiring', () => {
     expect(ctx).toMatch(/createDochubTools/);
     expect(ctx).toMatch(/'query', 'get', 'multi_get', 'tree', 'status'/);
     const agent = readSrc('writingAgent.ts');
+    expect(agent).toMatch(/emptyResponseFallback: WRITING_AGENT_EMPTY_REPLY/);
     expect(agent).toMatch(/bindTurnDochubTools/);
     expect(agent).not.toMatch(/bindTurnFsTools/);
     const route = readFileSync(
@@ -20,6 +21,6 @@ describe('writing agent Dochub wiring', () => {
     );
     expect(route).toMatch(/loadWritingTurnContext/);
     expect(route).not.toMatch(/ensureUserWritingWorkspace/);
-    expect(ctx).toMatch(/SHARED_AGENT_CONTEXT_REV = 14/);
+    expect(ctx).toMatch(/SHARED_AGENT_CONTEXT_REV = 15/);
   });
 });

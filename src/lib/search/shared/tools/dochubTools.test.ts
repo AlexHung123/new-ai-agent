@@ -138,6 +138,67 @@ describe('createDochubTools', () => {
     expect(body.path).toBeUndefined();
   });
 
+  it('lists files from the tree and does not include file ids', async () => {
+    const library = {
+      type: 'dir' as const,
+      name: '',
+      path: '',
+      children: [
+        {
+          type: 'file' as const,
+          name: 'spec.md',
+          path: 'writing/spec.md',
+          file: {
+            id: 'secret-id',
+            original_filename: 'Section 3.docx',
+            inbox_relpath: 'writing/Section 3.docx',
+            markdown_relpath: 'writing/spec.md',
+            size_bytes: 10,
+          },
+        },
+      ],
+    };
+    const tools = createDochubTools();
+    const treeTool = tools.find((t) => t.name === 'tree')!;
+    const result = await runWithWritingTurn(
+      { ...ctx, pin: null, tree: library },
+      () => treeTool.execute('id', {}),
+    );
+    const details = result.details as {
+      fileCount: number;
+      files: Array<{ path: string; name: string }>;
+    };
+    expect(details.fileCount).toBe(1);
+    expect(details.files).toEqual([
+      { path: 'writing/spec.md', name: 'Section 3.docx' },
+    ]);
+    expect(JSON.stringify(details)).not.toMatch(/secret-id/);
+  });
+
+  it('accepts get-shaped args on multi_get', async () => {
+    const getDochubMarkdown = vi.fn(async (opts: { file: string }) => ({
+      ok: true as const,
+      dochub_path: opts.file,
+      text: '1|hi',
+      fromLine: 1,
+      lineCount: 1,
+    }));
+    const tools = createDochubTools({ getDochubMarkdown });
+    const multi = tools.find((t) => t.name === 'multi_get')!;
+    await runWithWritingTurn(ctx, () =>
+      multi.execute('id', {
+        file: 'writing/spec.md',
+        maxLines: '40',
+      }),
+    );
+    expect(getDochubMarkdown).toHaveBeenCalledWith(
+      expect.objectContaining({
+        file: 'writing/spec.md',
+        maxLines: '40',
+      }),
+    );
+  });
+
   it('returns No user bound outside a turn', async () => {
     const query = createDochubTools()[0];
     const result = await query.execute('id', { query: 'hi' });

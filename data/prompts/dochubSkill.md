@@ -10,13 +10,23 @@ Search the user's indexed markdown, then read the source, then answer. Snippets 
 
 Tools: `query`, `get`, `multi_get`, `tree`, `status`. These are in-process host tools. Never pass `user_id`. Never run the `qmd` CLI.
 
-Keep workflow query → get (or `multi_get`) then answer.
+For a question about what a document says, keep workflow query → get (or `multi_get`) then answer. For a request to list files, call `tree` once and answer from `files`.
 
 ## Workflow
 
 1. `query` for candidate documents.
 2. `get` or `multi_get` the best hits. Use `path:from:count` around a hit line (for example `contracts/note.md:120:40`).
 3. Answer from retrieved text. Cite `dochub_path` and line numbers.
+
+## List the library
+
+When the user asks which files exist, or to list, enumerate, or show every file or folder (列出文件, 有哪些文件, all files, files submitted to the library), call `tree` once. The `files` array is the inventory. Each entry is `{ path, name }`. Reply with those names and paths. Do not call `query`, `get`, or `multi_get` to build a file list, and do not open file bodies.
+
+If `truncated` is true, say the list is incomplete and include every path you were given.
+
+## When a tool fails
+
+A validation error, `file not found`, or `Knowledge service is unavailable` is final for that call. Do not retry it and do not switch tools to keep reading. Answer from `files` or from text you already have. The reply must contain the list or the answer. Never stop after tools with an empty message.
 
 Typical loop:
 

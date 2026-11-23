@@ -106,6 +106,12 @@ describe('AgentRunToolGuard', () => {
     });
     expect(g.onTurnStart()).toBe(false);
     expect(g.onTurnStart()).toBe(false);
+    expect(g.stripTools).toBe(true);
+    expect(g.onTurnStart()).toBe(false);
+    expect(g.shouldHardStop).toBe(false);
+    const blocked = g.beforeToolCall('tree', {});
+    expect(blocked.allow).toBe(false);
+    if (!blocked.allow) expect(blocked.reason).toMatch(/No more tools/);
     expect(g.onTurnStart()).toBe(true);
     expect(g.shouldHardStop).toBe(true);
   });

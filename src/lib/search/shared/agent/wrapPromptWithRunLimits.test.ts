@@ -96,6 +96,31 @@ describe('wrapPromptWithRunLimits', () => {
     expect(results[1]).toBeUndefined();
   });
 
+  it('drops tools for the turn after the tool budget', async () => {
+    const agent = Object.assign(createFakeAgent(), {
+      state: {
+        systemPrompt: 'sys',
+        messages: [{ role: 'user' }],
+        tools: [{ name: 'tree' }],
+      },
+    });
+    const innerPrompt = agent.prompt.bind(agent);
+    let stripped: unknown;
+    agent.prompt = async () => {
+      await innerPrompt();
+      const next = await agent.prepareNextTurn?.();
+      stripped = next?.context?.tools;
+    };
+    wrapPromptWithRunLimits(agent, {
+      maxToolCalls: 40,
+      maxToolFailures: 2,
+      maxTurns: 1,
+    });
+    await agent.prompt('q');
+    expect(stripped).toEqual([]);
+    expect(agent.prepareNextTurn).toBeUndefined();
+  });
+
   it('forwards attached images to the underlying prompt', async () => {
     const seen: unknown[] = [];
     const agent = {

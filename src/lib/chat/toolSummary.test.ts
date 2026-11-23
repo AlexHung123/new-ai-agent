@@ -193,6 +193,15 @@ describe('buildToolEndSummary', () => {
     expect(out.summary).toBe('Not a file: wiki');
   });
 
+  it('summarizes a knowledge tree as a file count', () => {
+    const out = buildToolEndSummary(
+      'tree',
+      { details: { ok: true, fileCount: 12, truncated: false, files: [] } },
+      false,
+    );
+    expect(out.summary).toBe('12 files');
+  });
+
   it('falls back to Done when there is no structured detail', () => {
     const out = buildToolEndSummary('read_skill', { details: {} }, false);
     expect(out.summary).toBe('Done');

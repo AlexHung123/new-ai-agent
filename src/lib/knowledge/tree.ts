@@ -63,6 +63,33 @@ export function fileCountInNode(node: KnowledgeTreeNode): number {
   return count;
 }
 
+export type KnowledgeFileIndexEntry = {
+  path: string;
+  name: string;
+};
+
+/** Flat inventory for "list my files". Paths prefer markdown, then inbox, then the node path. */
+export function listKnowledgeFiles(
+  root: KnowledgeTreeNode,
+): KnowledgeFileIndexEntry[] {
+  const out: KnowledgeFileIndexEntry[] = [];
+  const visit = (node: KnowledgeTreeNode) => {
+    if (node.type === 'file') {
+      const path =
+        node.file?.markdown_relpath ||
+        node.file?.inbox_relpath ||
+        node.path ||
+        node.name;
+      const name = node.file?.original_filename || node.name || path;
+      if (path) out.push({ path, name });
+      return;
+    }
+    for (const child of node.children || []) visit(child);
+  };
+  visit(root);
+  return out;
+}
+
 export function latestCreatedAt(node: KnowledgeTreeNode): string | null {
   let latest: string | null = null;
   walkFiles(node, (file) => {

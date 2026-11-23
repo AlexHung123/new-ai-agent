@@ -10,6 +10,8 @@ function readRepo(...parts: string[]) {
 describe('writing Dochub skill', () => {
   it('prepends the skill and drops fs_* document instructions', () => {
     expect(WRITING_AGENT_SYSTEM_PROMPT).toMatch(/query → get/);
+    expect(WRITING_AGENT_SYSTEM_PROMPT).toMatch(/call `tree` once/);
+    expect(WRITING_AGENT_SYSTEM_PROMPT).toMatch(/empty message/);
     expect(WRITING_AGENT_SYSTEM_PROMPT).toMatch(/Never pass `user_id`/);
     expect(WRITING_AGENT_SYSTEM_PROMPT).not.toMatch(/fs_ls/);
     expect(WRITING_AGENT_SYSTEM_PROMPT).not.toMatch(/INDEX\.md/);
@@ -18,5 +20,7 @@ describe('writing Dochub skill', () => {
     expect(skill).not.toMatch(/python -m dochub mcp/);
     const writing = readRepo('data/prompts/agentWriting.md');
     expect(writing).not.toMatch(/fs_/);
+    expect(writing).toMatch(/call tree once/);
+    expect(writing).toMatch(/Never finish with an empty reply/);
   });
 });

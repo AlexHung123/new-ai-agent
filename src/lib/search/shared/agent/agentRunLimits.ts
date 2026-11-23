@@ -12,8 +12,8 @@ export type AgentRunLimitsConfig = {
    */
   maxToolFailures: number;
   /**
-   * Hard cap on LLM turns (tool batches + final answer). If exceeded, abort
-   * (default 30).
+   * Tool-using LLM turns before the next turn must answer with tools removed
+   * (default 30). The turn after that answer turn aborts.
    */
   maxTurns: number;
 };
@@ -77,6 +77,8 @@ export class AgentRunToolGuard {
   private readonly failures = new Map<string, number>();
   private readonly cfg: AgentRunLimitsConfig;
   private hardStop = false;
+  /** The next generation is the answer turn: no tools, then stop. */
+  private answerTurn = false;
 
   constructor(cfg: AgentRunLimitsConfig = getAgentRunLimitsConfig()) {
     this.cfg = cfg;
@@ -94,22 +96,35 @@ export class AgentRunToolGuard {
     return this.hardStop;
   }
 
+  /**
+   * True after the tool-turn budget is spent and before the answer turn
+   * starts. The loop should drop tools for the next provider request.
+   */
+  get stripTools(): boolean {
+    return this.turns >= this.cfg.maxTurns && !this.answerTurn;
+  }
+
   /** Call on each `turn_start` event. Returns true if the run should abort. */
   onTurnStart(): boolean {
     this.turns += 1;
-    if (this.turns > this.cfg.maxTurns) {
+    if (this.answerTurn) {
       this.hardStop = true;
       return true;
+    }
+    if (this.turns > this.cfg.maxTurns) {
+      this.answerTurn = true;
+      return false;
     }
     return false;
   }
 
   beforeToolCall(name: string, args: unknown): ToolGuardDecision {
-    if (this.hardStop) {
+    if (this.hardStop || this.answerTurn) {
       return {
         allow: false,
-        reason:
-          'Agent run was stopped (turn or tool limit). Answer with available evidence only.',
+        reason: this.answerTurn
+          ? 'No more tools. Answer now from the file list or evidence already retrieved.'
+          : 'Agent run was stopped (turn or tool limit). Answer with available evidence only.',
       };
     }
 

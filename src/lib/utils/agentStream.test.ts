@@ -323,6 +323,36 @@ describe('streamAgentProgressToEmitter', () => {
     });
   });
 
+  it('treats whitespace-only text as no reply and emits the fallback', async () => {
+    const agent = createScriptedAgent([
+      {
+        type: 'message_update',
+        assistantMessageEvent: { type: 'text_delta', delta: '\n' },
+      },
+      { type: 'agent_end' },
+    ]);
+    const emitter = new EventEmitter();
+    const lines = collectLines(emitter);
+
+    const done = streamAgentProgressToEmitter({
+      agent,
+      emitter,
+      emptyResponseFallback: 'Ask again to list the Knowledge files.',
+    });
+    await agent.prompt('q');
+    const result = await done;
+
+    expect(result.hasTextResponse).toBe(true);
+    expect(lines).toContainEqual({
+      type: 'response',
+      data: 'Ask again to list the Knowledge files.',
+    });
+    expect(lines.filter((line) => {
+      const row = line as { type?: string; data?: string };
+      return row.type === 'response' && row.data === '\n';
+    })).toHaveLength(0);
+  });
+
   it('emits emptyResponseFallback when the run ends with no text', async () => {
     const agent = createScriptedAgent([{ type: 'agent_end' }]);
     const emitter = new EventEmitter();

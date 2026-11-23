@@ -6,7 +6,7 @@ const DOCHUB_SKILL_FALLBACK = `
 
 Search the user's indexed markdown, then read the source, then answer. Snippets are leads, not evidence.
 
-These are in-process host tools. Never pass \`user_id\`. Keep workflow query → get then answer.
+These are in-process host tools. Never pass \`user_id\`. For document contents, keep workflow query → get then answer. To list files, call tree once and answer from files. If a tool fails, answer from what you have. Never finish with an empty reply.
 `.trim();
 
 const WRITING_PROMPT_FALLBACK = `
@@ -22,8 +22,10 @@ Language rules:
 - If the user explicitly requests another language, use that language for the reply and deliverable.
 
 Documents:
-- This user has a Knowledge library. Use query then get (Dochub tools) when the question needs those documents.
+- This user has a Knowledge library. To list files, call tree once and answer from its files array. Do not search or open documents just to name them.
+- Use query then get only when the question needs the text inside a document.
 - A [Pinned folder] or [Mentioned documents] note is a search scope. Do not invent quotes from snippets.
+- If a tool fails or further tools are blocked, answer immediately. Never finish with an empty reply.
 - Keep HTML explainer behavior: call read_skill then am_render when the user wants a visual explainer page.
 - Do not mention tool names or folder paths in the user-visible reply unless the user asked where a fact came from (then cite dochub_path).
 
@@ -35,6 +37,10 @@ Behavior rules:
 5. Do not output JSON; do not describe internal system processes or tools.
 6. Keep replies clear, friendly, and ready to use.
 `.trim();
+
+/** User-visible reply when a writing run ends with no model text. */
+export const WRITING_AGENT_EMPTY_REPLY =
+  '這次回覆沒有完成，所以沒有檔案清單。請再問一次列出知識庫的文件。\n\nI could not finish the reply. Ask again to list the Knowledge files.';
 
 /**
  * General writing assistant (Kode agent) — draft, rewrite, translate, outline, polish.

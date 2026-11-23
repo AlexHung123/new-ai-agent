@@ -5,9 +5,25 @@ import {
   type AgentRunLimitsConfig,
 } from './agentRunLimits';
 
+type NextTurnUpdate = {
+  context?: {
+    systemPrompt?: string;
+    messages?: unknown[];
+    tools?: unknown[];
+  };
+};
+
 export type RunLimitedAgent = {
   prompt: (input: string, images?: ChatImageAttachment[]) => Promise<void>;
   abort: () => void;
+  state?: {
+    systemPrompt?: string;
+    messages?: unknown[];
+    tools?: unknown[];
+  };
+  prepareNextTurn?: (
+    signal?: AbortSignal,
+  ) => Promise<NextTurnUpdate | undefined> | NextTurnUpdate | undefined;
   subscribe: (
     listener: (event: { type?: string }) => void | Promise<void>,
   ) => () => void;
@@ -35,6 +51,21 @@ export function wrapPromptWithRunLimits<T extends RunLimitedAgent>(
     const guard = new AgentRunToolGuard(cfg);
     const prevBefore = agent.beforeToolCall;
     const prevAfter = agent.afterToolCall;
+    const prevPrepare = agent.prepareNextTurn;
+
+    agent.prepareNextTurn = async (signal) => {
+      const extra = await prevPrepare?.(signal);
+      if (!guard.stripTools || !agent.state) return extra;
+      return {
+        ...(extra ?? {}),
+        context: {
+          systemPrompt:
+            extra?.context?.systemPrompt ?? agent.state.systemPrompt,
+          messages: extra?.context?.messages ?? agent.state.messages?.slice(),
+          tools: [],
+        },
+      };
+    };
 
     agent.beforeToolCall = async (ctx, signal) => {
       const name = String(ctx.toolCall?.name || 'tool');
@@ -79,6 +110,7 @@ export function wrapPromptWithRunLimits<T extends RunLimitedAgent>(
       unsubscribe();
       agent.beforeToolCall = prevBefore;
       agent.afterToolCall = prevAfter;
+      agent.prepareNextTurn = prevPrepare;
     }
   };
 

@@ -66,7 +66,7 @@ describe('HTML explainer composer and embed', () => {
     expect(ctx).toMatch(
       /tools: \['query', 'get', 'multi_get', 'tree', 'status', 'read_skill', 'am_render'\]/,
     );
-    expect(ctx).toMatch(/SHARED_AGENT_CONTEXT_REV = 14/);
+    expect(ctx).toMatch(/SHARED_AGENT_CONTEXT_REV = 15/);
     expect(ctx).toMatch(/'html-agent-template'/);
     expect(ctx).toMatch(/tools: \['html_get', 'html_set'\]/);
   });
