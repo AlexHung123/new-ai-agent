@@ -19,6 +19,11 @@ describe('writing Knowledge FILES rail', () => {
     expect(files).toMatch(/\/api\/knowledge\/tree/);
     expect(files).toMatch(/openKnowledgeFile/);
     expect(files).toMatch(/Upload documents on Knowledge/);
+    expect(files).toMatch(/writing-knowledge-toggle/);
+    expect(files).toMatch(/Collapse all folders/);
+    expect(files).toMatch(/Expand all folders/);
+    expect(files).toMatch(/FolderOpen/);
+    expect(files).toMatch(/FileText/);
     expect(files).not.toMatch(/type=["']file["']/);
     expect(files).not.toMatch(/onDrop/);
     expect(files).not.toMatch(/Create folder/);
@@ -64,6 +69,8 @@ describe('writing Knowledge FILES rail', () => {
   it('keeps the FILES rail visible when the preview panel is open', () => {
     const css = readSrc('../../app/globals.css');
     expect(css).toMatch(/\.writing-knowledge-files/);
+    expect(css).toMatch(/\.writing-knowledge-toggle/);
+    expect(css).toMatch(/\.writing-knowledge-icon/);
     expect(css).toMatch(/\.writing-left-rail\s*\{[^}]*position:\s*fixed/s);
     expect(css).not.toMatch(
       /\.chat-workspace:has\(\.right-panel-open\)\s+\.writing-left-rail\s*\{[^}]*display:\s*none/s,

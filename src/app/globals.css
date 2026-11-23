@@ -1293,6 +1293,14 @@
   gap: 0.35rem;
 }
 
+.writing-knowledge-files-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem;
+  padding-right: 0.15rem;
+}
+
 .writing-knowledge-files-header button {
   border: 0;
   background: transparent;
@@ -1305,6 +1313,30 @@
   cursor: pointer;
 }
 
+.writing-knowledge-tree-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.05rem;
+}
+
+.writing-knowledge-tree-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  padding: 0;
+  letter-spacing: 0;
+  font-weight: 500;
+  color: var(--wiki-muted, #64748b);
+  border-radius: 0.3rem;
+}
+
+.writing-knowledge-tree-actions button:hover {
+  background: color-mix(in srgb, var(--wiki-border) 55%, transparent);
+  color: inherit;
+}
+
 .writing-knowledge-list {
   list-style: none;
   margin: 0;
@@ -1312,12 +1344,48 @@
 }
 
 .writing-knowledge-list .writing-knowledge-list {
-  padding-left: 0.75rem;
+  padding-left: 0.7rem;
+  margin-left: 0.45rem;
+  border-left: 1px solid color-mix(in srgb, var(--wiki-border, #e2e8f0) 85%, transparent);
+}
+
+.writing-knowledge-row {
+  display: flex;
+  align-items: center;
+  gap: 0.05rem;
+  min-width: 0;
+}
+
+.writing-knowledge-toggle,
+.writing-knowledge-toggle-spacer {
+  width: 1.1rem;
+  flex: 0 0 1.1rem;
+  height: 1.15rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--wiki-muted, #64748b);
+  padding: 0;
+  border-radius: 0.2rem;
+}
+
+.writing-knowledge-toggle {
+  cursor: pointer;
+}
+
+.writing-knowledge-toggle:hover {
+  background: color-mix(in srgb, var(--wiki-border) 55%, transparent);
+  color: inherit;
 }
 
 .writing-knowledge-item {
-  display: block;
-  width: 100%;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 0.4rem;
   text-align: left;
   border: 0;
   background: transparent;
@@ -1326,6 +1394,26 @@
   padding: 0.2rem 0.35rem;
   border-radius: 0.35rem;
   cursor: pointer;
+}
+
+.writing-knowledge-icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  color: var(--wiki-muted, #64748b);
+}
+
+.writing-knowledge-icon.is-folder {
+  color: #ca8a04;
+}
+
+.writing-knowledge-item.is-active .writing-knowledge-icon.is-folder {
+  color: #a16207;
+}
+
+.writing-knowledge-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .writing-knowledge-item.is-active,
