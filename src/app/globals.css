@@ -1453,28 +1453,39 @@
 
 .writing-knowledge-at-item {
   display: flex;
-  gap: 0.5rem;
+  align-items: center;
+  gap: 0.55rem;
   width: 100%;
   text-align: left;
   border: 0;
   background: transparent;
   color: inherit;
-  padding: 0.35rem 0.5rem;
-  border-radius: 0.35rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 0.4rem;
   cursor: pointer;
 }
 
+.writing-knowledge-at-item.is-active,
 .writing-knowledge-at-item:hover {
   background: color-mix(in srgb, var(--wiki-border) 55%, transparent);
 }
 
-.writing-knowledge-at-kind {
-  flex: 0 0 auto;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--wiki-muted, #64748b);
+.writing-knowledge-at-text {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.writing-knowledge-at-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.875rem;
+  font-weight: 550;
+  line-height: 1.2;
 }
 
 .writing-knowledge-at-path {
@@ -1482,7 +1493,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.85rem;
+  font-size: 0.72rem;
+  color: var(--wiki-muted, #64748b);
 }
 
 .writing-knowledge-at-empty {

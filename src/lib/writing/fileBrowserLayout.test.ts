@@ -55,6 +55,10 @@ describe('writing Knowledge FILES rail', () => {
     const menu = readSrc('../../components/WritingKnowledgeAtMenu.tsx');
     expect(menu).toMatch(/atQueryAtCursor/);
     expect(menu).toMatch(/insertMention/);
+    expect(menu).toMatch(/Folder/);
+    expect(menu).toMatch(/FileText/);
+    expect(menu).toMatch(/writing-knowledge-at-name/);
+    expect(menu).not.toMatch(/writing-knowledge-at-kind/);
     const chat = readSrc('../hooks/useChat.tsx');
     expect(chat).toMatch(/knowledgeFolder:/);
     for (const src of [
