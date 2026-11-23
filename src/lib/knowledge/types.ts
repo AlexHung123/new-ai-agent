@@ -48,4 +48,6 @@ export type DochubConfig = {
   timeoutMs: number;
   uploadTimeoutMs: number;
   maxUploadBytes: number;
+  maxUserBytes: number;
+  userQuotaBytes: Record<string, number>;
 };

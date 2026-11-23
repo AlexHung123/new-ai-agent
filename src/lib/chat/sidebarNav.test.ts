@@ -20,8 +20,9 @@ describe('sidebar nav', () => {
     expect(knowledgeAt).toBeGreaterThan(historyAt);
     expect(adminAt).toBeGreaterThan(knowledgeAt);
 
+    expect(sidebar).toMatch(/wide=\{segments\.includes\('agents'\)\}/);
     expect(sidebar).toMatch(
-      /wide=\{segments\.includes\('agents'\) \|\| segments\.includes\('knowledge'\)\}/,
+      /flush=\{[^}]*segments\.includes\('knowledge'\)/,
     );
     expect(sidebar).toMatch(/isAdmin/);
   });

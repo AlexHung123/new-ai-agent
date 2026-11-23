@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server';
 import { convertKnowledgeAttachment } from '@/lib/knowledge/convert';
 import { getDochubConfig } from '@/lib/knowledge/config';
-import { uploadFile } from '@/lib/knowledge/dochubClient';
+import { getTree, uploadFile } from '@/lib/knowledge/dochubClient';
 import { jsonFromUnknownError, unauthorized, userIdFrom } from '@/lib/knowledge/http';
 import { isSafeRelativePath } from '@/lib/knowledge/paths';
+import {
+  quotaExceededMessage,
+  quotaForUser,
+  storageForTree,
+  wouldExceedQuota,
+} from '@/lib/knowledge/storage';
 import { displayFilename } from '@/lib/writing/types';
 
 export const runtime = 'nodejs';
@@ -35,6 +41,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: 'This file is too large.' }, { status: 413 });
   }
   const filename = displayFilename(relativePath);
+  try {
+    const treeBody = await getTree(userId);
+    const usage = storageForTree(
+      treeBody.tree || { type: 'dir', name: '', path: '', children: [] },
+      quotaForUser(userId, config.maxUserBytes, config.userQuotaBytes),
+    );
+    if (wouldExceedQuota(usage, bytes.byteLength)) {
+      return NextResponse.json(
+        { message: quotaExceededMessage(usage, bytes.byteLength) },
+        { status: 400 },
+      );
+    }
+  } catch (error) {
+    return jsonFromUnknownError(error);
+  }
   const converted = await convertKnowledgeAttachment(bytes, filename, {
     maxBytes: config.maxUploadBytes,
   });

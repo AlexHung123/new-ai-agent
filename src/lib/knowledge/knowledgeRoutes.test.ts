@@ -70,6 +70,12 @@ describe('knowledge routes', () => {
     );
     expect(res.status).toBe(200);
     expect(getTree).toHaveBeenCalledWith('1');
+    const body = await res.json();
+    expect(body.storage).toMatchObject({
+      usedBytes: 0,
+      quotaBytes: expect.any(Number),
+      remainingBytes: expect.any(Number),
+    });
   });
 
   it('POST folders uses x-user-id and ignores body.userId', async () => {
@@ -100,6 +106,10 @@ describe('knowledge routes', () => {
   });
 
   it('POST files converts markdown and uploads with relative_path', async () => {
+    getTree.mockResolvedValue({
+      user_id: '1',
+      tree: { type: 'dir', name: '', path: '', children: [] },
+    });
     uploadFile.mockResolvedValue({
       file: { id: 'f1' },
       task: { id: 't1', status: 'pending' },
@@ -124,6 +134,49 @@ describe('knowledge routes', () => {
     expect(uploadFile.mock.calls[0][0]).toBe('1');
     expect(arg.relativePath).toBe('docs/notes.md');
     expect(arg.markdown).toContain('# Hello');
+  });
+
+  it('POST files rejects an upload that would exceed the user storage quota', async () => {
+    getTree.mockResolvedValue({
+      user_id: '1',
+      tree: {
+        type: 'dir',
+        name: '',
+        path: '',
+        children: [
+          {
+            type: 'file',
+            name: 'big.md',
+            path: 'big.md',
+            file: {
+              id: 'big',
+              original_filename: 'big.md',
+              inbox_relpath: 'big.md',
+              markdown_relpath: 'big.md',
+              size_bytes: 6 * 1024 * 1024 * 1024,
+            },
+          },
+        ],
+      },
+    });
+    const form = new FormData();
+    form.set(
+      'file',
+      new Blob(['# Hello\n'], { type: 'text/markdown' }),
+      'notes.md',
+    );
+    form.set('relative_path', 'notes.md');
+    const res = await POST_FILE(
+      req('http://localhost/itms/ai/api/knowledge/files', {
+        method: 'POST',
+        userId: '1',
+        body: form,
+      }),
+    );
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.message).toMatch(/Storage quota exceeded/);
+    expect(uploadFile).not.toHaveBeenCalled();
   });
 
   it('POST files rejects unsafe relative_path before Dochub', async () => {

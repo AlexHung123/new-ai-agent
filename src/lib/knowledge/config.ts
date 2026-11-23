@@ -1,4 +1,5 @@
 import configManager from '@/lib/config';
+import { DEFAULT_MAX_USER_BYTES } from './storage';
 import type { DochubConfig } from './types';
 
 export const DEFAULT_DOCHUB_BASE_URL = 'http://192.168.1.56:8787';
@@ -28,6 +29,27 @@ function parsePositiveInt(value: unknown): number | undefined {
   return undefined;
 }
 
+function parseNonNegativeInt(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
+    return Math.floor(value);
+  }
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isFinite(parsed) && parsed >= 0) return parsed;
+  }
+  return undefined;
+}
+
+function parseQuotaMap(raw: unknown): Record<string, number> {
+  if (!isRecord(raw)) return {};
+  const out: Record<string, number> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    const parsed = parseNonNegativeInt(value);
+    if (parsed !== undefined) out[key] = parsed;
+  }
+  return out;
+}
+
 export function resolveDochubConfig(raw: unknown): DochubConfig {
   const section = isRecord(raw) ? raw : {};
   const provided = Object.prototype.hasOwnProperty.call(section, 'baseUrl');
@@ -42,6 +64,9 @@ export function resolveDochubConfig(raw: unknown): DochubConfig {
     maxUploadBytes:
       parsePositiveInt(section.maxUploadBytes) ??
       DEFAULT_DOCHUB_MAX_UPLOAD_BYTES,
+    maxUserBytes:
+      parseNonNegativeInt(section.maxUserBytes) ?? DEFAULT_MAX_USER_BYTES,
+    userQuotaBytes: parseQuotaMap(section.userQuotaBytes),
   };
 }
 

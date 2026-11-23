@@ -13,7 +13,18 @@ describe('resolveDochubConfig', () => {
     expect(config.timeoutMs).toBe(60_000);
     expect(config.uploadTimeoutMs).toBe(120_000);
     expect(config.maxUploadBytes).toBe(DEFAULT_DOCHUB_MAX_UPLOAD_BYTES);
+    expect(config.maxUserBytes).toBe(5 * 1024 * 1024 * 1024);
+    expect(config.userQuotaBytes).toEqual({});
     expect(isDochubConfigured(config)).toBe(true);
+  });
+
+  it('reads a per-user storage quota map', () => {
+    const config = resolveDochubConfig({
+      maxUserBytes: 1000,
+      userQuotaBytes: { '1': 2000, '2': '3000' },
+    });
+    expect(config.maxUserBytes).toBe(1000);
+    expect(config.userQuotaBytes).toEqual({ '1': 2000, '2': 3000 });
   });
 
   it('strips a trailing slash on baseUrl', () => {

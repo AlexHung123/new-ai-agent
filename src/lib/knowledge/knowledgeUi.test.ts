@@ -11,26 +11,61 @@ describe('knowledge UI contracts', () => {
     const layout = readSrc('../../app/knowledge/layout.tsx');
     const page = readSrc('../../app/knowledge/page.tsx');
     expect(layout).toMatch(/Knowledge - AI Agent/);
-    expect(page).toMatch(/FolderOpen/);
-    expect(page).toMatch(/Knowledge/);
     expect(page).toMatch(/KnowledgeFileManager/);
   });
 
-  it('uses an inline new-folder field, upload, and drag-and-drop', () => {
+  it('fills the pane like the knowledge-base home, not a centered column', () => {
+    const sidebar = readSrc('../../components/Sidebar.tsx');
+    const layout = readSrc('../../components/Layout.tsx');
+    const css = readSrc('../../app/globals.css');
+    expect(sidebar).toMatch(
+      /flush=\{[^}]*segments\.includes\('knowledge'\)/,
+    );
+    expect(sidebar).not.toMatch(
+      /wide=\{segments\.includes\('agents'\) \|\| segments\.includes\('knowledge'\)\}/,
+    );
+    expect(layout).toMatch(/max-w-none/);
+    expect(css).toMatch(/\.app-main > div:has\(\.knowledge-manager\)/);
+    const managerStart = css.indexOf('.knowledge-manager {');
+    const managerBlock = css.slice(
+      managerStart,
+      css.indexOf('}', managerStart),
+    );
+    expect(managerBlock).toMatch(/width:\s*100%/);
+    expect(managerBlock).not.toMatch(/max-width/);
+    expect(managerBlock).not.toMatch(/margin:\s*0 auto/);
+  });
+
+  it('uses a folder tree and files table, not a card-grid home', () => {
     const manager = readSrc('../../components/knowledge/KnowledgeFileManager.tsx');
     const tree = readSrc('../../components/knowledge/KnowledgeTree.tsx');
     const listing = readSrc('../../components/knowledge/KnowledgeListing.tsx');
+    expect(manager).toMatch(/knowledge-detail-layout/);
+    expect(manager).toMatch(/Create folder/);
+    expect(manager).not.toMatch(/knowledge base/i);
+    expect(manager).not.toMatch(/knowledge-folder-grid/);
+    expect(manager).not.toMatch(/knowledge-page-title/);
     expect(manager).toMatch(/knowledge-new-folder/);
     expect(manager).not.toMatch(/window\.prompt/);
     expect(manager).toMatch(/knowledge-upload/);
+    expect(manager).toMatch(/knowledge-detail-folder-card/);
+    expect(manager).toMatch(/knowledge-storage-bar/);
     expect(manager).toMatch(/KNOWLEDGE_ACCEPT/);
     expect(manager).toMatch(/\/itms\/ai\/api\/knowledge\/tree/);
     expect(manager).toMatch(/\/itms\/ai\/api\/knowledge\/folders/);
     expect(manager).toMatch(/\/itms\/ai\/api\/knowledge\/files/);
     expect(manager).not.toMatch(/192\.168\.1\.56/);
     expect(tree).toMatch(/onDrop/);
+    expect(tree).toMatch(/knowledge-tree-toggle/);
+    expect(tree).toMatch(/FolderRows/);
+    expect(tree).toMatch(/knowledge-tree-folder-icon/);
+    expect(manager).toMatch(/aria-label="Folder tree"/);
     expect(listing).toMatch(/onDrop/);
-    expect(listing).toMatch(/Create a folder or drop files here/);
+    expect(listing).toMatch(/knowledge-files-table/);
+    expect(listing).toMatch(/Upload date/);
+    expect(listing).toMatch(/Parse/);
+    expect(listing).toMatch(/Preview/);
+    expect(listing).toMatch(/Download/);
   });
 
   it('searches through the app API and previews markdown', () => {
@@ -45,6 +80,10 @@ describe('knowledge UI contracts', () => {
     expect(listing).toMatch(/onOpenHit/);
     expect(preview).toMatch(/markdown-to-jsx/);
     expect(preview).toMatch(/File not found/);
+    expect(preview).toMatch(/knowledge-preview-dialog/);
+    expect(preview).toMatch(/aria-label="Close preview"/);
+    expect(preview).toMatch(/showModal/);
+    expect(manager).toMatch(/onClose=\{clearPreview\}/);
   });
 
   it('does not call Dochub or QMD from the browser', () => {

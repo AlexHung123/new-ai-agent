@@ -1,11 +1,22 @@
 'use client';
 
-import { ingestBadge } from '@/lib/knowledge/taskStatus';
+import {
+  formatKnowledgeDateTime,
+  formatStorageBytes,
+} from '@/lib/knowledge/storage';
+import { parseLabel } from '@/lib/knowledge/taskStatus';
 import type {
+  KnowledgeFileMeta,
   KnowledgeSearchHit,
   KnowledgeTask,
   KnowledgeTreeNode,
 } from '@/lib/knowledge/types';
+
+function parseClass(label: ReturnType<typeof parseLabel>): string {
+  if (label === 'Failed') return 'knowledge-parse is-failed';
+  if (label === 'done') return 'knowledge-parse is-done';
+  return 'knowledge-parse';
+}
 
 export default function KnowledgeListing({
   items,
@@ -15,6 +26,7 @@ export default function KnowledgeListing({
   onOpenDir,
   onOpenFile,
   onOpenHit,
+  onDownload,
   onDropFiles,
 }: {
   items: KnowledgeTreeNode[];
@@ -22,8 +34,9 @@ export default function KnowledgeListing({
   searching: boolean;
   tasks: Record<string, KnowledgeTask>;
   onOpenDir: (path: string) => void;
-  onOpenFile: (id: string) => void;
+  onOpenFile: (id: string, name?: string) => void;
   onOpenHit: (hit: KnowledgeSearchHit) => void;
+  onDownload: (file: KnowledgeFileMeta) => void;
   onDropFiles: (files: FileList) => void;
 }) {
   return (
@@ -39,60 +52,135 @@ export default function KnowledgeListing({
         hits.length === 0 ? (
           <p className="knowledge-empty">No matching files.</p>
         ) : (
-          <ul className="knowledge-hit-list">
-            {hits.map((hit, index) => (
-              <li key={`${hit.file}-${index}`}>
-                <button
-                  type="button"
-                  className="knowledge-hit"
-                  data-hit-file={hit.file}
-                  onClick={() => onOpenHit(hit)}
-                >
-                  <strong>{hit.title || hit.file}</strong>
-                  <span>{hit.snippet}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
+          <div className="knowledge-files-table-wrap">
+            <table className="knowledge-files-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Upload date</th>
+                  <th>Parse</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {hits.map((hit, index) => (
+                  <tr key={`${hit.file}-${index}`}>
+                    <td>
+                      <button
+                        type="button"
+                        className="knowledge-hit"
+                        data-hit-file={hit.file}
+                        onClick={() => onOpenHit(hit)}
+                      >
+                        <strong>{hit.title || hit.file}</strong>
+                        <span>{hit.snippet}</span>
+                      </button>
+                    </td>
+                    <td>—</td>
+                    <td />
+                    <td>
+                      <button
+                        type="button"
+                        className="knowledge-action"
+                        onClick={() => onOpenHit(hit)}
+                      >
+                        Preview
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )
       ) : items.length === 0 ? (
         <p className="knowledge-empty">Create a folder or drop files here.</p>
       ) : (
-        <ul className="knowledge-item-list">
-          {items.map((item) => {
-            const taskId = item.file?.task_id;
-            const badge = taskId ? ingestBadge(tasks[taskId]) : null;
-            return (
-              <li key={item.path}>
-                <button
-                  type="button"
-                  className="knowledge-item"
-                  onClick={() =>
-                    item.type === 'dir'
-                      ? onOpenDir(item.path)
-                      : item.file && onOpenFile(item.file.id)
-                  }
-                >
-                  {item.name}
-                  {badge === 'indexing' ? (
-                    <span className="knowledge-badge">Indexing</span>
-                  ) : null}
-                  {badge === 'embedding' ? (
-                    <span className="knowledge-badge">Embedding</span>
-                  ) : null}
-                  {badge === 'failed' ? (
-                    <span
-                      className="knowledge-badge is-failed"
-                      title={tasks[taskId]?.last_error || undefined}
-                    >
-                      Failed
-                    </span>
-                  ) : null}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="knowledge-files-table-wrap">
+          <table className="knowledge-files-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Upload date</th>
+                <th>Parse</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => {
+                const taskId = item.file?.task_id;
+                const label =
+                  item.type === 'file'
+                    ? parseLabel(taskId ? tasks[taskId] : null)
+                    : null;
+                return (
+                  <tr key={item.path}>
+                    <td>
+                      <button
+                        type="button"
+                        className="knowledge-file-name"
+                        onClick={() =>
+                          item.type === 'dir'
+                            ? onOpenDir(item.path)
+                            : item.file && onOpenFile(item.file.id, item.name)
+                        }
+                      >
+                        {item.type === 'dir' ? '📁 ' : ''}
+                        {item.name}
+                        {item.file ? (
+                          <span className="knowledge-file-sub">
+                            {formatStorageBytes(item.file.size_bytes)}
+                          </span>
+                        ) : null}
+                      </button>
+                    </td>
+                    <td>
+                      {item.type === 'file'
+                        ? formatKnowledgeDateTime(item.file?.created_at)
+                        : '—'}
+                    </td>
+                    <td>
+                      {label ? (
+                        <span
+                          className={parseClass(label)}
+                          title={
+                            label === 'Failed'
+                              ? tasks[taskId || '']?.last_error || undefined
+                              : undefined
+                          }
+                        >
+                          {label}
+                        </span>
+                      ) : null}
+                    </td>
+                    <td>
+                      {item.file ? (
+                        <div className="knowledge-actions">
+                          <button
+                            type="button"
+                            className="knowledge-action"
+                            onClick={() =>
+                              onOpenFile(item.file!.id, item.name)
+                            }
+                          >
+                            Preview
+                          </button>
+                          <button
+                            type="button"
+                            className="knowledge-action"
+                            onClick={() => onDownload(item.file!)}
+                          >
+                            Download
+                          </button>
+                        </div>
+                      ) : null}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

@@ -126,8 +126,12 @@ const Sidebar = ({ children }: { children: React.ReactNode }) => {
       </div>
 
       <Layout
-        wide={segments.includes('agents') || segments.includes('knowledge')}
-        flush={segments.length === 0 || segments[0] === 'c'}
+        wide={segments.includes('agents')}
+        flush={
+          segments.length === 0 ||
+          segments[0] === 'c' ||
+          segments.includes('knowledge')
+        }
       >
         {children}
       </Layout>

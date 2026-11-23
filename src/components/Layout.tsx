@@ -12,7 +12,7 @@ const Layout = ({
       <div
         className={
           flush
-            ? 'mx-4 max-w-none lg:mx-0'
+            ? 'mx-4 max-w-none w-full lg:mx-0'
             : wide
               ? 'mx-2 max-w-[100rem] md:mx-4 lg:mx-auto'
               : 'mx-4 max-w-screen-lg lg:mx-auto'
