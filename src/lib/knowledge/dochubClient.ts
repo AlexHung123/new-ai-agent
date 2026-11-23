@@ -69,10 +69,14 @@ async function send(
     if (res.status >= 400) {
       const rec =
         body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+      const similar = Array.isArray(rec.similar)
+        ? rec.similar.filter((item): item is string => typeof item === 'string')
+        : undefined;
       throw new DochubError(
         res.status,
         typeof rec.message === 'string' ? rec.message : 'Dochub request failed',
         typeof rec.error === 'string' ? rec.error : undefined,
+        similar,
       );
     }
     return body;
@@ -84,13 +88,14 @@ async function send(
 
 export async function getTree(
   userId: string,
-  deps?: DochubDeps,
+  deps?: DochubDeps & { path?: string },
 ): Promise<{
   user_id: string;
   tree: KnowledgeTreeNode;
 }> {
   const { config } = depsOf(deps);
-  return send(userId, '/v1/tree', { method: 'GET' }, config.timeoutMs, deps) as Promise<{
+  const path = deps?.path ? `?path=${encodeURIComponent(deps.path)}` : '';
+  return send(userId, `/v1/tree${path}`, { method: 'GET' }, config.timeoutMs, deps) as Promise<{
     user_id: string;
     tree: KnowledgeTreeNode;
   }>;
@@ -206,28 +211,47 @@ export async function getFileContent(
   }
 }
 
-export async function search(
-  userId: string,
-  input: {
-    query: string;
-    mode: KnowledgeSearchMode;
-    limit: number;
-    path?: string;
-  },
-  deps?: DochubDeps,
-): Promise<{
+export type DochubSearchInput = {
+  query?: string;
+  mode: KnowledgeSearchMode;
+  limit: number;
+  path?: string;
+  searches?: Array<{ type: string; query: string }>;
+  intent?: string;
+  rerank?: boolean;
+  minScore?: number;
+  candidateLimit?: number;
+};
+
+export type DochubSearchResult = {
   user_id: string;
   mode: string;
-  query: string;
+  query?: string;
   results: unknown[];
-}> {
+  intent?: string;
+  searches?: unknown;
+  keyword_search_ready?: boolean;
+  semantic_search_ready?: boolean;
+  hint?: string;
+};
+
+export async function search(
+  userId: string,
+  input: DochubSearchInput,
+  deps?: DochubDeps,
+): Promise<DochubSearchResult> {
   const { config } = depsOf(deps);
   const body: Record<string, unknown> = {
-    query: input.query,
     mode: input.mode,
     limit: input.limit,
   };
+  if (input.query) body.query = input.query;
   if (input.path) body.path = input.path;
+  if (input.searches?.length) body.searches = input.searches;
+  if (input.intent) body.intent = input.intent;
+  if (typeof input.rerank === 'boolean') body.rerank = input.rerank;
+  if (typeof input.minScore === 'number') body.minScore = input.minScore;
+  if (typeof input.candidateLimit === 'number') body.candidateLimit = input.candidateLimit;
   return send(
     userId,
     '/v1/search',
@@ -238,11 +262,135 @@ export async function search(
     },
     config.timeoutMs,
     deps,
+  ) as Promise<DochubSearchResult>;
+}
+
+export type DochubDocument = {
+  path: string;
+  docid?: string | null;
+  text: string;
+  from_line?: number;
+  max_lines?: number | null;
+  line_count?: number;
+  line_numbers?: boolean;
+  bytes?: number;
+};
+
+export async function getDocument(
+  userId: string,
+  input: {
+    path: string;
+    fromLine?: number;
+    maxLines?: number;
+    maxBytes?: number;
+    lineNumbers?: boolean;
+  },
+  deps?: DochubDeps,
+): Promise<{ user_id: string; document: DochubDocument }> {
+  const { config } = depsOf(deps);
+  const params = new URLSearchParams({ path: input.path });
+  if (input.fromLine != null) params.set('from_line', String(input.fromLine));
+  if (input.maxLines != null) params.set('max_lines', String(input.maxLines));
+  if (input.maxBytes != null) params.set('max_bytes', String(input.maxBytes));
+  if (input.lineNumbers === false) params.set('line_numbers', '0');
+  return send(
+    userId,
+    `/v1/documents?${params.toString()}`,
+    { method: 'GET' },
+    config.timeoutMs,
+    deps,
+  ) as Promise<{ user_id: string; document: DochubDocument }>;
+}
+
+export async function multiGetDocuments(
+  userId: string,
+  input: {
+    files: string[];
+    fromLine?: number;
+    maxLines?: number;
+    maxBytes?: number;
+    lineNumbers?: boolean;
+    path?: string;
+  },
+  deps?: DochubDeps,
+): Promise<{
+  user_id: string;
+  path?: string | null;
+  documents: DochubDocument[];
+  errors: Array<{ file?: string; error?: string; message?: string; similar?: string[] }>;
+}> {
+  const { config } = depsOf(deps);
+  const body: Record<string, unknown> = {
+    files: input.files,
+  };
+  if (input.fromLine != null) body.from_line = input.fromLine;
+  if (input.maxLines != null) body.max_lines = input.maxLines;
+  if (input.maxBytes != null) body.max_bytes = input.maxBytes;
+  if (input.lineNumbers === false) body.line_numbers = false;
+  if (input.path) body.path = input.path;
+  return send(
+    userId,
+    '/v1/documents/multi',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+    config.timeoutMs,
+    deps,
   ) as Promise<{
     user_id: string;
-    mode: string;
-    query: string;
-    results: unknown[];
+    path?: string | null;
+    documents: DochubDocument[];
+    errors: Array<{ file?: string; error?: string; message?: string; similar?: string[] }>;
+  }>;
+}
+
+export type DochubIndexStatus = {
+  keyword_search_ready?: boolean;
+  semantic_search_ready?: boolean;
+  hint?: string | null;
+  queue?: Record<string, number>;
+  ingest?: Record<string, unknown>;
+  embedding_model?: unknown;
+  collections?: unknown;
+  contexts?: Array<{ path: string; text: string }>;
+  qmd?: unknown;
+};
+
+export async function getStatus(
+  userId: string,
+  deps?: DochubDeps,
+): Promise<{
+  ok: boolean;
+  service?: string;
+  keyword_search_ready?: boolean;
+  semantic_search_ready?: boolean;
+  hint?: string | null;
+  queue?: Record<string, number>;
+  contexts?: Array<{ path: string; text: string }>;
+  index?: DochubIndexStatus;
+}> {
+  const { config } = depsOf(deps);
+  return send(userId, '/v1/status', { method: 'GET' }, config.timeoutMs, deps) as Promise<{
+    ok: boolean;
+    service?: string;
+    keyword_search_ready?: boolean;
+    semantic_search_ready?: boolean;
+    hint?: string | null;
+    queue?: Record<string, number>;
+    contexts?: Array<{ path: string; text: string }>;
+    index?: DochubIndexStatus;
+  }>;
+}
+
+export async function getContext(
+  userId: string,
+  deps?: DochubDeps,
+): Promise<{ contexts: Array<{ path: string; text: string }> }> {
+  const { config } = depsOf(deps);
+  return send(userId, '/v1/context', { method: 'GET' }, config.timeoutMs, deps) as Promise<{
+    contexts: Array<{ path: string; text: string }>;
   }>;
 }
 

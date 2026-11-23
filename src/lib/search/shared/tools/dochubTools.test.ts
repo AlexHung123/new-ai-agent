@@ -51,7 +51,7 @@ describe('createDochubTools', () => {
     expect(search).toHaveBeenCalledWith(
       '1',
       expect.objectContaining({
-        query: 'plan',
+        searches: [{ type: 'lex', query: 'plan' }],
         mode: 'search',
         path: 'contracts/2024',
       }),

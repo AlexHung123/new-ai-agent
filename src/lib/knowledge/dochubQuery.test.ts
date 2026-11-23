@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { mapDochubQueryArgs } from './dochubQuery';
 
 describe('mapDochubQueryArgs', () => {
-  it('maps lex-only searches to mode search', () => {
+  it('maps lex-only searches to mode search without flattening away the searches', () => {
     expect(
       mapDochubQueryArgs({
         searches: [{ type: 'lex', query: 'quarterly plan' }],
@@ -10,26 +10,13 @@ describe('mapDochubQueryArgs', () => {
       }),
     ).toEqual({
       ok: true,
-      query: 'quarterly plan',
       mode: 'search',
       limit: 5,
+      searches: [{ type: 'lex', query: 'quarterly plan' }],
     });
   });
 
-  it('maps vec-only searches to vsearch', () => {
-    expect(
-      mapDochubQueryArgs({
-        searches: [{ type: 'vec', query: 'cockpit instruments' }],
-      }),
-    ).toMatchObject({
-      ok: true,
-      mode: 'vsearch',
-      query: 'cockpit instruments',
-      limit: 5,
-    });
-  });
-
-  it('maps mixed searches to query mode using intent', () => {
+  it('keeps mixed searches and intent for query mode', () => {
     expect(
       mapDochubQueryArgs({
         intent: 'Find the OKR note',
@@ -38,12 +25,22 @@ describe('mapDochubQueryArgs', () => {
           { type: 'hyde', query: 'A note about quarterly OKRs' },
         ],
         limit: 10,
+        rerank: false,
+        minScore: 0.2,
+        candidateLimit: 20,
       }),
-    ).toMatchObject({
+    ).toEqual({
       ok: true,
       mode: 'query',
-      query: 'Find the OKR note',
       limit: 10,
+      intent: 'Find the OKR note',
+      searches: [
+        { type: 'lex', query: 'OKR' },
+        { type: 'hyde', query: 'A note about quarterly OKRs' },
+      ],
+      rerank: false,
+      minScore: 0.2,
+      candidateLimit: 20,
     });
   });
 
@@ -53,7 +50,15 @@ describe('mapDochubQueryArgs', () => {
         query: 'ignored',
         searches: [{ type: 'lex', query: 'kept' }],
       }),
-    ).toMatchObject({ ok: true, query: 'kept', mode: 'search' });
+    ).toMatchObject({
+      ok: true,
+      mode: 'search',
+      searches: [{ type: 'lex', query: 'kept' }],
+    });
+    expect(mapDochubQueryArgs({
+      query: 'ignored',
+      searches: [{ type: 'lex', query: 'kept' }],
+    })).not.toMatchObject({ query: 'ignored' });
   });
 
   it('uses a bare query string when there are no searches', () => {

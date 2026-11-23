@@ -1,6 +1,7 @@
-import { getFileContent, type DochubDeps } from './dochubClient';
+import { getDocument, type DochubDeps, type DochubDocument } from './dochubClient';
+import { DochubError } from './errors';
 import { stripQmdMarkdownPath } from './search';
-import type { KnowledgeFileMeta, KnowledgeTreeNode } from './types';
+import type { KnowledgeTreeNode } from './types';
 import { findFileByDochubPath } from './tree';
 import { pathInsidePin, type WritingMentionedDocument } from './writingPin';
 import {
@@ -16,14 +17,15 @@ export type DochubGetResult =
   | {
       ok: true;
       dochub_path: string;
+      docid?: string;
       text: string;
       fromLine: number;
       lineCount: number;
     }
-  | { ok: false; error: string };
+  | { ok: false; error: string; similar?: string[] };
 
 export type DochubGetDeps = DochubDeps & {
-  getFileContent?: typeof getFileContent;
+  getDocument?: typeof getDocument;
 };
 
 function splitMarkdownLines(markdown: string): string[] {
@@ -56,22 +58,35 @@ export function sliceMarkdownLines(
 }
 
 function isMentioned(
-  file: KnowledgeFileMeta,
+  file: { id?: string; markdown_relpath?: string; inbox_relpath?: string; path?: string },
   mentioned: WritingMentionedDocument[],
 ): boolean {
   return mentioned.some(
     (doc) =>
-      doc.fileId === file.id ||
+      (file.id && doc.fileId === file.id) ||
       doc.markdownRelpath === file.markdown_relpath ||
       doc.path === file.inbox_relpath ||
-      doc.path === file.markdown_relpath,
+      doc.path === file.markdown_relpath ||
+      doc.markdownRelpath === file.path ||
+      doc.path === file.path,
   );
 }
 
-function insidePin(file: KnowledgeFileMeta, pin: string | null): boolean {
-  return (
-    pathInsidePin(file.markdown_relpath || file.inbox_relpath, pin) ||
-    pathInsidePin(file.inbox_relpath, pin)
+function allowedPath(
+  path: string | undefined,
+  opts: {
+    pin: string | null;
+    mentionedDocuments: WritingMentionedDocument[];
+    id?: string;
+    inbox?: string;
+  },
+): boolean {
+  if (pathInsidePin(path, opts.pin) || pathInsidePin(opts.inbox, opts.pin)) {
+    return true;
+  }
+  return isMentioned(
+    { id: opts.id, markdown_relpath: path, inbox_relpath: opts.inbox, path },
+    opts.mentionedDocuments,
   );
 }
 
@@ -92,6 +107,18 @@ function resolveRange(opts: {
   return { fromLine, maxLines };
 }
 
+function isDocid(raw: string): boolean {
+  return raw.trim().startsWith('#');
+}
+
+function formatDocumentText(doc: DochubDocument, fromLine: number): string {
+  const text = doc.text || '';
+  if (/^\d+: /m.test(text)) {
+    return text.replace(/^(\d+): /gm, '$1|');
+  }
+  return text.includes('|') ? text : numberLines(splitMarkdownLines(text), fromLine);
+}
+
 export async function getDochubMarkdown(opts: {
   userId: string;
   tree: KnowledgeTreeNode | null;
@@ -100,21 +127,23 @@ export async function getDochubMarkdown(opts: {
   file: string;
   fromLine?: unknown;
   maxLines?: unknown;
+  maxBytes?: unknown;
   deps?: DochubGetDeps;
 }): Promise<DochubGetResult> {
-  if (!opts.tree) {
-    return { ok: false, error: 'Knowledge library is unavailable.' };
-  }
-
   const locator = parseFsReadLocator(stripQmdMarkdownPath(opts.file || ''));
-  const meta = findFileByDochubPath(opts.tree, locator.path);
-  if (!meta) {
-    return { ok: false, error: 'file not found' };
-  }
+  const meta = opts.tree && !isDocid(locator.path)
+    ? findFileByDochubPath(opts.tree, locator.path)
+    : null;
+  const targetPath = meta?.markdown_relpath || locator.path;
 
   if (
-    !insidePin(meta, opts.pin) &&
-    !isMentioned(meta, opts.mentionedDocuments)
+    !isDocid(locator.path) &&
+    !allowedPath(targetPath, {
+      pin: opts.pin,
+      mentionedDocuments: opts.mentionedDocuments,
+      id: meta?.id,
+      inbox: meta?.inbox_relpath,
+    })
   ) {
     return { ok: false, error: 'path is outside the pinned folder' };
   }
@@ -124,23 +153,56 @@ export async function getDochubMarkdown(opts: {
     fromLine: opts.fromLine,
     maxLines: opts.maxLines,
   });
+  const maxBytes =
+    typeof opts.maxBytes === 'number' && Number.isInteger(opts.maxBytes) && opts.maxBytes > 0
+      ? opts.maxBytes
+      : MAX_BYTES;
 
   try {
-    const { bytes } = opts.deps?.getFileContent
-      ? await opts.deps.getFileContent(opts.userId, meta.id, 'markdown')
-      : await getFileContent(opts.userId, meta.id, 'markdown', opts.deps);
-    const markdown = new TextDecoder('utf8').decode(bytes);
-    const sliced = sliceMarkdownLines(markdown, fromLine, maxLines);
+    const fetchDoc = opts.deps?.getDocument ?? getDocument;
+    const { document } = await fetchDoc(
+      opts.userId,
+      {
+        path: isDocid(locator.path) ? locator.path : targetPath,
+        fromLine,
+        maxLines: maxLines === UNLIMITED_LINES ? undefined : maxLines,
+        maxBytes,
+        lineNumbers: true,
+      },
+      opts.deps,
+    );
+    const resolved = document.path || targetPath;
+    if (
+      !allowedPath(resolved, {
+        pin: opts.pin,
+        mentionedDocuments: opts.mentionedDocuments,
+        id: meta?.id,
+        inbox: meta?.inbox_relpath,
+      })
+    ) {
+      return { ok: false, error: 'path is outside the pinned folder' };
+    }
+    const text = formatDocumentText(document, document.from_line || fromLine);
     return {
       ok: true,
-      dochub_path: meta.markdown_relpath || locator.path,
-      text: sliced.text,
-      fromLine: sliced.fromLine,
-      lineCount: sliced.lineCount,
+      dochub_path: resolved,
+      ...(document.docid ? { docid: document.docid } : {}),
+      text,
+      fromLine: document.from_line || fromLine,
+      lineCount:
+        typeof document.max_lines === 'number'
+          ? splitMarkdownLines(text).length
+          : document.line_count ?? splitMarkdownLines(text).length,
     };
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'file not found';
+    if (error instanceof DochubError && error.similar?.length) {
+      return {
+        ok: false,
+        error: `file not found. Similar: ${error.similar.join(', ')}`,
+        similar: error.similar,
+      };
+    }
+    const message = error instanceof Error ? error.message : 'file not found';
     return { ok: false, error: message };
   }
 }

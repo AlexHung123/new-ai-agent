@@ -51,4 +51,31 @@ describe('buildWritingUserPrompt', () => {
     expect(prompt).not.toContain('[Attachments]');
     expect(prompt).not.toContain('# ');
   });
+
+  it('warns when the knowledge library is unreachable', () => {
+    const prompt = buildWritingUserPrompt('List files', {
+      ...ctx,
+      tree: null,
+      libraryAvailable: false,
+      libraryError: 'Knowledge service is unavailable. Knowledge tools will fail.',
+    });
+    expect(prompt).toContain('[Knowledge library]');
+    expect(prompt).toContain('Knowledge service is unavailable');
+  });
+
+  it('includes collection context and a keyword-search hint', () => {
+    const prompt = buildWritingUserPrompt('Find the OKR note', {
+      ...ctx,
+      contexts: [{ path: 'contracts', text: 'Signed contracts' }],
+      index: {
+        keyword_search_ready: true,
+        semantic_search_ready: false,
+        hint: 'Use keyword search',
+      },
+    });
+    expect(prompt).toContain('[Collection context]');
+    expect(prompt).toContain('Signed contracts');
+    expect(prompt).toContain('[Index status]');
+    expect(prompt).toContain('Use keyword search');
+  });
 });

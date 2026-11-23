@@ -53,9 +53,14 @@ describe('sliceMarkdownLines', () => {
 
 describe('getDochubMarkdown', () => {
   it('resolves path, slices, and allows a mentioned file outside the pin', async () => {
-    const getFileContent = vi.fn(async () => ({
-      bytes: new TextEncoder().encode('one\ntwo\nthree\nfour'),
-      contentType: 'text/markdown',
+    const getDocument = vi.fn(async () => ({
+      user_id: '1',
+      document: {
+        path: 'other.md',
+        text: '2: two\n3: three',
+        from_line: 2,
+        line_count: 2,
+      },
     }));
     const mentioned = [
       {
@@ -71,14 +76,18 @@ describe('getDochubMarkdown', () => {
       pin: 'contracts',
       mentionedDocuments: mentioned,
       file: 'other.md:2:2',
-      deps: { getFileContent },
+      deps: { getDocument },
     });
     expect(hit).toMatchObject({
       ok: true,
       dochub_path: 'other.md',
       text: '2|two\n3|three',
     });
-    expect(getFileContent).toHaveBeenCalledWith('1', 'o1', 'markdown');
+    expect(getDocument).toHaveBeenCalledWith(
+      '1',
+      expect.objectContaining({ path: 'other.md', fromLine: 2, maxLines: 2 }),
+      expect.anything(),
+    );
   });
 
   it('rejects a path outside the pin when it was not mentioned', async () => {
@@ -88,22 +97,29 @@ describe('getDochubMarkdown', () => {
       pin: 'contracts',
       mentionedDocuments: [],
       file: 'other.md',
-      deps: { getFileContent: vi.fn() },
+      deps: { getDocument: vi.fn() },
     });
     expect(result.ok).toBe(false);
   });
 
-  it('returns unavailable when tree is null', async () => {
+  it('reads by docid and returns similar path hints when missing', async () => {
+    const { DochubError } = await import('./errors');
+    const getDocument = vi.fn(async () => {
+      throw new DochubError(404, 'document not found', 'not_found', ['docs/note.md']);
+    });
     const result = await getDochubMarkdown({
       userId: '1',
-      tree: null,
+      tree,
       pin: null,
       mentionedDocuments: [],
-      file: 'other.md',
+      file: '#abc123',
+      deps: { getDocument },
     });
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       ok: false,
-      error: 'Knowledge library is unavailable.',
+      similar: ['docs/note.md'],
     });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain('docs/note.md');
   });
 });

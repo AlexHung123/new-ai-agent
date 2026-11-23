@@ -58,9 +58,13 @@ Retrieved:
     { "type": "vec", "query": "data informed not metric driven product judgment" },
     { "type": "hyde", "query": "A note says metrics are useful like cockpit instruments, but leaders should stay data-informed rather than metric-driven." }
   ],
-  "limit": 10
+  "limit": 10,
+  "minScore": 0,
+  "candidateLimit": 40
 }
 ```
+
+These fields are sent through to Dochub / qmd. `lex` / `vec` / `hyde` stay on separate channels and are fused with RRF. Rerank is off by default; set `rerank: true` to enable the slower cross-encoder. Do not collapse them into one string.
 
 - `intent` — what to find and what to avoid.
 - `lex` — exact terms, aliases, titles you expect in the source.
@@ -69,7 +73,7 @@ Retrieved:
 
 A bare `query: "<the user's sentence>"` throws away context only you have. Prefer structured `searches`. If the user gave a single rare token, lex-only is enough.
 
-If `query` / `vsearch` fails (model or GPU), retry with lex-only or `"mode": "search"`.
+A bare `query` with `mode: query` is expanded by the server into `lex:` + `vec:`. If hybrid search times out, is busy, fails, or embeddings are not ready, Dochub retries keyword search automatically and returns `fallback.reason` (`timeout`, `busy`, `qmd_exec_failed`, `semantic_not_ready`, or `parse_failed`). You usually do not need to retry. Set `fallback: false` only if you must fail instead of falling back.
 
 ## Folder scope
 
@@ -79,19 +83,25 @@ If the user names a folder, pass it as `path` on `query` / `tree` (markdown-rela
 
 ## Retrieve
 
-`get` / `multi_get` take `dochub_path` values from search (also `qmd://markdown/...`). They return line-numbered text by default.
+`get` / `multi_get` take `dochub_path` values from search (also `qmd://markdown/...` or `#abc123` docids). They return line-numbered text by default.
 
 - `contracts/note.md:120:40` — 40 lines starting at 120.
 - `contracts/note.md:120` — from 120 to end.
+- `#abc123:120:40` — the same range by docid.
 - `get` args `fromLine` / `maxLines` override a suffix.
+
+If a path is missing, the tool returns similar path or filename hints. Do not invent a path.
 
 Do not slice documents with `sed`, `head`, `tail`, or `awk`.
 
-`multi_get` accepts comma-separated paths or a glob (`contracts/*.md`).
+`multi_get` accepts comma-separated paths, docids, or globs, including recursive `contracts/**/*.md`. Optional `maxBytes` caps each file.
+
+`tree` can take `refresh: true` to fetch a live file list instead of the start-of-turn snapshot.
 
 ## Pitfalls
 
 - Do not stop at snippets. Fetch before claiming facts, quotes, or decisions.
 - Do not invent `user_id`, paths outside the pin, or a second search backend.
 - Do not mutate indexes. Upload and ingest stay on the Knowledge page / Mac worker.
-- Keyword search works after ingest. Semantic `vec` / `hyde` / `mode: query` need embeddings; if those fail, use lex.
+- Call `status` when search looks empty or stale. Keyword search works after ingest (`qmd update`). Semantic `vec` / `hyde` / `mode: query` need embeddings; if `semantic_search_ready` is false, use lex / `mode: search`.
+- If the user message says the knowledge library is unreachable, do not retry knowledge tools. Tell the user.

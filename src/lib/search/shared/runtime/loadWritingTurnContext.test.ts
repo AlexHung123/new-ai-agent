@@ -23,8 +23,9 @@ describe('loadWritingTurnContext', () => {
       text: 'hello',
       selectedFolder: 'writing',
       loadTree: async () => ({ user_id: '1', tree }),
+      loadStatus: async () => ({ ok: true }),
     });
-    expect(ctx).toMatchObject({ userId: '1', pin: 'writing', tree });
+    expect(ctx).toMatchObject({ userId: '1', pin: 'writing', tree, libraryAvailable: true });
   });
 
   it('still returns a turn when getTree throws', async () => {
@@ -36,11 +37,32 @@ describe('loadWritingTurnContext', () => {
         throw new Error('ECONNREFUSED');
       },
     });
-    expect(ctx).toEqual({
+    expect(ctx.userId).toBe('1');
+    expect(ctx.pin).toBe(null);
+    expect(ctx.mentionedDocuments).toEqual([]);
+    expect(ctx.tree).toBeNull();
+    expect(ctx.libraryAvailable).toBe(false);
+    expect(ctx.libraryError).toMatch(/Knowledge service is unavailable/);
+  });
+
+  it('loads collection context and index readiness', async () => {
+    const ctx = await loadWritingTurnContext({
       userId: '1',
-      pin: null,
-      mentionedDocuments: [],
-      tree: null,
+      text: 'hello',
+      loadTree: async () => ({ user_id: '1', tree }),
+      loadStatus: async () => ({
+        ok: true,
+        keyword_search_ready: true,
+        semantic_search_ready: false,
+        hint: 'Use keyword search',
+        contexts: [{ path: '/', text: 'User markdown documents' }],
+      }),
+    });
+    expect(ctx.contexts).toEqual([{ path: '/', text: 'User markdown documents' }]);
+    expect(ctx.index).toMatchObject({
+      keyword_search_ready: true,
+      semantic_search_ready: false,
+      hint: 'Use keyword search',
     });
   });
 });

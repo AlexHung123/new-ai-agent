@@ -122,6 +122,40 @@ describe('dochubClient', () => {
     });
   });
 
+  it('forwards structured searches, intent, and rerank fields', async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse(200, { user_id: '1', mode: 'query', query: 'intent: x\nlex: OKR', results: [] }),
+    );
+    await search(
+      '1',
+      {
+        mode: 'query',
+        limit: 10,
+        intent: 'Find the OKR note',
+        searches: [
+          { type: 'lex', query: 'OKR' },
+          { type: 'hyde', query: 'A note about OKRs' },
+        ],
+        rerank: false,
+        minScore: 0.2,
+        candidateLimit: 20,
+      },
+      { fetch: fetchMock, config },
+    );
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({
+      mode: 'query',
+      limit: 10,
+      searches: [
+        { type: 'lex', query: 'OKR' },
+        { type: 'hyde', query: 'A note about OKRs' },
+      ],
+      intent: 'Find the OKR note',
+      rerank: false,
+      minScore: 0.2,
+      candidateLimit: 20,
+    });
+  });
+
   it('getHealth calls /health without X-User-Id', async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse(200, { ok: true, service: 'dochub' }),

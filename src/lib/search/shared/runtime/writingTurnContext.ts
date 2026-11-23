@@ -2,11 +2,26 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import type { KnowledgeTreeNode } from '@/lib/knowledge/types';
 import type { WritingMentionedDocument } from '@/lib/knowledge/writingPin';
 
+export type WritingCollectionContext = {
+  path: string;
+  text: string;
+};
+
+export type WritingIndexStatus = {
+  keyword_search_ready?: boolean;
+  semantic_search_ready?: boolean;
+  hint?: string | null;
+};
+
 export type WritingTurnContext = {
   userId: string;
   pin: string | null;
   mentionedDocuments: WritingMentionedDocument[];
   tree: KnowledgeTreeNode | null;
+  libraryAvailable?: boolean;
+  libraryError?: string;
+  contexts?: WritingCollectionContext[];
+  index?: WritingIndexStatus;
 };
 
 const globalForAls = globalThis as typeof globalThis & {
