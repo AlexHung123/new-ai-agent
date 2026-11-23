@@ -2301,6 +2301,62 @@ body:has(.html-close-itms) .document-preview-tabs {
   background: #f8fafc;
 }
 
+.knowledge-loading-skel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.knowledge-skeleton {
+  border-radius: 8px;
+  background: linear-gradient(90deg, #e2e8f0 0%, #f8fafc 50%, #e2e8f0 100%);
+  background-size: 200% 100%;
+  animation: knowledge-shimmer 1.2s ease-in-out infinite;
+}
+
+.knowledge-skeleton-line {
+  height: 14px;
+  width: 78%;
+}
+
+.knowledge-skeleton-line.is-indent {
+  width: 58%;
+  margin-left: 16px;
+}
+
+.knowledge-skeleton-storage {
+  height: 72px;
+  width: 100%;
+  margin: 0 0 16px;
+}
+
+.knowledge-loading-main {
+  flex: 1;
+  min-height: 12rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.knowledge-loading-spinner {
+  animation: processing-spin 0.9s linear infinite;
+  color: #0f766e;
+}
+
+@keyframes knowledge-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
 .knowledge-banner {
   color: #b42318;
   font-size: 14px;

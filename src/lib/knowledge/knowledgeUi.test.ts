@@ -14,6 +14,20 @@ describe('knowledge UI contracts', () => {
     expect(page).toMatch(/KnowledgeFileManager/);
   });
 
+  it('shows a loading state before the tree arrives', () => {
+    const page = readSrc('../../app/knowledge/page.tsx');
+    const manager = readSrc('../../components/knowledge/KnowledgeFileManager.tsx');
+    const loading = readSrc('../../components/knowledge/KnowledgeLoading.tsx');
+    const routeLoading = readSrc('../../app/knowledge/loading.tsx');
+    expect(page).toMatch(/KnowledgeLoading/);
+    expect(page).not.toMatch(/fallback=\{null\}/);
+    expect(manager).toMatch(/initialLoading/);
+    expect(manager).toMatch(/KnowledgeLoading/);
+    expect(loading).toMatch(/Loading files/);
+    expect(loading).toMatch(/knowledge-loading-spinner/);
+    expect(routeLoading).toMatch(/KnowledgeLoading/);
+  });
+
   it('fills the pane like the knowledge-base home, not a centered column', () => {
     const sidebar = readSrc('../../components/Sidebar.tsx');
     const layout = readSrc('../../components/Layout.tsx');

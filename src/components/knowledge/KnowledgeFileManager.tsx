@@ -1,6 +1,7 @@
 'use client';
 
 import KnowledgeListing from '@/components/knowledge/KnowledgeListing';
+import KnowledgeLoading from '@/components/knowledge/KnowledgeLoading';
 import KnowledgePreview from '@/components/knowledge/KnowledgePreview';
 import KnowledgeTree from '@/components/knowledge/KnowledgeTree';
 import {
@@ -93,6 +94,7 @@ function StorageBar({ storage }: { storage: KnowledgeStorageUsage | null }) {
 
 export default function KnowledgeFileManager() {
   const [tree, setTree] = useState<KnowledgeTreeNode>(EMPTY_TREE);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [storage, setStorage] = useState<KnowledgeStorageUsage | null>(null);
   const [currentPath, setCurrentPath] = useState('');
   const [bannerError, setBannerError] = useState<string | null>(null);
@@ -109,41 +111,47 @@ export default function KnowledgeFileManager() {
   const startedAt = useRef<Record<string, number>>({});
 
   const loadTree = useCallback(async () => {
-    const res = await fetch(TREE_URL, { headers: getAuthHeaders() });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setBannerError(
-        typeof body.message === 'string'
-          ? body.message
-          : 'Knowledge service is unavailable.',
-      );
-      return;
-    }
-    setBannerError(null);
-    const nextTree = body.tree || EMPTY_TREE;
-    setTree(nextTree);
-    if (body.storage) setStorage(body.storage);
-    const ids = fileTaskIds(nextTree);
-    if (ids.length === 0) return;
-    setTasks((prev) => {
-      const next = { ...prev };
-      let changed = false;
-      for (const id of ids) {
-        if (!next[id]) {
-          next[id] = {
-            id,
-            user_id: '',
-            kind: '',
-            file_id: '',
-            status: 'pending',
-            stage: null,
-            last_error: null,
-          };
-          changed = true;
-        }
+    try {
+      const res = await fetch(TREE_URL, { headers: getAuthHeaders() });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setBannerError(
+          typeof body.message === 'string'
+            ? body.message
+            : 'Knowledge service is unavailable.',
+        );
+        return;
       }
-      return changed ? next : prev;
-    });
+      setBannerError(null);
+      const nextTree = body.tree || EMPTY_TREE;
+      setTree(nextTree);
+      if (body.storage) setStorage(body.storage);
+      const ids = fileTaskIds(nextTree);
+      if (ids.length === 0) return;
+      setTasks((prev) => {
+        const next = { ...prev };
+        let changed = false;
+        for (const id of ids) {
+          if (!next[id]) {
+            next[id] = {
+              id,
+              user_id: '',
+              kind: '',
+              file_id: '',
+              status: 'pending',
+              stage: null,
+              last_error: null,
+            };
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    } catch {
+      setBannerError('Knowledge service is unavailable.');
+    } finally {
+      setInitialLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -421,6 +429,10 @@ export default function KnowledgeFileManager() {
       />
     </>
   );
+
+  if (initialLoading) {
+    return <KnowledgeLoading />;
+  }
 
   const listing = (
     <KnowledgeListing
