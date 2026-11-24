@@ -28,7 +28,6 @@ import {
 } from '@/lib/search/shared/runtime/documentTurnContext';
 import { runWithWritingTurn } from '@/lib/search/shared/runtime/writingTurnContext';
 import { loadWritingTurnContext } from '@/lib/search/shared/runtime/loadWritingTurnContext';
-import { runWithHtmlTurn } from '@/lib/html/htmlTurnContext';
 import {
   resolveBoundWcms,
   wcmsBindPatchForExistingChat,
@@ -273,9 +272,6 @@ export const POST = async (req: Request) => {
         ),
       );
 
-    const withHtml = <T,>(fn: () => T | Promise<T>) =>
-      runWithHtmlTurn({ userId, htmlMode: false }, fn);
-
     const wcmsBound = resolveBoundWcms({
       focusMode: body.focusMode,
       chatExists: Boolean(existingChat),
@@ -291,16 +287,14 @@ export const POST = async (req: Request) => {
     if (bound.status === 'ok' && !documentTurn) {
       stream = unavailableDocumentEmitter();
     } else if (documentTurn) {
-      stream = await withHtml(() =>
-        runWithDocumentTurn(documentTurn, runSearch),
-      );
+      stream = await runWithDocumentTurn(documentTurn, runSearch);
     } else if (body.focusMode === 'agentWriting') {
       const writingTurn = await loadWritingTurnContext({
         userId,
         text: body.message.content,
         selectedFolder: body.knowledgeFolder,
       });
-      stream = await withHtml(() => runWithWritingTurn(writingTurn, runSearch));
+      stream = await runWithWritingTurn(writingTurn, runSearch);
     } else if (body.focusMode === 'agentHtml') {
       const bind =
         wcmsBound.status === 'ok'

@@ -6,24 +6,28 @@ function readSrc(...parts: string[]): string {
   return readFileSync(path.join(__dirname, ...parts), 'utf8');
 }
 
-describe('HTML explainer composer and embed', () => {
-  it('puts the HTML hint label immediately after the attach-image controls', () => {
+describe('HTML explainer feature removed', () => {
+  it('does not mount a Documents pill or HTML skill hint on the composer', () => {
+    const empty = readSrc('../../components/EmptyChat.tsx');
     const input = readSrc('../../components/MessageInput.tsx');
-    const empty = readSrc('../../components/EmptyChatMessageInput.tsx');
-    for (const src of [input, empty]) {
-      expect(src).toMatch(/AttachImageControls[\s\S]*HtmlSkillHint/);
-      expect(src).toMatch(/<HtmlSkillHint\s*\/>/);
-      expect(src).not.toMatch(/WritingToolbarButtons/);
-    }
+    const emptyInput = readSrc('../../components/EmptyChatMessageInput.tsx');
+    expect(empty).not.toMatch(/WritingHtmlHint/);
+    expect(empty).not.toMatch(/Documents/);
+    expect(input).not.toMatch(/HtmlSkillHint/);
+    expect(emptyInput).not.toMatch(/HtmlSkillHint/);
+    expect(input).not.toMatch(/WritingToolbarButtons/);
+    expect(emptyInput).not.toMatch(/WritingToolbarButtons/);
   });
 
   it('does not send htmlMode with the chat body', () => {
     const chat = readSrc('../hooks/useChat.tsx');
+    const schema = readSrc('../chat/chatBodySchema.ts');
     expect(chat).not.toMatch(/htmlMode:\s*htmlModeRef\.current/);
     expect(chat).not.toMatch(/setHtmlMode/);
+    expect(schema).not.toMatch(/htmlMode/);
   });
 
-  it('embeds pages in a sandboxed iframe without same-origin', () => {
+  it('embeds previously generated pages in a sandboxed iframe without same-origin', () => {
     const embed = readSrc('../../components/HtmlPageEmbed.tsx');
     expect(embed).toMatch(/sandbox=["']allow-scripts["']/);
     expect(embed).not.toMatch(/allow-same-origin/);
@@ -36,20 +40,6 @@ describe('HTML explainer composer and embed', () => {
     expect(box).toMatch(/HtmlPageEmbed/);
   });
 
-  it('shows the HTML hint only for Document, with wording on hover', () => {
-    const hint = readSrc('../../components/HtmlSkillHint.tsx');
-    const writing = readSrc('../../components/WritingHtmlHint.tsx');
-    expect(hint).toMatch(/focusMode !== 'agentDocument'/);
-    expect(hint).not.toMatch(/agentWriting/);
-    expect(writing).toMatch(/HTML_SKILL_HINT/);
-    expect(hint).toMatch(/title=\{HTML_SKILL_HINT\}/);
-    expect(hint).toMatch(/HTML explainer/);
-    expect(hint).toMatch(/流程說明/);
-    expect(hint).not.toMatch(/aria-pressed/);
-    expect(hint).not.toMatch(/setHtmlMode/);
-    expect(hint).not.toMatch(/<button/);
-  });
-
   it('loads the iframe with a Bearer fetch, not a token query', () => {
     const embed = readSrc('../../components/HtmlPageEmbed.tsx');
     expect(embed).toMatch(/getAuthHeaders/);
@@ -57,50 +47,42 @@ describe('HTML explainer composer and embed', () => {
     expect(embed).toMatch(/Download/);
   });
 
-  it('registers read_skill on writing and document agent templates', () => {
+  it('does not register read_skill or am_render on writing or document templates', () => {
     const ctx = readSrc('../search/shared/agent/getSharedAgentContext.ts');
-    expect(ctx).toMatch(/createReadSkillTool/);
+    expect(ctx).not.toMatch(/createReadSkillTool/);
+    expect(ctx).not.toMatch(/createAmRenderTool/);
+    expect(ctx).toMatch(/tools: \['fs_ls', 'fs_read', 'fs_grep', 'fs_find'\]/);
     expect(ctx).toMatch(
-      /tools: \['fs_ls', 'fs_read', 'fs_grep', 'fs_find', 'read_skill', 'am_render'\]/,
+      /tools: \['query', 'get', 'multi_get', 'tree', 'status'\]/,
     );
-    expect(ctx).toMatch(
-      /tools: \['query', 'get', 'multi_get', 'tree', 'status', 'read_skill', 'am_render'\]/,
-    );
-    expect(ctx).toMatch(/SHARED_AGENT_CONTEXT_REV = 15/);
+    expect(ctx).toMatch(/SHARED_AGENT_CONTEXT_REV = 16/);
     expect(ctx).toMatch(/'html-agent-template'/);
     expect(ctx).toMatch(/tools: \['html_get', 'html_set'\]/);
   });
 
-  it('keeps read_skill and am_render on Writing and Document even when the HTML tag is off', () => {
+  it('does not expose am_render on Writing or Document turns', () => {
     const writing = readSrc('../search/shared/prompts/writingTurnPrefix.ts');
+    const writingAgent = readSrc('../search/writingAgent.ts');
     const document = readSrc('../search/documentAgent.ts');
-    expect(writing).toMatch(
-      /return \[\.\.\.WRITING_DOCHUB_TOOLS,\s*READ_SKILL_TOOL,\s*AM_RENDER_TOOL\]/,
-    );
-    expect(writing).not.toMatch(/if \(htmlMode\)/);
-    expect(document).toMatch(
-      /\[\.\.\.FS_TOOLS,\s*READ_SKILL_TOOL,\s*AM_RENDER_TOOL\]/,
-    );
-    expect(document).not.toMatch(/htmlMode \? \[\.\.\.FS_TOOLS/);
+    expect(writing).not.toMatch(/AM_RENDER_TOOL|READ_SKILL_TOOL|am_render|read_skill/);
+    expect(writingAgent).not.toMatch(/bindTurnHtmlTool/);
+    expect(document).not.toMatch(/AM_RENDER_TOOL|am_render|read_skill/);
+    expect(document).not.toMatch(/bindTurnHtmlTool/);
   });
 
-  it('ships skills/ in the Docker build context', () => {
-    const docker = readFileSync(path.join(process.cwd(), 'Dockerfile'), 'utf8');
-    expect(docker).toMatch(/COPY skills \.\/skills/);
-  });
-
-  it('ships vendor/answer-me-with-html CLI in the Docker runtime image', () => {
+  it('does not ship skills/ or vendor/answer-me-with-html in the Docker image', () => {
     for (const name of ['Dockerfile', 'Dockerfile.slim']) {
       const docker = readFileSync(path.join(process.cwd(), name), 'utf8');
-      const runtime = docker.split(/^FROM /m).at(-1) ?? '';
-      expect(runtime, name).toMatch(/COPY vendor \.\/vendor/);
+      expect(docker, name).not.toMatch(/COPY skills \.\/skills/);
+      expect(docker, name).not.toMatch(/COPY vendor \.\/vendor/);
+      expect(docker, name).not.toMatch(/answer-me-with-html/);
     }
   });
 
-  it('binds html turn context for Writing and Document without a composer tag', () => {
+  it('does not wrap writing or document turns in html turn context', () => {
     const route = readSrc('../../app/api/chat/route.ts');
-    expect(route).toMatch(/runWithHtmlTurn/);
-    expect(route).toMatch(/focusMode === 'agentWriting'/);
+    expect(route).not.toMatch(/runWithHtmlTurn/);
+    expect(route).toMatch(/runWithWritingTurn/);
     expect(route).toMatch(/runWithDocumentTurn/);
     expect(route).not.toMatch(/body\.htmlMode === true/);
   });

@@ -988,91 +988,6 @@
   line-height: 1.55;
 }
 
-.welcome-wiki.writing-welcome {
-  align-items: stretch;
-  justify-content: flex-start;
-  padding-top: 72px;
-  text-align: left;
-}
-
-.writing-html-hint {
-  display: flex;
-  width: 100%;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 18px;
-}
-
-.writing-hint-categories {
-  display: flex;
-  justify-content: flex-start;
-}
-
-.writing-hint-category {
-  display: inline-flex;
-  align-items: center;
-  height: 36px;
-  padding: 0 16px;
-  border: 1px solid var(--wiki-border);
-  border-radius: 999px;
-  background: var(--wiki-surface);
-  color: var(--wiki-text);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.writing-hint-category:hover {
-  background: var(--wiki-surface-secondary);
-}
-
-.writing-hint-category.is-selected {
-  border-color: var(--wiki-text);
-  background: var(--wiki-text);
-  color: var(--wiki-surface);
-  font-weight: 600;
-}
-
-.writing-hint-category.is-selected:hover {
-  background: var(--wiki-text);
-}
-
-.writing-hint-suggestions {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
-  margin: 4px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.writing-hint-suggestions button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  max-width: 100%;
-  padding: 10px 16px;
-  border: 1px solid var(--wiki-border);
-  border-radius: 999px;
-  background: var(--wiki-surface);
-  color: var(--wiki-text);
-  font-size: 14px;
-  line-height: 1.4;
-  text-align: left;
-  cursor: pointer;
-}
-
-.writing-hint-suggestions button:hover {
-  border-color: var(--wiki-border-hover);
-  background: var(--wiki-surface-secondary);
-}
-
-.writing-hint-suggestions svg {
-  flex: 0 0 auto;
-  color: var(--wiki-text-tertiary);
-}
-
 .agent-card {
   width: clamp(10.5rem, calc(10.5rem + 0.55 * (100vw - 80rem)), 18.75rem);
   gap: clamp(0.75rem, 0.45rem + 0.5vw, 1rem);
@@ -1111,39 +1026,6 @@
 .writing-tool-btn:disabled:hover {
   background: transparent;
   color: var(--wiki-text-tertiary);
-}
-
-.html-skill-hint {
-  position: relative;
-  width: auto;
-  padding: 0 8px;
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  cursor: help;
-}
-
-.html-skill-hint:hover::after,
-.html-skill-hint:focus-visible::after {
-  content: attr(title);
-  position: absolute;
-  left: 0;
-  bottom: calc(100% + 8px);
-  z-index: 20;
-  width: max-content;
-  max-width: 280px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--wiki-border-subtle);
-  background: var(--wiki-surface);
-  color: var(--wiki-text);
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0;
-  line-height: 1.4;
-  white-space: normal;
-  box-shadow: 0 8px 20px color-mix(in srgb, #000 12%, transparent);
-  pointer-events: none;
 }
 
 .html-page-embed {

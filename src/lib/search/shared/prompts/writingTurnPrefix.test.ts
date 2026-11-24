@@ -20,15 +20,13 @@ const ctx: WritingTurnContext = {
 };
 
 describe('writingToolsForTurn', () => {
-  it('always returns Dochub tools plus read_skill and am_render', () => {
+  it('returns only the Dochub tools', () => {
     expect(writingToolsForTurn()).toEqual([
       'query',
       'get',
       'multi_get',
       'tree',
       'status',
-      'read_skill',
-      'am_render',
     ]);
   });
 });

@@ -27,8 +27,6 @@ const TOOL_LABELS: Record<string, string> = {
   assemble_markdown_report: 'Build report',
   es_bm25_search: 'Search knowledge',
   guide_search: 'Search guide',
-  read_skill: 'Read skill',
-  am_render: 'Render HTML page',
   html_get: 'Read HTML',
   html_set: 'Update HTML',
 };

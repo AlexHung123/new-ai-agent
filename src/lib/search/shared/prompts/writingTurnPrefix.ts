@@ -10,11 +10,9 @@ export const WRITING_DOCHUB_TOOLS = [
   'tree',
   'status',
 ];
-export const READ_SKILL_TOOL = 'read_skill';
-export const AM_RENDER_TOOL = 'am_render';
 
 export function writingToolsForTurn(): string[] {
-  return [...WRITING_DOCHUB_TOOLS, READ_SKILL_TOOL, AM_RENDER_TOOL];
+  return [...WRITING_DOCHUB_TOOLS];
 }
 
 export function buildWritingUserPrompt(

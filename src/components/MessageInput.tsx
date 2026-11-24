@@ -6,7 +6,6 @@ import {
   findDisplayFocusMode,
 } from '@/lib/agents';
 import SfcExactMatchToggle from './SfcExactMatchToggle';
-import { HtmlSkillHint } from './HtmlSkillHint';
 import {
   AttachImageControls,
   AttachedImageStrip,
@@ -177,7 +176,6 @@ const MessageInput = memo(function MessageInput() {
         <div className="composer-toolbar-left">
           <SfcExactMatchToggle />
           <AttachImageControls images={images} />
-          <HtmlSkillHint />
         </div>
         <div className="composer-toolbar-right">
           <button

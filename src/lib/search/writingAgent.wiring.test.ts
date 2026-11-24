@@ -21,6 +21,6 @@ describe('writing agent Dochub wiring', () => {
     );
     expect(route).toMatch(/loadWritingTurnContext/);
     expect(route).not.toMatch(/ensureUserWritingWorkspace/);
-    expect(ctx).toMatch(/SHARED_AGENT_CONTEXT_REV = 15/);
+    expect(ctx).toMatch(/SHARED_AGENT_CONTEXT_REV = 16/);
   });
 });

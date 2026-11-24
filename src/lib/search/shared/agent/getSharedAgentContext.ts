@@ -17,8 +17,6 @@ import { createPgPiSessionStoreFromUrl } from '../runtime/piSessionStore';
 import { createEsBm25SearchTool } from '../tools/esBm25Tool';
 import { createGuideSearchTool } from '../tools/guideSearchTool';
 import { createSurveySearchTools } from '../tools/surveySearchTool';
-import { createAmRenderTool } from '../tools/amRenderTool';
-import { createReadSkillTool } from '../tools/readSkillTool';
 import {
   createHtmlGetTool,
   createHtmlSetTool,
@@ -38,8 +36,6 @@ function initSharedAgentDependencies() {
   const esBm25SearchTool = createEsBm25SearchTool();
   const guideSearchTool = createGuideSearchTool();
   const surveySearchTools = createSurveySearchTools();
-  const amRenderTool = createAmRenderTool();
-  const readSkillTool = createReadSkillTool();
   const htmlGetTool = createHtmlGetTool();
   const htmlSetTool = createHtmlSetTool();
   const fsTools = createAgentFsTools({
@@ -61,8 +57,6 @@ function initSharedAgentDependencies() {
   for (const tool of dochubTools) {
     tools[tool.name] = tool;
   }
-  tools[readSkillTool.name] = readSkillTool;
-  tools[amRenderTool.name] = amRenderTool;
   tools[htmlGetTool.name] = htmlGetTool;
   tools[htmlSetTool.name] = htmlSetTool;
 
@@ -90,12 +84,12 @@ function initSharedAgentDependencies() {
     'writing-agent-template': {
       id: 'writing-agent-template',
       systemPrompt: WRITING_AGENT_SYSTEM_PROMPT,
-      tools: ['query', 'get', 'multi_get', 'tree', 'status', 'read_skill', 'am_render'],
+      tools: ['query', 'get', 'multi_get', 'tree', 'status'],
     },
     'document-agent-template': {
       id: 'document-agent-template',
       systemPrompt: DOCUMENT_AGENT_SYSTEM_PROMPT,
-      tools: ['fs_ls', 'fs_read', 'fs_grep', 'fs_find', 'read_skill', 'am_render'],
+      tools: ['fs_ls', 'fs_read', 'fs_grep', 'fs_find'],
     },
     'html-agent-template': {
       id: 'html-agent-template',
@@ -135,7 +129,7 @@ declare global {
 }
 
 /** Bump when session-manager behavior changes so Next.js HMR rebuilds the pool. */
-const SHARED_AGENT_CONTEXT_REV = 15;
+const SHARED_AGENT_CONTEXT_REV = 16;
 
 export function getSharedAgentContext(): SharedAgentContext {
   if (

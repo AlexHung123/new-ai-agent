@@ -58,15 +58,15 @@ describe('isLlmProviderConnectionError', () => {
     );
   });
 
-  it('does not treat a missing HTML tool as a connection failure', () => {
+  it('does not treat a missing tool as a connection failure', () => {
     expect(
       isLlmProviderConnectionError({
         stopReason: 'error',
-        errorMessage: 'Tool am_render not found',
+        errorMessage: 'Tool some_tool not found',
       }),
     ).toBe(false);
     expect(
-      isLlmProviderConnectionError(new Error('Tool am_render not found')),
+      isLlmProviderConnectionError(new Error('Tool some_tool not found')),
     ).toBe(false);
   });
 });

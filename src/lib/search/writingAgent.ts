@@ -8,7 +8,6 @@ import { MetaSearchAgentType } from './metaSearchAgent';
 import { formatAgentFailureResponse } from '../models/llmProviderError';
 import { streamAgentProgressToEmitter } from '../utils/agentStream';
 import { getSharedAgentContext } from './shared/agent/getSharedAgentContext';
-import { bindTurnHtmlTool } from '@/lib/html/bindTurnHtmlTool';
 import { promptWithImages } from '@/lib/chat/attachedImages';
 import { getTurnImages } from '@/lib/chat/turnImages';
 import {
@@ -16,6 +15,7 @@ import {
   writingToolsForTurn,
 } from './shared/prompts/writingTurnPrefix';
 import { bindTurnDochubTools } from './shared/runtime/bindTurnDochubTools';
+import { stripHtmlTurnPrefixesFromMessages } from '@/lib/html/htmlSkill';
 import { WRITING_AGENT_EMPTY_REPLY } from './shared/prompts/writingAgentSystemPrompt';
 import { getWritingTurnContext } from './shared/runtime/writingTurnContext';
 import { safeJson } from './shared/utils/safeJson';
@@ -80,11 +80,12 @@ export default class WritingAgent implements MetaSearchAgentType {
 
         harnessAgentManager.markBusy(stableAgentId);
         harnessAgentManager.touchAgent(stableAgentId);
+        agent.state.messages = stripHtmlTurnPrefixesFromMessages(
+          agent.state.messages ?? [],
+        );
         const restoreDochub = writingCtx
           ? bindTurnDochubTools(agent, writingCtx)
           : () => undefined;
-        const restoreHtml = bindTurnHtmlTool(agent);
-
         try {
           const subscriptionPromise = streamAgentProgressToEmitter({
             agent,
@@ -110,7 +111,6 @@ export default class WritingAgent implements MetaSearchAgentType {
           }
           await subscriptionPromise;
         } finally {
-          restoreHtml();
           restoreDochub();
           await harnessAgentManager.markIdle(stableAgentId);
         }

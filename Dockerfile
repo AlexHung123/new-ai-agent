@@ -15,8 +15,6 @@ COPY tsconfig.json next.config.mjs next-env.d.ts postcss.config.js drizzle.confi
 COPY src ./src
 COPY public ./public
 RUN node scripts/copy-tinymce.js
-COPY skills ./skills
-COPY vendor ./vendor
 COPY drizzle ./drizzle
 COPY prisma ./prisma
 
@@ -47,8 +45,6 @@ COPY --from=builder /home/aiagent/data ./data
 COPY --from=builder /home/aiagent/src/generated/prisma ./src/generated/prisma
 COPY drizzle ./drizzle
 COPY prisma ./prisma
-COPY skills ./skills
-COPY vendor ./vendor
 
 COPY entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh

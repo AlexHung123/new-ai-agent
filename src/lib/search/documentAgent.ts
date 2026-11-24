@@ -10,14 +10,12 @@ import { getSharedAgentContext } from './shared/agent/getSharedAgentContext';
 import { formatAgentFailureResponse } from '../models/llmProviderError';
 import { DOCUMENT_AGENT_EMPTY_REPLY } from './shared/prompts/documentAgentSystemPrompt';
 import { buildDocumentUserPrompt } from './shared/prompts/documentTurnPrefix';
-import { bindTurnHtmlTool } from '@/lib/html/bindTurnHtmlTool';
 import { bindTurnFsTools } from './shared/runtime/bindTurnFsTools';
 import { getDocumentTurnContext } from './shared/runtime/documentTurnContext';
+import { stripHtmlTurnPrefixesFromMessages } from '@/lib/html/htmlSkill';
 import { safeJson } from './shared/utils/safeJson';
 
 const FS_TOOLS = ['fs_ls', 'fs_read', 'fs_grep', 'fs_find'];
-const READ_SKILL_TOOL = 'read_skill';
-const AM_RENDER_TOOL = 'am_render';
 
 export default class DocumentAgent implements MetaSearchAgentType {
   async searchAndAnswer(
@@ -69,7 +67,7 @@ export default class DocumentAgent implements MetaSearchAgentType {
         const stableAgentId =
           harnessAgentManager.normalizeAgentId(requestAgentId);
 
-        const tools = [...FS_TOOLS, READ_SKILL_TOOL, AM_RENDER_TOOL];
+        const tools = [...FS_TOOLS];
         const agent = await harnessAgentManager.getOrCreateAgent(
           stableAgentId,
           tools,
@@ -78,9 +76,10 @@ export default class DocumentAgent implements MetaSearchAgentType {
 
         harnessAgentManager.markBusy(stableAgentId);
         harnessAgentManager.touchAgent(stableAgentId);
+        agent.state.messages = stripHtmlTurnPrefixesFromMessages(
+          agent.state.messages ?? [],
+        );
         const restoreFs = bindTurnFsTools(agent, { document: documentCtx });
-        const restoreHtml = bindTurnHtmlTool(agent);
-
         try {
           const subscriptionPromise = streamAgentProgressToEmitter({
             agent,
@@ -101,7 +100,6 @@ export default class DocumentAgent implements MetaSearchAgentType {
           }
           await subscriptionPromise;
         } finally {
-          restoreHtml();
           restoreFs();
           await harnessAgentManager.markIdle(stableAgentId);
         }

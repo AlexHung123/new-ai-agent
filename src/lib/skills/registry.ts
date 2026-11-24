@@ -81,7 +81,6 @@ export function formatSkillsCatalog(): string {
   const lines = [
     'The following skills provide specialized instructions for specific tasks.',
     'When a skill matches, call read_skill with its name, then follow that file.',
-    'Answer in normal chat text unless the user clearly asked for a visual explainer page.',
     '',
     '<available_skills>',
   ];

@@ -34,13 +34,6 @@ describe('parseChatBody', () => {
     if (result.success) expect(result.data.knowledgeFolder).toBe('contracts/2024');
   });
 
-  it('defaults htmlMode to false', () => {
-    const result = parseChatBody(validWritingBody);
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.htmlMode).toBe(false);
-    }
-  });
 
   it('accepts a WCMS content id for Agent HTML', () => {
     const result = parseChatBody({
@@ -82,16 +75,6 @@ describe('parseChatBody', () => {
     }
   });
 
-  it('accepts htmlMode true', () => {
-    const result = parseChatBody({
-      ...validWritingBody,
-      htmlMode: true,
-    });
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.htmlMode).toBe(true);
-    }
-  });
 
   it('accepts an image-only Agent HTML turn', () => {
     const result = parseChatBody({

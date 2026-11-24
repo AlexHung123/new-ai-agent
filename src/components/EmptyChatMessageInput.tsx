@@ -6,7 +6,6 @@ import {
   findDisplayFocusMode,
 } from '@/lib/agents';
 import SfcExactMatchToggle from './SfcExactMatchToggle';
-import { HtmlSkillHint } from './HtmlSkillHint';
 import {
   AttachImageControls,
   AttachedImageStrip,
@@ -29,22 +28,9 @@ const SendArrow = () => (
   </span>
 );
 
-type EmptyChatMessageInputProps = {
-  draft?: string;
-  onDraftChange?: (value: string) => void;
-};
-
-const EmptyChatMessageInput = ({
-  draft,
-  onDraftChange,
-}: EmptyChatMessageInputProps = {}) => {
+const EmptyChatMessageInput = () => {
   const { sendMessage, focusMode, sfcExactMatch, documentId } = useChat();
-  const [internalMessage, setInternalMessage] = useState('');
-  const message = onDraftChange ? (draft ?? '') : internalMessage;
-  const setMessage = (next: string) => {
-    if (onDraftChange) onDraftChange(next);
-    else setInternalMessage(next);
-  };
+  const [message, setMessage] = useState('');
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const [cursor, setCursor] = useState(0);
   const images = useAttachedImages(focusMode);
@@ -157,7 +143,6 @@ const EmptyChatMessageInput = ({
         <div className="composer-toolbar-left">
           <SfcExactMatchToggle />
           <AttachImageControls images={images} />
-          <HtmlSkillHint />
         </div>
         <div className="composer-toolbar-right">
           <button

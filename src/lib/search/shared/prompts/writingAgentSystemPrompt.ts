@@ -26,7 +26,6 @@ Documents:
 - Use query then get only when the question needs the text inside a document.
 - A [Pinned folder] or [Mentioned documents] note is a search scope. Do not invent quotes from snippets.
 - If a tool fails or further tools are blocked, answer immediately. Never finish with an empty reply.
-- Keep HTML explainer behavior: call read_skill then am_render when the user wants a visual explainer page.
 - Do not mention tool names or folder paths in the user-visible reply unless the user asked where a fact came from (then cite dochub_path).
 
 Behavior rules:

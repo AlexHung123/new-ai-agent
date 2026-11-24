@@ -3,7 +3,6 @@ import SettingsButtonMobile from '@/components/Settings/SettingsButtonMobile';
 import { useChat } from '@/lib/hooks/useChat';
 import { SFC_DOCUMENT_FOCUS_MODE, SFC_REPLY_FOCUS_MODE } from '@/lib/agents';
 import DocumentPicker from './DocumentPicker';
-import WritingHtmlHint from './WritingHtmlHint';
 
 const EmptyChat = () => {
   const { focusMode, documentId, documentItems } = useChat();
@@ -22,7 +21,6 @@ const EmptyChat = () => {
 
   const selectedDocument = documentItems.find((item) => item.id === documentId);
   const needsDocumentPick = focusMode === 'agentDocument' && !documentId;
-  const showWritingHint = focusMode === 'agentWriting';
   const heading = selectedDocument
     ? selectedDocument.title
     : focusDescriptions[focusMode] || 'Research begins here.';
@@ -34,18 +32,10 @@ const EmptyChat = () => {
         <SettingsButtonMobile />
       </div>
       <div className="empty-chat-body flex flex-col items-center justify-center min-h-full mx-auto p-2 pb-28 lg:pb-2">
-        <div
-          className={`welcome-wiki${showWritingHint ? ' writing-welcome' : ''}`}
-        >
-          {showWritingHint ? null : <h2>{heading}</h2>}
-          {!showWritingHint && subheading ? <p>{subheading}</p> : null}
-          {needsDocumentPick ? (
-            <DocumentPicker />
-          ) : showWritingHint ? (
-            <WritingHtmlHint />
-          ) : (
-            <EmptyChatMessageInput />
-          )}
+        <div className="welcome-wiki">
+          <h2>{heading}</h2>
+          {subheading ? <p>{subheading}</p> : null}
+          {needsDocumentPick ? <DocumentPicker /> : <EmptyChatMessageInput />}
         </div>
       </div>
     </div>

@@ -203,7 +203,7 @@ describe('buildToolEndSummary', () => {
   });
 
   it('falls back to Done when there is no structured detail', () => {
-    const out = buildToolEndSummary('read_skill', { details: {} }, false);
+    const out = buildToolEndSummary('html_get', { details: {} }, false);
     expect(out.summary).toBe('Done');
   });
 });

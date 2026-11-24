@@ -18,7 +18,6 @@ The app is served at base path `/itms/ai`. Leave the UAT volume and `data/config
 - Self-hosted TinyMCE. Both `Dockerfile` and `Dockerfile.slim` run `scripts/copy-tinymce.js` during the image build and copy `public/tinymce` into the runtime image. That directory is gitignored. A git pull alone does not update a running container.
 - Chat top bar on every page: Plus (new conversation, goes to `/itms/ai/`) and Close X. Share is not in this build.
 - Agent HTML and Agent Writing use the docked right panel. Survey answers include the red accuracy line `AI生成的回覆可能不準確，使用前請仔細核實。` on every reply.
-- `skills/` and `vendor/answer-me-with-html` are still copied into the image. Agent Writing and Agent Document need `vendor/answer-me-with-html/scripts/am.mjs` at runtime.
 
 There is no `0004_*.sql` in this tree. `ran_migrations.name` is the numeric prefix only. If UAT already has `0004` from an older `ppt_decks` migration, leave that row. Do not add another `0004` file.
 
@@ -62,7 +61,6 @@ Check the image before you replace the container:
 
 ```bash
 docker run --rm --entrypoint ls aiagent:uat public/tinymce/tinymce.min.js
-docker run --rm --entrypoint ls aiagent:uat vendor/answer-me-with-html/scripts/am.mjs
 docker run --rm --entrypoint ls aiagent:uat drizzle/pg/0006_chat_wcms_content.sql
 ```
 
@@ -141,7 +139,6 @@ Expect three rows.
 6. Agent Writing: the file list and the composer are both usable, and the right preview panel opens.
 7. Plus starts a new conversation at `/itms/ai/`.
 8. An Agent Survey reply includes the red accuracy line.
-9. Container logs do not show `Cannot find module '/home/aiagent/vendor/answer-me-with-html/scripts/am.mjs'`.
 
 ## Rollback
 
