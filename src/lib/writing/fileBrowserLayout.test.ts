@@ -20,10 +20,16 @@ describe('writing Knowledge FILES rail', () => {
     expect(readSrc('../knowledge/useKnowledgeTree.ts')).toMatch(/\/api\/knowledge\/tree/);
     expect(files).toMatch(/openKnowledgeFile/);
     expect(files).toMatch(/Upload documents on Knowledge/);
-    expect(files).toMatch(/title="Private"/);
-    expect(files).toMatch(/title="Public"/);
+    expect(files).toMatch(/KnowledgeLibraryTabs/);
     expect(files).toMatch(/formatKnowledgePin/);
     expect(files).toMatch(/Shared policy folders will appear here/);
+    const tabs = readSrc('../../components/KnowledgeLibraryTabs.tsx');
+    expect(tabs).toMatch(/role="tablist"/);
+    expect(tabs).toMatch(/aria-label="Library"/);
+    expect(tabs).toMatch(/label: 'Private'/);
+    expect(tabs).toMatch(/label: 'Public'/);
+    expect(tabs).toMatch(/Lock/);
+    expect(tabs).toMatch(/Globe/);
     expect(files).toMatch(/writing-knowledge-toggle/);
     expect(files).toMatch(/Collapse all folders/);
     expect(files).toMatch(/Expand all folders/);

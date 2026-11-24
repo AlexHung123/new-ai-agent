@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ChevronDown,
   ChevronRight,
@@ -9,8 +9,6 @@ import {
   FileText,
   Folder,
   FolderOpen,
-  Globe,
-  Lock,
 } from 'lucide-react';
 import { useChat } from '@/lib/hooks/useChat';
 import {
@@ -18,7 +16,9 @@ import {
   parseKnowledgePin,
   type KnowledgeLibrary,
 } from '@/lib/knowledge/library';
+import { readLibraryTab, writeLibraryTab } from '@/lib/knowledge/libraryTab';
 import { useKnowledgeTree } from '@/lib/knowledge/useKnowledgeTree';
+import KnowledgeLibraryTabs from './KnowledgeLibraryTabs';
 import type { KnowledgeTreeNode } from '@/lib/knowledge/types';
 import { useRightPanel } from './RightPanelContext';
 
@@ -137,80 +137,55 @@ function TreeRows({
   );
 }
 
-function Section({
-  library,
-  title,
-  icon,
-  tree,
-  empty,
-  activePin,
-  collapsed,
-  onToggle,
-  onSelectFolder,
-  onOpenFile,
-}: {
-  library: KnowledgeLibrary;
-  title: string;
-  icon: ReactNode;
-  tree: KnowledgeTreeNode;
-  empty: string;
-  activePin: string;
-  collapsed: Record<string, boolean>;
-  onToggle: (key: string) => void;
-  onSelectFolder: (library: KnowledgeLibrary, path: string) => void;
-  onOpenFile: (id: string, label: string) => void;
-}) {
-  const count = (tree.children || []).length;
-  return (
-    <section className="writing-knowledge-section" data-library={library}>
-      <h3 className="writing-knowledge-section-title">
-        <span className="writing-knowledge-section-icon" aria-hidden>
-          {icon}
-        </span>
-        {title}
-      </h3>
-      {count === 0 ? (
-        <p className="writing-knowledge-empty">{empty}</p>
-      ) : (
-        <TreeRows
-          node={tree}
-          library={library}
-          activePin={activePin}
-          collapsed={collapsed}
-          onToggle={onToggle}
-          onSelectFolder={onSelectFolder}
-          onOpenFile={onOpenFile}
-        />
-      )}
-    </section>
-  );
-}
 
 export default function WritingKnowledgeFiles() {
   const { privateTree, publicTree, error, loading } = useKnowledgeTree();
   const { knowledgeFolder, setKnowledgeFolder } = useChat();
   const { openKnowledgeFile } = useRightPanel();
+  const [library, setLibrary] = useState<KnowledgeLibrary>(() => readLibraryTab());
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const lastPinRef = useRef(knowledgeFolder);
   const activePin = knowledgeFolder || '';
+  const activeTree = library === 'public' ? publicTree : privateTree;
+  const empty =
+    library === 'public'
+      ? 'Shared policy folders will appear here.'
+      : 'Upload documents on Knowledge.';
+
+  useEffect(() => {
+    if (lastPinRef.current === knowledgeFolder) return;
+    lastPinRef.current = knowledgeFolder;
+    const pin = parseKnowledgePin(knowledgeFolder);
+    if (pin?.path) {
+      setLibrary(pin.library);
+      writeLibraryTab(pin.library);
+    }
+  }, [knowledgeFolder]);
+
+  const onSelectTab = (next: KnowledgeLibrary) => {
+    setLibrary(next);
+    writeLibraryTab(next);
+  };
 
   const onToggle = (key: string) => {
     setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const onSelectFolder = (library: KnowledgeLibrary, path: string) => {
+  const onSelectFolder = (nextLibrary: KnowledgeLibrary, path: string) => {
     const current = parseKnowledgePin(knowledgeFolder);
-    const next = formatKnowledgePin({ library, path });
-    if (current?.library === library && current.path === path) {
+    const next = formatKnowledgePin({ library: nextLibrary, path });
+    if (current?.library === nextLibrary && current.path === path) {
       setKnowledgeFolder('');
       return;
     }
     setKnowledgeFolder(next);
   };
 
-  const allDirKeys = [
-    ...dirPaths(privateTree, 'private'),
-    ...dirPaths(publicTree, 'public'),
-  ];
+  const visibleDirKeys = dirPaths(activeTree, library);
+  const showLoading =
+    loading &&
+    (privateTree.children || []).length === 0 &&
+    (publicTree.children || []).length === 0;
 
   return (
     <div className="writing-knowledge-files">
@@ -232,45 +207,31 @@ export default function WritingKnowledgeFiles() {
             aria-label="Collapse all folders"
             title="Collapse all"
             onClick={() =>
-              setCollapsed(Object.fromEntries(allDirKeys.map((path) => [path, true])))
+              setCollapsed(
+                Object.fromEntries(visibleDirKeys.map((path) => [path, true])),
+              )
             }
           >
             <ChevronsUp size={14} />
           </button>
         </div>
       </div>
+      <KnowledgeLibraryTabs value={library} onChange={onSelectTab} />
       {error ? <p className="writing-knowledge-error">{error}</p> : null}
-      {loading &&
-      (privateTree.children || []).length === 0 &&
-      (publicTree.children || []).length === 0 ? (
+      {showLoading ? (
         <p className="writing-knowledge-empty">Loading files…</p>
+      ) : (activeTree.children || []).length === 0 ? (
+        <p className="writing-knowledge-empty">{empty}</p>
       ) : (
-        <>
-          <Section
-            library="private"
-            title="Private"
-            icon={<Lock size={13} />}
-            tree={privateTree}
-            empty="Upload documents on Knowledge."
-            activePin={activePin}
-            collapsed={collapsed}
-            onToggle={onToggle}
-            onSelectFolder={onSelectFolder}
-            onOpenFile={openKnowledgeFile}
-          />
-          <Section
-            library="public"
-            title="Public"
-            icon={<Globe size={13} />}
-            tree={publicTree}
-            empty="Shared policy folders will appear here."
-            activePin={activePin}
-            collapsed={collapsed}
-            onToggle={onToggle}
-            onSelectFolder={onSelectFolder}
-            onOpenFile={openKnowledgeFile}
-          />
-        </>
+        <TreeRows
+          node={activeTree}
+          library={library}
+          activePin={activePin}
+          collapsed={collapsed}
+          onToggle={onToggle}
+          onSelectFolder={onSelectFolder}
+          onOpenFile={openKnowledgeFile}
+        />
       )}
     </div>
   );

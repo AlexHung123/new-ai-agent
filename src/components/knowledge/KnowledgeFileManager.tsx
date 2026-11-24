@@ -35,6 +35,8 @@ import type {
   KnowledgeTreeNode,
 } from '@/lib/knowledge/types';
 import type { KnowledgeLibrary } from '@/lib/knowledge/library';
+import { readLibraryTab, writeLibraryTab } from '@/lib/knowledge/libraryTab';
+import KnowledgeLibraryTabs from '@/components/KnowledgeLibraryTabs';
 import { getAuthBearerHeaders, getAuthHeaders } from '@/lib/utils/auth';
 import KnowledgeCreateFolderDialog from '@/components/KnowledgeCreateFolderDialog';
 import {
@@ -99,7 +101,7 @@ export default function KnowledgeFileManager() {
   const [privateTree, setPrivateTree] = useState<KnowledgeTreeNode>(EMPTY_TREE);
   const [publicTree, setPublicTree] = useState<KnowledgeTreeNode>(EMPTY_TREE);
   const [canWritePublic, setCanWritePublic] = useState(false);
-  const [currentLibrary, setCurrentLibrary] = useState<KnowledgeLibrary>('private');
+  const [currentLibrary, setCurrentLibrary] = useState<KnowledgeLibrary>(() => readLibraryTab());
   const [initialLoading, setInitialLoading] = useState(true);
   const [storage, setStorage] = useState<KnowledgeStorageUsage | null>(null);
   const [currentPath, setCurrentPath] = useState('');
@@ -114,6 +116,10 @@ export default function KnowledgeFileManager() {
   const [previewTitle, setPreviewTitle] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const startedAt = useRef<Record<string, number>>({});
+  const pathByLibraryRef = useRef<Record<KnowledgeLibrary, string>>({
+    private: '',
+    public: '',
+  });
 
   const loadTree = useCallback(async () => {
     try {
@@ -236,10 +242,20 @@ export default function KnowledgeFileManager() {
   };
 
   const selectFolder = (path: string, library: KnowledgeLibrary = currentLibrary) => {
+    pathByLibraryRef.current[library] = path;
     setCurrentLibrary(library);
+    writeLibraryTab(library);
     setCurrentPath(path);
     setHits(null);
     clearPreview();
+  };
+
+  const selectLibraryTab = (library: KnowledgeLibrary) => {
+    const path =
+      library === currentLibrary
+        ? currentPath
+        : pathByLibraryRef.current[library] || '';
+    selectFolder(path, library);
   };
 
   const createFolder = async (input: { name: string; library: KnowledgeLibrary }) => {
@@ -506,46 +522,35 @@ export default function KnowledgeFileManager() {
             </div>
           ) : null}
           <nav className="knowledge-tree" aria-label="Folder tree">
-            <button
-              type="button"
-              className={
-                currentLibrary === 'private' && currentPath === ''
-                  ? 'knowledge-tree-item is-active'
-                  : 'knowledge-tree-item'
-              }
-              onClick={() => selectFolder('', 'private')}
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={(event) => {
-                event.preventDefault();
-                if (event.dataTransfer.files?.length) {
-                  void uploadFiles('', event.dataTransfer.files, 'private');
-                }
-              }}
-            >
-              Private
-            </button>
-            <KnowledgeTree
-              node={privateTree}
-              currentPath={currentLibrary === 'private' ? currentPath : '__none__'}
-              onSelect={(path) => selectFolder(path, 'private')}
-              onDropFiles={(path, files) => void uploadFiles(path, files, 'private')}
+            <KnowledgeLibraryTabs
+              value={currentLibrary}
+              onChange={selectLibraryTab}
             />
             <button
               type="button"
               className={
-                currentLibrary === 'public' && currentPath === ''
+                currentPath === ''
                   ? 'knowledge-tree-item is-active'
                   : 'knowledge-tree-item'
               }
-              onClick={() => selectFolder('', 'public')}
+              onClick={() => selectFolder('', currentLibrary)}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => {
+                event.preventDefault();
+                if (event.dataTransfer.files?.length) {
+                  void uploadFiles('', event.dataTransfer.files, currentLibrary);
+                }
+              }}
             >
-              Public
+              Folders
             </button>
             <KnowledgeTree
-              node={publicTree}
-              currentPath={currentLibrary === 'public' ? currentPath : '__none__'}
-              onSelect={(path) => selectFolder(path, 'public')}
-              onDropFiles={(path, files) => void uploadFiles(path, files, 'public')}
+              node={tree}
+              currentPath={currentPath}
+              onSelect={(path) => selectFolder(path, currentLibrary)}
+              onDropFiles={(path, files) =>
+                void uploadFiles(path, files, currentLibrary)
+              }
             />
           </nav>
         </aside>

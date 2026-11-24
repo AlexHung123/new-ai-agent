@@ -77,6 +77,8 @@ describe('knowledge UI contracts', () => {
     expect(tree).toMatch(/FolderRows/);
     expect(tree).toMatch(/knowledge-tree-folder-icon/);
     expect(manager).toMatch(/aria-label="Folder tree"/);
+    expect(manager).toMatch(/KnowledgeLibraryTabs/);
+    expect(manager).toMatch(/defaultLibrary=\{currentLibrary\}/);
     expect(listing).toMatch(/onDrop/);
     expect(listing).toMatch(/knowledge-files-table/);
     expect(listing).toMatch(/Upload date/);
