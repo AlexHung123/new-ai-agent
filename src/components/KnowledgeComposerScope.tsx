@@ -3,7 +3,7 @@
 import { useChat } from '@/lib/hooks/useChat';
 import { isKnowledgeFocusMode } from '@/lib/agents';
 import { parseKnowledgePin } from '@/lib/knowledge/library';
-import { nodeAtPath } from '@/lib/knowledge/tree';
+import { isStructuredKnowledgeNode, nodeAtPath } from '@/lib/knowledge/tree';
 import { useKnowledgeTree } from '@/lib/knowledge/useKnowledgeTree';
 import KnowledgeScopeChip from './KnowledgeScopeChip';
 
@@ -16,7 +16,9 @@ export default function KnowledgeComposerScope() {
     pin?.library === 'public'
       ? publicTree
       : privateTree;
-  const wiki = Boolean(pin?.path && nodeAtPath(tree, pin.path)?.wiki);
+  const wiki = isStructuredKnowledgeNode(
+    pin?.path ? nodeAtPath(tree, pin.path) : null,
+  );
   return (
     <KnowledgeScopeChip
       pin={knowledgeFolder}

@@ -1,6 +1,8 @@
 'use client';
 
 import type { KnowledgeTreeNode } from '@/lib/knowledge/types';
+import { isStructuredKnowledgeNode } from '@/lib/knowledge/tree';
+import { FileText } from 'lucide-react';
 import { useState } from 'react';
 
 function FolderRows({
@@ -22,7 +24,10 @@ function FolderRows({
   return (
     <ul className="knowledge-tree-list">
       {folders.map((folder) => {
-        const hasKids = (folder.children || []).some((child) => child.type === 'dir');
+        const structured = isStructuredKnowledgeNode(folder);
+        const hasKids =
+          !structured &&
+          (folder.children || []).some((child) => child.type === 'dir');
         const open = hasKids && !collapsed[folder.path];
         return (
           <li key={folder.path}>
@@ -48,8 +53,11 @@ function FolderRows({
                     : 'knowledge-tree-item'
                 }
                 onClick={() => onSelect(folder.path)}
-                onDragOver={(event) => event.preventDefault()}
+                onDragOver={(event) => {
+                  if (!structured) event.preventDefault();
+                }}
                 onDrop={(event) => {
+                  if (structured) return;
                   event.preventDefault();
                   event.stopPropagation();
                   if (event.dataTransfer.files?.length) {
@@ -57,10 +65,19 @@ function FolderRows({
                   }
                 }}
               >
-                <span className="knowledge-tree-folder-icon" aria-hidden>
-                  📁
-                </span>
-                {folder.name}
+                {structured ? (
+                  <span className="knowledge-tree-file-icon" aria-hidden>
+                    <FileText size={14} />
+                  </span>
+                ) : (
+                  <span className="knowledge-tree-folder-icon" aria-hidden>
+                    📁
+                  </span>
+                )}
+                <span className="knowledge-tree-item-name">{folder.name}</span>
+                {structured ? (
+                  <span className="knowledge-structured-badge">Structured</span>
+                ) : null}
               </button>
             </div>
             {open ? (

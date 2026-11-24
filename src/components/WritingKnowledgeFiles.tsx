@@ -19,6 +19,7 @@ import {
 import { readLibraryTab, writeLibraryTab } from '@/lib/knowledge/libraryTab';
 import { useKnowledgeTree } from '@/lib/knowledge/useKnowledgeTree';
 import KnowledgeLibraryTabs from './KnowledgeLibraryTabs';
+import { isStructuredKnowledgeNode } from '@/lib/knowledge/tree';
 import type { KnowledgeTreeNode } from '@/lib/knowledge/types';
 import { useRightPanel } from './RightPanelContext';
 
@@ -26,6 +27,7 @@ function dirPaths(node: KnowledgeTreeNode, library: KnowledgeLibrary): string[] 
   const out: string[] = [];
   for (const child of node.children || []) {
     if (child.type === 'dir') {
+      if (isStructuredKnowledgeNode(child)) continue;
       const key = formatKnowledgePin({ library, path: child.path });
       out.push(key, ...dirPaths(child, library));
     }
@@ -57,7 +59,8 @@ function TreeRows({
       {children.map((child) => {
         const pin = formatKnowledgePin({ library, path: child.path });
         if (child.type === 'dir') {
-          const hasChildren = (child.children || []).length > 0;
+          const structured = isStructuredKnowledgeNode(child);
+          const hasChildren = !structured && (child.children || []).length > 0;
           const open = hasChildren && !collapsed[pin];
           return (
             <li key={pin}>
@@ -83,11 +86,20 @@ function TreeRows({
                     if (hasChildren) onToggle(pin);
                   }}
                 >
-                  <span className="writing-knowledge-icon is-folder" aria-hidden>
-                    {open ? <FolderOpen size={15} /> : <Folder size={15} />}
+                  <span
+                    className={`writing-knowledge-icon ${structured ? 'is-file' : 'is-folder'}`}
+                    aria-hidden
+                  >
+                    {structured ? (
+                      <FileText size={15} />
+                    ) : open ? (
+                      <FolderOpen size={15} />
+                    ) : (
+                      <Folder size={15} />
+                    )}
                   </span>
                   <span className="writing-knowledge-label">{child.name}</span>
-                  {child.wiki ? (
+                  {structured ? (
                     <span className="writing-knowledge-wiki-badge">Structured</span>
                   ) : null}
                 </button>

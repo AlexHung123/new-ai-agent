@@ -5,6 +5,7 @@ import {
   formatStorageBytes,
 } from '@/lib/knowledge/storage';
 import { parseLabel } from '@/lib/knowledge/taskStatus';
+import { isStructuredKnowledgeNode } from '@/lib/knowledge/tree';
 import type {
   KnowledgeFileMeta,
   KnowledgeSearchHit,
@@ -24,6 +25,7 @@ export default function KnowledgeListing({
   searching,
   tasks,
   onOpenDir,
+  onOpenStructured,
   onOpenFile,
   onOpenHit,
   onDownload,
@@ -34,6 +36,7 @@ export default function KnowledgeListing({
   searching: boolean;
   tasks: Record<string, KnowledgeTask>;
   onOpenDir: (path: string) => void;
+  onOpenStructured: (path: string) => void;
   onOpenFile: (id: string, name?: string) => void;
   onOpenHit: (hit: KnowledgeSearchHit) => void;
   onDownload: (file: KnowledgeFileMeta) => void;
@@ -108,6 +111,7 @@ export default function KnowledgeListing({
             </thead>
             <tbody>
               {items.map((item) => {
+                const structured = isStructuredKnowledgeNode(item);
                 const taskId = item.file?.task_id;
                 const label =
                   item.type === 'file'
@@ -119,17 +123,40 @@ export default function KnowledgeListing({
                       <button
                         type="button"
                         className="knowledge-file-name"
-                        onClick={() =>
-                          item.type === 'dir'
-                            ? onOpenDir(item.path)
-                            : item.file && onOpenFile(item.file.id, item.name)
-                        }
+                        onClick={() => {
+                          if (structured) {
+                            onOpenStructured(item.path);
+                            return;
+                          }
+                          if (item.type === 'dir') {
+                            onOpenDir(item.path);
+                            return;
+                          }
+                          if (item.file) onOpenFile(item.file.id, item.name);
+                        }}
                       >
-                        {item.type === 'dir' ? '📁 ' : ''}
-                        {item.name}
+                        <span className="knowledge-file-name-row">
+                          {structured ? (
+                            <span className="knowledge-file-doc-icon" aria-hidden>
+                              📄
+                            </span>
+                          ) : item.type === 'dir' ? (
+                            <span aria-hidden>📁</span>
+                          ) : null}
+                          <span>{item.name}</span>
+                          {structured ? (
+                            <span className="knowledge-structured-badge">
+                              Structured
+                            </span>
+                          ) : null}
+                        </span>
                         {item.file ? (
                           <span className="knowledge-file-sub">
                             {formatStorageBytes(item.file.size_bytes)}
+                          </span>
+                        ) : structured ? (
+                          <span className="knowledge-file-sub">
+                            Bound document
                           </span>
                         ) : null}
                       </button>
@@ -154,7 +181,17 @@ export default function KnowledgeListing({
                       ) : null}
                     </td>
                     <td>
-                      {item.file ? (
+                      {structured ? (
+                        <div className="knowledge-actions">
+                          <button
+                            type="button"
+                            className="knowledge-action"
+                            onClick={() => onOpenStructured(item.path)}
+                          >
+                            Preview
+                          </button>
+                        </div>
+                      ) : item.file ? (
                         <div className="knowledge-actions">
                           <button
                             type="button"

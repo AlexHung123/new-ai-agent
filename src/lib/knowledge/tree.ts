@@ -19,6 +19,65 @@ export function nodeAtPath(
   return current;
 }
 
+/** True when a folder is a bound / structured document (wiki flag or wiki/index.md). */
+export function isStructuredKnowledgeNode(
+  node: KnowledgeTreeNode | null | undefined,
+): boolean {
+  if (!node || node.type !== 'dir') return false;
+  if (node.wiki) return true;
+  const wikiDir = (node.children || []).find(
+    (child) => child.type === 'dir' && child.name === 'wiki',
+  );
+  if (!wikiDir) return false;
+  return (wikiDir.children || []).some(
+    (child) =>
+      child.type === 'file' &&
+      (child.name === 'index.md' ||
+        (child.path || '').replace(/\\/g, '/').endsWith('wiki/index.md')),
+  );
+}
+
+/** Nearest structured ancestor of `path`, including the node itself. */
+export function enclosingStructuredNode(
+  root: KnowledgeTreeNode,
+  path: string,
+): KnowledgeTreeNode | null {
+  if (!path) return isStructuredKnowledgeNode(root) ? root : null;
+  const parts = path.split('/').filter(Boolean);
+  let acc = '';
+  for (const part of parts) {
+    acc = acc ? `${acc}/${part}` : part;
+    const current = nodeAtPath(root, acc);
+    if (isStructuredKnowledgeNode(current)) return current;
+  }
+  return null;
+}
+
+export function parentKnowledgePath(path: string): string {
+  const parts = path.split('/').filter(Boolean);
+  return parts.slice(0, -1).join('/');
+}
+
+/** The bound document's index file, if the tree includes it. */
+export function structuredIndexFile(
+  node: KnowledgeTreeNode,
+): KnowledgeFileMeta | null {
+  const wikiDir = (node.children || []).find(
+    (child) => child.type === 'dir' && child.name === 'wiki',
+  );
+  const candidates = [
+    ...(wikiDir?.children || []),
+    ...(node.children || []),
+  ];
+  const index = candidates.find(
+    (child) =>
+      child.type === 'file' &&
+      (child.name === 'index.md' ||
+        (child.path || '').replace(/\\/g, '/').endsWith('wiki/index.md')),
+  );
+  return index?.file ?? null;
+}
+
 export function childrenAtPath(
   root: KnowledgeTreeNode,
   path: string,
@@ -107,6 +166,20 @@ export function flattenKnowledgeNodes(
   for (const child of root.children || []) {
     out.push(...flattenKnowledgeNodes(child));
   }
+  return out;
+}
+
+/** Flatten the tree but treat structured folders as leaves (no internal files). */
+export function flattenVisibleKnowledgeNodes(
+  root: KnowledgeTreeNode,
+): KnowledgeTreeNode[] {
+  const out: KnowledgeTreeNode[] = [];
+  const visit = (node: KnowledgeTreeNode, isRoot = false) => {
+    if (!isRoot) out.push(node);
+    if (isStructuredKnowledgeNode(node)) return;
+    for (const child of node.children || []) visit(child);
+  };
+  visit(root, true);
   return out;
 }
 

@@ -6,7 +6,10 @@ import {
   knowledgeMentionToken,
   type KnowledgeLibrary,
 } from '@/lib/knowledge/library';
-import { flattenKnowledgeNodes } from '@/lib/knowledge/tree';
+import {
+  flattenVisibleKnowledgeNodes,
+  isStructuredKnowledgeNode,
+} from '@/lib/knowledge/tree';
 import { useKnowledgeTree } from '@/lib/knowledge/useKnowledgeTree';
 import { atQueryAtCursor, insertMention } from '@/lib/writing/mentions';
 import type { KnowledgeTreeNode } from '@/lib/knowledge/types';
@@ -27,7 +30,7 @@ function listedNodes(
   library: KnowledgeLibrary,
   query: string,
 ) {
-  return flattenKnowledgeNodes(tree)
+  return flattenVisibleKnowledgeNodes(tree)
     .filter((node) => node.path)
     .map((node) => ({
       ...node,
@@ -81,7 +84,8 @@ export default function WritingKnowledgeAtMenu({
         <li className="writing-knowledge-at-empty">No matching files</li>
       ) : (
         nodes.map((node, index) => {
-          const isFolder = node.type === 'dir';
+          const structured = isStructuredKnowledgeNode(node);
+          const isFolder = node.type === 'dir' && !structured;
           const parent = parentPath(node.path);
           const isPublic = node.library === 'public';
           return (
@@ -103,6 +107,9 @@ export default function WritingKnowledgeAtMenu({
                 <span className="writing-knowledge-at-text">
                   <span className="writing-knowledge-at-name">
                     {node.name || node.path}
+                    {structured ? (
+                      <span className="writing-knowledge-wiki-badge">Structured</span>
+                    ) : null}
                   </span>
                   <span className="writing-knowledge-at-path">
                     {isPublic ? 'Public' : 'Private'}

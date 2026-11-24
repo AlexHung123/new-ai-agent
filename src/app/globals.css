@@ -1361,6 +1361,9 @@
 }
 
 .writing-knowledge-at-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1368,6 +1371,11 @@
   font-size: 0.875rem;
   font-weight: 550;
   line-height: 1.2;
+}
+
+.writing-knowledge-at-name .writing-knowledge-wiki-badge {
+  margin-left: 0;
+  flex: 0 0 auto;
 }
 
 .writing-knowledge-at-path {
@@ -1466,7 +1474,8 @@
 }
 
 .writing-knowledge-wiki-badge,
-.knowledge-scope-chip-badge {
+.knowledge-scope-chip-badge,
+.knowledge-structured-badge {
   margin-left: auto;
   padding: 0.05rem 0.35rem;
   border-radius: 999px;
@@ -2940,10 +2949,28 @@ body:has(.html-close-itms) .document-preview-tabs {
   font-size: 14px;
 }
 
-.knowledge-tree-folder-icon {
+.knowledge-tree-folder-icon,
+.knowledge-tree-file-icon {
   flex: 0 0 auto;
   font-size: 12px;
   line-height: 1;
+}
+
+.knowledge-tree-file-icon {
+  display: inline-flex;
+  color: #64748b;
+}
+
+.knowledge-tree-item-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.knowledge-tree-item .knowledge-structured-badge {
+  margin-left: auto;
+  flex: 0 0 auto;
 }
 
 .knowledge-tree-item.is-active,
@@ -2992,6 +3019,18 @@ body:has(.html-close-itms) .document-preview-tabs {
   align-items: flex-start;
   font-weight: 600;
   text-align: left;
+}
+
+.knowledge-file-name-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.knowledge-file-doc-icon {
+  flex: 0 0 auto;
+  line-height: 1;
 }
 
 .knowledge-file-sub {

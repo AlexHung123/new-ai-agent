@@ -11,10 +11,14 @@ import {
 } from '@/lib/knowledge/filenames';
 import {
   childrenAtPath,
+  enclosingStructuredNode,
   fileCountInNode,
   fileTaskIds,
   findFileForSearchHit,
+  isStructuredKnowledgeNode,
   nodeAtPath,
+  parentKnowledgePath,
+  structuredIndexFile,
 } from '@/lib/knowledge/tree';
 import {
   folderAvatarColor,
@@ -219,9 +223,27 @@ export default function KnowledgeFileManager() {
   const tree = currentLibrary === 'public' ? publicTree : privateTree;
   const publicWriteBlocked = currentLibrary === 'public' && !canWritePublic;
 
-  const items = useMemo(
-    () => childrenAtPath(tree, currentPath),
+  useEffect(() => {
+    if (!currentPath) return;
+    const enclosed = enclosingStructuredNode(tree, currentPath);
+    if (enclosed && enclosed.path && enclosed.path !== currentPath) {
+      setCurrentPath(enclosed.path);
+      pathByLibraryRef.current[currentLibrary] = enclosed.path;
+    }
+  }, [tree, currentPath, currentLibrary]);
+
+  const currentNode = useMemo(
+    () => (currentPath ? nodeAtPath(tree, currentPath) : null),
     [tree, currentPath],
+  );
+  const structuredCurrent = isStructuredKnowledgeNode(currentNode);
+  const listingPath = structuredCurrent
+    ? parentKnowledgePath(currentPath)
+    : currentPath;
+
+  const items = useMemo(
+    () => childrenAtPath(tree, listingPath),
+    [tree, listingPath],
   );
 
   const listingItems = useMemo(() => {
@@ -230,11 +252,6 @@ export default function KnowledgeFileManager() {
     return items.filter((item) => item.name.toLowerCase().includes(q));
   }, [items, searchDraft]);
 
-  const currentNode = useMemo(
-    () => (currentPath ? nodeAtPath(tree, currentPath) : null),
-    [tree, currentPath],
-  );
-
   const clearPreview = () => {
     setPreviewMarkdown(null);
     setPreviewError(null);
@@ -242,12 +259,27 @@ export default function KnowledgeFileManager() {
   };
 
   const selectFolder = (path: string, library: KnowledgeLibrary = currentLibrary) => {
-    pathByLibraryRef.current[library] = path;
+    const nextTree = library === 'public' ? publicTree : privateTree;
+    const enclosed = path ? enclosingStructuredNode(nextTree, path) : null;
+    const nextPath = enclosed ? enclosed.path : path;
+    pathByLibraryRef.current[library] = nextPath;
     setCurrentLibrary(library);
     writeLibraryTab(library);
-    setCurrentPath(path);
+    setCurrentPath(nextPath);
     setHits(null);
     clearPreview();
+  };
+
+  const openStructured = (path: string, library: KnowledgeLibrary = currentLibrary) => {
+    const nextTree = library === 'public' ? publicTree : privateTree;
+    const enclosed =
+      enclosingStructuredNode(nextTree, path) || nodeAtPath(nextTree, path);
+    selectFolder(path, library);
+    if (!enclosed || !isStructuredKnowledgeNode(enclosed)) return;
+    const file = structuredIndexFile(enclosed);
+    if (file) {
+      void onOpenFile(file.id, enclosed.name || file.original_filename);
+    }
   };
 
   const selectLibraryTab = (library: KnowledgeLibrary) => {
@@ -263,7 +295,7 @@ export default function KnowledgeFileManager() {
     if (!segment) throw new Error('Enter a folder name.');
     const path =
       input.library === currentLibrary
-        ? joinKnowledgePath(currentPath, segment)
+        ? joinKnowledgePath(listingPath, segment)
         : segment;
     const res = await fetch(FOLDERS_URL, {
       method: 'POST',
@@ -471,7 +503,7 @@ export default function KnowledgeFileManager() {
         accept={KNOWLEDGE_ACCEPT}
         className="knowledge-upload hidden"
         onChange={(event) => {
-          if (event.target.files) void uploadFiles(currentPath, event.target.files);
+          if (event.target.files) void uploadFiles(listingPath, event.target.files);
           event.target.value = '';
         }}
       />
@@ -489,10 +521,11 @@ export default function KnowledgeFileManager() {
       searching={hits !== null}
       tasks={tasks}
       onOpenDir={selectFolder}
+      onOpenStructured={openStructured}
       onOpenFile={(id, name) => void onOpenFile(id, name)}
       onOpenHit={onOpenHit}
       onDownload={(file) => void onDownload(file)}
-      onDropFiles={(files) => void uploadFiles(currentPath, files)}
+      onDropFiles={(files) => void uploadFiles(listingPath, files)}
     />
   );
 
@@ -516,7 +549,11 @@ export default function KnowledgeFileManager() {
                   {currentNode.name}
                 </div>
                 <div className="knowledge-detail-folder-meta">
-                  {fileCountInNode(currentNode)} files
+                  {structuredCurrent ? (
+                    <span className="knowledge-structured-badge">Structured</span>
+                  ) : (
+                    `${fileCountInNode(currentNode)} files`
+                  )}
                 </div>
               </div>
             </div>
@@ -547,7 +584,14 @@ export default function KnowledgeFileManager() {
             <KnowledgeTree
               node={tree}
               currentPath={currentPath}
-              onSelect={(path) => selectFolder(path, currentLibrary)}
+              onSelect={(path) => {
+                const node = nodeAtPath(tree, path);
+                if (isStructuredKnowledgeNode(node)) {
+                  openStructured(path, currentLibrary);
+                  return;
+                }
+                selectFolder(path, currentLibrary);
+              }}
               onDropFiles={(path, files) =>
                 void uploadFiles(path, files, currentLibrary)
               }

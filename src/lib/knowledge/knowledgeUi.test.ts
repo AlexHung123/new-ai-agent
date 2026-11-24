@@ -158,4 +158,26 @@ describe('knowledge UI contracts', () => {
     expect(chip).toMatch(/Structured/);
     expect(chip).toMatch(/Unpin folder/);
   });
+
+  it('renders structured folders as document rows, not expandable trees', () => {
+    const tree = readSrc('../../components/knowledge/KnowledgeTree.tsx');
+    const listing = readSrc('../../components/knowledge/KnowledgeListing.tsx');
+    const manager = readSrc('../../components/knowledge/KnowledgeFileManager.tsx');
+    expect(tree).toMatch(/isStructuredKnowledgeNode/);
+    expect(tree).toMatch(/knowledge-structured-badge/);
+    expect(tree).toMatch(/Structured/);
+    expect(tree).toMatch(/FileText/);
+    expect(listing).toMatch(/isStructuredKnowledgeNode/);
+    expect(listing).toMatch(/onOpenStructured/);
+    expect(listing).toMatch(/Bound document/);
+    expect(listing).toMatch(/knowledge-structured-badge/);
+    expect(listing).toMatch(/Structured/);
+    expect(manager).toMatch(/onOpenStructured=\{openStructured\}/);
+    expect(manager).toMatch(/structuredIndexFile/);
+    expect(manager).toMatch(/parentKnowledgePath/);
+    expect(manager).not.toMatch(/維基/);
+    expect(listing).not.toMatch(/維基/);
+    expect(tree).not.toMatch(/維基/);
+  });
+
 });

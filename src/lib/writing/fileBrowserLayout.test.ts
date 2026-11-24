@@ -115,4 +115,19 @@ describe('writing Knowledge FILES rail', () => {
     expect(files).toMatch(/publicTree\.children/);
     expect(files).toMatch(/Loading files/);
   });
+
+  it('renders structured knowledge items as documents, not folder trees', () => {
+    const files = readSrc('../../components/WritingKnowledgeFiles.tsx');
+    const menu = readSrc('../../components/WritingKnowledgeAtMenu.tsx');
+    expect(files).toMatch(/isStructuredKnowledgeNode/);
+    expect(files).toMatch(/writing-knowledge-wiki-badge/);
+    expect(files).toMatch(/>Structured</);
+    expect(files).toMatch(/structured \? 'is-file' : 'is-folder'/);
+    expect(menu).toMatch(/flattenVisibleKnowledgeNodes/);
+    expect(menu).toMatch(/isStructuredKnowledgeNode/);
+    expect(menu).toMatch(/>Structured</);
+    expect(files).not.toMatch(/維基/);
+    expect(menu).not.toMatch(/維基/);
+  });
+
 });

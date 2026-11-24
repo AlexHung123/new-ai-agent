@@ -6,26 +6,12 @@ import {
 } from '@/lib/documents/catalog';
 import { getStatus, getTree } from '@/lib/knowledge/dochubClient';
 import type { KnowledgeTreeNode } from '@/lib/knowledge/types';
-import { nodeAtPath } from '@/lib/knowledge/tree';
+import { isStructuredKnowledgeNode, nodeAtPath } from '@/lib/knowledge/tree';
 import { resolveWritingKnowledgePin } from '@/lib/knowledge/writingPin';
 import type { WritingTurnContext } from './writingTurnContext';
 
 const LIBRARY_UNAVAILABLE =
   'Knowledge service is unavailable. Knowledge tools will fail; do not retry query, get, multi_get, or tree. Tell the user the knowledge library is unreachable.';
-
-function nodeIsWiki(node: KnowledgeTreeNode | null | undefined): boolean {
-  if (!node || node.type !== 'dir') return false;
-  if (node.wiki) return true;
-  const wikiDir = (node.children || []).find(
-    (child) => child.type === 'dir' && child.name === 'wiki',
-  );
-  if (!wikiDir) return false;
-  return (wikiDir.children || []).some(
-    (child) =>
-      child.type === 'file' &&
-      (child.name === 'index.md' || child.path.endsWith('wiki/index.md')),
-  );
-}
 
 function localWikiSlot(path: string | null) {
   if (!path) return null;
@@ -92,7 +78,7 @@ export async function loadWritingTurnContext(opts: {
   const treeForPin = pinLibrary === 'public' ? publicTree : privateTree;
   const pinnedNode = pin.pin && treeForPin ? nodeAtPath(treeForPin, pin.pin) : null;
   const local = pinLibrary === 'public' ? localWikiSlot(pin.pin) : null;
-  const isWiki = nodeIsWiki(pinnedNode) || Boolean(local && !local.scoped);
+  const isWiki = isStructuredKnowledgeNode(pinnedNode) || Boolean(local && !local.scoped);
   const retrievalMode: WritingTurnContext['retrievalMode'] = isWiki ? 'wiki' : 'search';
 
   let contexts: WritingTurnContext['contexts'];
