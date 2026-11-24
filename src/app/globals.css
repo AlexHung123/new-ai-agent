@@ -16,9 +16,9 @@
   --wiki-bubble: #e8eef8;
   --wiki-table-head: #f3f4f6;
   --wiki-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
-  --wiki-shadow-focus: 0 0 0 3px rgba(15, 118, 110, 0.18);
-  --wiki-primary: #0f766e;
-  --wiki-primary-soft: #e5f3f0;
+  --wiki-shadow-focus: 0 0 0 3px rgba(0, 113, 205, 0.18);
+  --wiki-primary: #0071CD;
+  --wiki-primary-soft: color-mix(in srgb, #0071CD 12%, #ffffff);
   --chat-content-max-width: 820px;
   --chat-topbar-height: 36px;
   --chat-topbar-bg: #f5f5f5;
@@ -47,9 +47,9 @@
   --wiki-bubble: #243044;
   --wiki-table-head: #161b22;
   --wiki-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-  --wiki-shadow-focus: 0 0 0 3px rgba(36, 160, 237, 0.22);
-  --wiki-primary: #2dd4bf;
-  --wiki-primary-soft: color-mix(in srgb, #2dd4bf 16%, transparent);
+  --wiki-shadow-focus: 0 0 0 3px rgba(91, 168, 217, 0.22);
+  --wiki-primary: #5BA8D9;
+  --wiki-primary-soft: color-mix(in srgb, #5BA8D9 16%, transparent);
   --chat-topbar-bg: #242424;
   --chat-topbar-border: #454545;
   --chat-topbar-hover: #2e2e2e;
@@ -938,7 +938,7 @@
 }
 
 .send-btn.send-btn-active:hover {
-  background: #115e59;
+  background: color-mix(in srgb, #0071CD 86%, #000);
 }
 
 .send-btn-icon {
@@ -1482,8 +1482,8 @@
   font-size: 0.62rem;
   font-weight: 600;
   letter-spacing: 0.02em;
-  color: #0f766e;
-  background: rgba(15, 118, 110, 0.12);
+  color: var(--wiki-primary);
+  background: color-mix(in srgb, var(--wiki-primary) 12%, transparent);
 }
 
 .writing-knowledge-at-scope {
@@ -1517,14 +1517,14 @@
   padding: 0.2rem 0.3rem 0.2rem 0.5rem;
   border: 1px solid var(--wiki-border, #e5e7eb);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--wiki-surface, #fff) 88%, #0f766e 12%);
+  background: color-mix(in srgb, var(--wiki-surface, #fff) 88%, var(--wiki-primary) 12%);
   font-size: 0.78rem;
   color: inherit;
 }
 
 .knowledge-scope-chip-icon {
   display: inline-flex;
-  color: #0f766e;
+  color: var(--wiki-primary);
 }
 
 .knowledge-scope-chip-text {
@@ -1696,8 +1696,8 @@
 }
 
 .knowledge-visibility-card.is-selected {
-  border-color: #0f766e;
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.16);
+  border-color: var(--wiki-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--wiki-primary) 16%, transparent);
 }
 
 .knowledge-visibility-card.is-disabled,
@@ -2566,7 +2566,7 @@ body:has(.html-close-itms) .document-preview-tabs {
 
 .knowledge-loading-spinner {
   animation: processing-spin 0.9s linear infinite;
-  color: #0f766e;
+  color: var(--wiki-primary);
 }
 
 @keyframes knowledge-shimmer {
@@ -2608,8 +2608,8 @@ body:has(.html-close-itms) .document-preview-tabs {
 }
 
 .knowledge-search-combo:focus-within {
-  border-color: #0f766e;
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.16);
+  border-color: var(--wiki-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--wiki-primary) 16%, transparent);
 }
 
 .knowledge-search-field {
@@ -2697,15 +2697,15 @@ body:has(.html-close-itms) .document-preview-tabs {
 
 .knowledge-btn,
 .knowledge-new-folder button {
-  border: 1px solid #0f766e;
-  background: #0f766e;
+  border: 1px solid #0071CD;
+  background: #0071CD;
   color: #fff;
 }
 
 .knowledge-btn:hover:not(:disabled),
 .knowledge-new-folder button:hover {
-  background: #0d9488;
-  border-color: #0d9488;
+  background: color-mix(in srgb, #0071CD 86%, #000);
+  border-color: color-mix(in srgb, #0071CD 86%, #000);
 }
 
 .knowledge-btn:focus-visible,
@@ -2713,7 +2713,7 @@ body:has(.html-close-itms) .document-preview-tabs {
 .knowledge-new-folder button:focus-visible,
 .knowledge-new-folder input:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.16);
+  box-shadow: 0 0 0 3px color-mix(in srgb, #0071CD 16%, transparent);
 }
 
 .knowledge-btn:disabled {
