@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
-import { createFolder } from '@/lib/knowledge/dochubClient';
+import { createFolder, getTree } from '@/lib/knowledge/dochubClient';
+import { childFolderLibraryError, isRootFolderPath } from '@/lib/knowledge/folderVisibility';
 import { jsonFromUnknownError, unauthorized, userIdFrom } from '@/lib/knowledge/http';
 import { parseKnowledgeLibrary, parseKnowledgeLibraryStrict } from '@/lib/knowledge/library';
 import { isSafeRelativePath } from '@/lib/knowledge/paths';
 import { canWritePublicLibrary } from '@/lib/knowledge/publicAccess';
+import type { KnowledgeTreeNode } from '@/lib/knowledge/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -30,6 +32,29 @@ export async function POST(req: Request) {
     );
   }
   const library = parseKnowledgeLibrary(rawLibrary, 'private');
+  if (!isRootFolderPath(path)) {
+    try {
+      const emptyTree = (): KnowledgeTreeNode => ({
+        type: 'dir',
+        name: '',
+        path: '',
+        children: [],
+      });
+      const [privateResult, publicResult] = await Promise.all([
+        getTree(userId, { library: 'private' }),
+        getTree(userId, { library: 'public' }),
+      ]);
+      const mismatch = childFolderLibraryError(path, library, {
+        private: privateResult.tree || emptyTree(),
+        public: publicResult.tree || emptyTree(),
+      });
+      if (mismatch) {
+        return NextResponse.json({ message: mismatch }, { status: 400 });
+      }
+    } catch (error) {
+      return jsonFromUnknownError(error);
+    }
+  }
   if (library === 'public' && !canWritePublicLibrary(userId)) {
     return NextResponse.json(
       {

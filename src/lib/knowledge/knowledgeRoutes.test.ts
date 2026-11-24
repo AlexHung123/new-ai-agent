@@ -102,6 +102,7 @@ describe('knowledge routes', () => {
     );
     expect(res.status).toBe(200);
     expect(createFolder).toHaveBeenCalledWith('1', 'docs', { library: 'private' });
+    expect(getTree).not.toHaveBeenCalled();
   });
 
   it('POST folders rejects public writes for non-curators', async () => {
@@ -130,6 +131,7 @@ describe('knowledge routes', () => {
     );
     expect(res.status).toBe(200);
     expect(createFolder).toHaveBeenCalledWith('admin', 'spr', { library: 'public' });
+    expect(getTree).not.toHaveBeenCalled();
   });
 
   it('GET tree hides the reserved public sfc folder', async () => {
@@ -172,6 +174,93 @@ describe('knowledge routes', () => {
       }),
     );
     expect(res.status).toBe(400);
+    expect(createFolder).not.toHaveBeenCalled();
+  });
+
+  function folderTree(children: Array<Record<string, unknown>>) {
+    return {
+      user_id: '1',
+      tree: { type: 'dir', name: '', path: '', children },
+    };
+  }
+
+  it('POST folders rejects a nested path that does not match the parent library', async () => {
+    canWritePublicLibrary.mockReturnValue(true);
+    getTree.mockImplementation(async (_userId: string, deps?: { library?: string }) => {
+      if (deps?.library === 'private') {
+        return folderTree([
+          {
+            type: 'dir',
+            name: 'sfc',
+            path: 'sfc',
+            children: [
+              { type: 'dir', name: 'testing2', path: 'sfc/testing2', children: [] },
+            ],
+          },
+        ]);
+      }
+      return folderTree([]);
+    });
+    const res = await POST_FOLDER(
+      req('http://localhost/itms/ai/api/knowledge/folders', {
+        method: 'POST',
+        userId: 'admin',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ path: 'sfc/testing2/child', library: 'public' }),
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({
+      message: 'A child folder must be Private because its parent is Private.',
+    });
+    expect(createFolder).not.toHaveBeenCalled();
+  });
+
+  it('POST folders inherits the parent library for a nested path', async () => {
+    getTree.mockImplementation(async (_userId: string, deps?: { library?: string }) => {
+      if (deps?.library === 'private') {
+        return folderTree([
+          {
+            type: 'dir',
+            name: 'sfc',
+            path: 'sfc',
+            children: [
+              { type: 'dir', name: 'testing2', path: 'sfc/testing2', children: [] },
+            ],
+          },
+        ]);
+      }
+      return folderTree([]);
+    });
+    createFolder.mockResolvedValue({ path: 'sfc/testing2/child' });
+    const res = await POST_FOLDER(
+      req('http://localhost/itms/ai/api/knowledge/folders', {
+        method: 'POST',
+        userId: '1',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ path: 'sfc/testing2/child', library: 'private' }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(createFolder).toHaveBeenCalledWith('1', 'sfc/testing2/child', {
+      library: 'private',
+    });
+  });
+
+  it('POST folders rejects a nested path when the parent is missing', async () => {
+    getTree.mockResolvedValue(folderTree([]));
+    const res = await POST_FOLDER(
+      req('http://localhost/itms/ai/api/knowledge/folders', {
+        method: 'POST',
+        userId: '1',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ path: 'missing/child', library: 'private' }),
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({
+      message: 'Parent folder "missing" was not found.',
+    });
     expect(createFolder).not.toHaveBeenCalled();
   });
 

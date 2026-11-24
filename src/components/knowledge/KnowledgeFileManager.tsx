@@ -293,14 +293,14 @@ export default function KnowledgeFileManager() {
   const createFolder = async (input: { name: string; library: KnowledgeLibrary }) => {
     const segment = sanitizePathSegment(input.name);
     if (!segment) throw new Error('Enter a folder name.');
-    const path =
-      input.library === currentLibrary
-        ? joinKnowledgePath(listingPath, segment)
-        : segment;
+    const library = listingPath ? currentLibrary : input.library;
+    const path = listingPath
+      ? joinKnowledgePath(listingPath, segment)
+      : segment;
     const res = await fetch(FOLDERS_URL, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ path, library: input.library }),
+      body: JSON.stringify({ path, library }),
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
@@ -309,7 +309,7 @@ export default function KnowledgeFileManager() {
       );
     }
     await loadTree();
-    selectFolder(path, input.library);
+    selectFolder(path, library);
   };
 
   const uploadFiles = async (
@@ -472,7 +472,7 @@ export default function KnowledgeFileManager() {
       open={newFolderOpen}
       canWritePublic={canWritePublic}
       defaultLibrary={currentLibrary}
-      currentPath={currentPath}
+      currentPath={listingPath}
       onClose={() => setNewFolderOpen(false)}
       onCreate={createFolder}
     />

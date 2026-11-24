@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useState } from 'react';
 import { Globe, Lock, X } from 'lucide-react';
+import { inheritedFolderSubtitle } from '@/lib/knowledge/folderVisibility';
 import type { KnowledgeLibrary } from '@/lib/knowledge/library';
 
 type Props = {
@@ -33,9 +34,13 @@ export default function KnowledgeCreateFolderDialog({
     setError(null);
     setBusy(false);
     setLibrary(
-      defaultLibrary === 'public' && canWritePublic ? 'public' : 'private',
+      currentPath
+        ? defaultLibrary
+        : defaultLibrary === 'public' && canWritePublic
+          ? 'public'
+          : 'private',
     );
-  }, [open, defaultLibrary, canWritePublic]);
+  }, [open, defaultLibrary, canWritePublic, currentPath]);
 
   if (!open) return null;
 
@@ -74,7 +79,7 @@ export default function KnowledgeCreateFolderDialog({
             <h2 id={titleId}>Create folder</h2>
             <p>
               {currentPath
-                ? `New folder inside ${currentPath}`
+                ? inheritedFolderSubtitle(currentPath, library)
                 : 'Add a folder to your Knowledge library.'}
             </p>
           </div>
@@ -97,45 +102,47 @@ export default function KnowledgeCreateFolderDialog({
             placeholder="e.g. Contracts"
           />
         </label>
-        <fieldset className="knowledge-visibility">
-          <legend>Visibility</legend>
-          <div className="knowledge-visibility-grid">
-            <button
-              type="button"
-              className={`knowledge-visibility-card${library === 'private' ? ' is-selected' : ''}`}
-              onClick={() => setLibrary('private')}
-            >
-              <Lock size={16} aria-hidden />
-              <span>
-                <strong>Private</strong>
-                <em>Only you can see and edit this folder.</em>
-              </span>
-            </button>
-            <button
-              type="button"
-              className={`knowledge-visibility-card${library === 'public' ? ' is-selected' : ''}${
-                canWritePublic ? '' : ' is-disabled'
-              }`}
-              onClick={() => canWritePublic && setLibrary('public')}
-              disabled={!canWritePublic}
-              title={
-                canWritePublic
-                  ? undefined
-                  : 'Only a knowledge curator can create shared folders.'
-              }
-            >
-              <Globe size={16} aria-hidden />
-              <span>
-                <strong>Public</strong>
-                <em>
-                  {canWritePublic
-                    ? 'Shared with all signed-in users.'
-                    : 'Only a knowledge curator can create shared folders.'}
-                </em>
-              </span>
-            </button>
-          </div>
-        </fieldset>
+        {!currentPath ? (
+          <fieldset className="knowledge-visibility">
+            <legend>Visibility</legend>
+            <div className="knowledge-visibility-grid">
+              <button
+                type="button"
+                className={`knowledge-visibility-card${library === 'private' ? ' is-selected' : ''}`}
+                onClick={() => setLibrary('private')}
+              >
+                <Lock size={16} aria-hidden />
+                <span>
+                  <strong>Private</strong>
+                  <em>Only you can see and edit this folder.</em>
+                </span>
+              </button>
+              <button
+                type="button"
+                className={`knowledge-visibility-card${library === 'public' ? ' is-selected' : ''}${
+                  canWritePublic ? '' : ' is-disabled'
+                }`}
+                onClick={() => canWritePublic && setLibrary('public')}
+                disabled={!canWritePublic}
+                title={
+                  canWritePublic
+                    ? undefined
+                    : 'Only a knowledge curator can create shared folders.'
+                }
+              >
+                <Globe size={16} aria-hidden />
+                <span>
+                  <strong>Public</strong>
+                  <em>
+                    {canWritePublic
+                      ? 'Shared with all signed-in users.'
+                      : 'Only a knowledge curator can create shared folders.'}
+                  </em>
+                </span>
+              </button>
+            </div>
+          </fieldset>
+        ) : null}
         {error ? <p className="knowledge-dialog-error">{error}</p> : null}
         <div className="knowledge-dialog-actions">
           <button type="button" className="knowledge-btn-secondary" onClick={onClose} disabled={busy}>

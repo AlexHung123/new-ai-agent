@@ -163,6 +163,19 @@ describe('knowledge UI contracts', () => {
     expect(chip).toMatch(/Unpin folder/);
   });
 
+  it('hides visibility choices when creating a folder inside a parent', () => {
+    const dialog = readSrc('../../components/KnowledgeCreateFolderDialog.tsx');
+    const manager = readSrc('../../components/knowledge/KnowledgeFileManager.tsx');
+    expect(dialog).toMatch(/inheritedFolderSubtitle/);
+    expect(dialog).toMatch(/!currentPath \? \(/);
+    expect(dialog).toMatch(/knowledge-visibility/);
+    expect(dialog).toMatch(/currentPath\s*\?\s*defaultLibrary/);
+    expect(manager).toMatch(/currentPath=\{listingPath\}/);
+    expect(manager).toMatch(/listingPath \? currentLibrary : input\.library/);
+    const files = readSrc('../../components/WritingKnowledgeFiles.tsx');
+    expect(files).not.toMatch(/Create folder/);
+  });
+
   it('renders structured folders as document rows, not expandable trees', () => {
     const tree = readSrc('../../components/knowledge/KnowledgeTree.tsx');
     const listing = readSrc('../../components/knowledge/KnowledgeListing.tsx');
