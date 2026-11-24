@@ -1,10 +1,13 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { useChat } from '@/lib/hooks/useChat';
+import { isKnowledgeFocusMode } from '@/lib/agents';
 import AgentCard from './AgentCard';
 import WritingKnowledgeFiles from './WritingKnowledgeFiles';
 
 const WritingLeftRail = () => {
+  const { focusMode } = useChat();
   return (
     <motion.div
       initial={{ opacity: 0, x: -20 }}
@@ -13,7 +16,7 @@ const WritingLeftRail = () => {
       className="writing-left-rail"
     >
       <AgentCard />
-      <WritingKnowledgeFiles />
+      {isKnowledgeFocusMode(focusMode) ? <WritingKnowledgeFiles /> : null}
     </motion.div>
   );
 };

@@ -16,9 +16,14 @@ describe('writing Knowledge FILES rail', () => {
     expect(rail).toMatch(/WritingKnowledgeFiles/);
     const files = readSrc('../../components/WritingKnowledgeFiles.tsx');
     expect(files).toMatch(/FILES/);
-    expect(files).toMatch(/\/api\/knowledge\/tree/);
+    expect(files).toMatch(/useKnowledgeTree/);
+    expect(readSrc('../knowledge/useKnowledgeTree.ts')).toMatch(/\/api\/knowledge\/tree/);
     expect(files).toMatch(/openKnowledgeFile/);
     expect(files).toMatch(/Upload documents on Knowledge/);
+    expect(files).toMatch(/title="Private"/);
+    expect(files).toMatch(/title="Public"/);
+    expect(files).toMatch(/formatKnowledgePin/);
+    expect(files).toMatch(/Shared policy folders will appear here/);
     expect(files).toMatch(/writing-knowledge-toggle/);
     expect(files).toMatch(/Collapse all folders/);
     expect(files).toMatch(/Expand all folders/);
@@ -59,6 +64,9 @@ describe('writing Knowledge FILES rail', () => {
     expect(menu).toMatch(/FileText/);
     expect(menu).toMatch(/writing-knowledge-at-name/);
     expect(menu).not.toMatch(/writing-knowledge-at-kind/);
+    expect(menu).toMatch(/knowledgeMentionToken/);
+    expect(menu).toMatch(/listedNodes\(publicTree, 'public'/);
+    expect(menu).toMatch(/listedNodes\(privateTree, 'private'/);
     const chat = readSrc('../hooks/useChat.tsx');
     expect(chat).toMatch(/knowledgeFolder:/);
     for (const src of [
@@ -97,7 +105,8 @@ describe('writing Knowledge FILES rail', () => {
       /<WritingLeftRail \/>\s*\{messages\.length > 0 \? /s,
     );
     const files = readSrc('../../components/WritingKnowledgeFiles.tsx');
-    expect(files).toMatch(/loading && \(tree\.children \|\| \[\]\)\.length === 0/);
+    expect(files).toMatch(/privateTree\.children/);
+    expect(files).toMatch(/publicTree\.children/);
     expect(files).toMatch(/Loading files/);
   });
 });

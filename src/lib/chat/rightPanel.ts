@@ -1,4 +1,4 @@
-export const RIGHT_PANEL_FOCUS_MODES = ['agentHtml', 'agentWriting'] as const;
+export const RIGHT_PANEL_FOCUS_MODES = ['agentHtml', 'agentWriting', 'agentKnowledge', 'agentDocument'] as const;
 
 export const RIGHT_PANEL_MIN_WIDTH = 300;
 export const RIGHT_PANEL_MAX_WIDTH = 1200;
@@ -8,7 +8,7 @@ export const RIGHT_PANEL_WIDTH_STORAGE_KEY = 'ai-right-panel-width';
 export const RIGHT_PANEL_OPEN_STORAGE_KEY = 'ai-right-panel-open';
 
 export function usesRightPanel(focusMode: string | null | undefined): boolean {
-  return focusMode === 'agentHtml' || focusMode === 'agentWriting';
+  return focusMode === 'agentHtml' || focusMode === 'agentWriting' || focusMode === 'agentKnowledge' || focusMode === 'agentDocument';
 }
 
 export function defaultRightPanelOpen(

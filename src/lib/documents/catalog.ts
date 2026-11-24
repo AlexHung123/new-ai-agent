@@ -10,6 +10,9 @@ export type DocumentSlot = {
   hiddenFromPicker?: boolean;
 };
 
+// Policy trees stay under DOCUMENT_FILES_ROOT for local structured-folder
+// reads. To copy them into the Dochub public library, run
+// scripts/seed-public-knowledge.sh (does not delete these sources).
 export const DOCUMENT_SLOTS: DocumentSlot[] = [
   {
     id: 'spr',

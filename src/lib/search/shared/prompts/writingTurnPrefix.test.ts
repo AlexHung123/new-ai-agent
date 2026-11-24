@@ -29,6 +29,18 @@ describe('writingToolsForTurn', () => {
       'status',
     ]);
   });
+
+  it('uses index-first filesystem tools for a local structured folder', () => {
+    expect(
+      writingToolsForTurn({
+        ...ctx,
+        retrievalMode: 'wiki',
+        wikiRootAbs: '/tmp/spr',
+        wikiTitle: 'SPR',
+        pinLibrary: 'public',
+      }),
+    ).toEqual(['fs_ls', 'fs_read', 'fs_grep', 'fs_find']);
+  });
 });
 
 describe('buildWritingUserPrompt', () => {
@@ -40,7 +52,7 @@ describe('buildWritingUserPrompt', () => {
 
   it('adds pin and mention notes and does not inject file bodies', () => {
     const prompt = buildWritingUserPrompt('季度規劃喺邊份合約', ctx);
-    expect(prompt).toContain('[Pinned folder]\ncontracts/2024');
+    expect(prompt).toContain('[Pinned folder]\nprivate:contracts/2024 (ordinary)');
     expect(prompt).toContain('[Mentioned documents]');
     expect(prompt).toContain('contracts/2024/plan.md');
     expect(prompt).toContain('plan.docx');
@@ -75,5 +87,20 @@ describe('buildWritingUserPrompt', () => {
     expect(prompt).toContain('Signed contracts');
     expect(prompt).toContain('[Index status]');
     expect(prompt).toContain('Use keyword search');
+  });
+
+  it('tells the model to read the index first and never say wiki to the user', () => {
+    const prompt = buildWritingUserPrompt('What is the threshold?', {
+      ...ctx,
+      pin: 'spr',
+      pinLibrary: 'public',
+      retrievalMode: 'wiki',
+      wikiTitle: 'Stores and Procurement Regulations (SPR)',
+    });
+    expect(prompt).toContain('[Pinned folder]\npublic:spr (structured)');
+    expect(prompt).toContain('[Structured folder]');
+    expect(prompt).toContain('Call get on wiki/index.md first');
+    expect(prompt).toContain('Do not start with query');
+    expect(prompt).toContain('Never use the word "wiki"');
   });
 });

@@ -7,6 +7,7 @@ import {
   SFC_REPLY_FOCUS_MODE,
   findDisplayFocusMode,
   focusModes,
+  isKnowledgeFocusMode,
   isSfcFocusMode,
   focusStateFromStored,
   resolveFocusMode,
@@ -19,21 +20,24 @@ describe('focusModes', () => {
     expect(focusModes.map((mode) => mode.key)).toEqual([
       'agentSFC',
       'newSurveyAgent',
-      'agentWriting',
-      'agentDocument',
+      'agentKnowledge',
       'agentHtml',
       'agentVoice',
     ]);
     expect(focusModes.some((mode) => mode.key === 'agentGuide')).toBe(false);
   });
 
-  it('uses a distinct document illustration for Agent Document', () => {
-    const documentAgent = focusModes.find(
-      (mode) => mode.key === 'agentDocument',
+  it('unifies Writing and Document into one Agent Knowledge card', () => {
+    const knowledge = focusModes.find((mode) => mode.key === 'agentKnowledge');
+    expect(knowledge?.title).toBe('Agent Knowledge');
+    expect(knowledge?.permissionCodes).toEqual(
+      expect.arrayContaining([
+        'chatGuideAgent:execute',
+        'chatDocumentAgent:execute',
+      ]),
     );
-    const writingAgent = focusModes.find((mode) => mode.key === 'agentWriting');
-    expect(documentAgent?.image).toBe('/itms/ai/agent-document.png');
-    expect(documentAgent?.image).not.toBe(writingAgent?.image);
+    expect(focusModes.some((mode) => mode.key === 'agentWriting')).toBe(false);
+    expect(focusModes.some((mode) => mode.key === 'agentDocument')).toBe(false);
   });
 
   it('registers Agent HTML for WCMS TinyMCE editing', () => {
@@ -60,8 +64,13 @@ describe('resolveFocusMode', () => {
       SFC_DOCUMENT_FOCUS_MODE,
     );
     expect(resolveFocusMode('newSurveyAgent')).toBe('newSurveyAgent');
-    expect(resolveFocusMode('agentWriting')).toBe('agentWriting');
-    expect(resolveFocusMode('agentDocument')).toBe('agentDocument');
+    expect(resolveFocusMode('agentWriting')).toBe('agentKnowledge');
+    expect(resolveFocusMode('agentDocument')).toBe('agentKnowledge');
+    expect(resolveFocusMode('agentKnowledge')).toBe('agentKnowledge');
+    expect(isKnowledgeFocusMode('agentWriting')).toBe(true);
+    expect(isKnowledgeFocusMode('agentDocument')).toBe(true);
+    expect(isKnowledgeFocusMode('agentKnowledge')).toBe(true);
+    expect(isKnowledgeFocusMode('agentHtml')).toBe(false);
     expect(resolveFocusMode('agentHtml')).toBe('agentHtml');
   });
 
@@ -93,7 +102,8 @@ describe('resolveFocusMode', () => {
 
   it('keeps Agent Voice when loading an existing history chat', () => {
     expect(resolveLoadedFocusMode('agentVoice')).toBe('agentVoice');
-    expect(resolveLoadedFocusMode('agentWriting')).toBe('agentWriting');
+    expect(resolveLoadedFocusMode('agentWriting')).toBe('agentKnowledge');
+    expect(resolveLoadedFocusMode('agentDocument')).toBe('agentKnowledge');
     expect(resolveLoadedFocusMode('agentGuide')).toBe('agentSFC');
   });
 
@@ -133,6 +143,7 @@ describe('resolveFocusMode', () => {
   it('does not persist tool agents as the next new-chat focus mode', () => {
     expect(shouldPersistFocusMode('agentVoice')).toBe(false);
     expect(shouldPersistFocusMode('agentWriting')).toBe(true);
+    expect(shouldPersistFocusMode('agentKnowledge')).toBe(true);
     expect(shouldPersistFocusMode('agentHtml')).toBe(true);
     expect(shouldPersistFocusMode('agentSFC')).toBe(true);
   });

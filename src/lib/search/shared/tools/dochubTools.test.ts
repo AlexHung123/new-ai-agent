@@ -55,6 +55,7 @@ describe('createDochubTools', () => {
         mode: 'search',
         path: 'contracts/2024',
       }),
+      { library: 'private' },
     );
     const details = result.details as { results: Array<{ file: string }> };
     expect(details.results[0].file).toBe('contracts/2024/plan.md');
@@ -170,7 +171,7 @@ describe('createDochubTools', () => {
     };
     expect(details.fileCount).toBe(1);
     expect(details.files).toEqual([
-      { path: 'writing/spec.md', name: 'Section 3.docx' },
+      { path: 'writing/spec.md', name: 'Section 3.docx', library: 'private' },
     ]);
     expect(JSON.stringify(details)).not.toMatch(/secret-id/);
   });

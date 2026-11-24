@@ -31,7 +31,8 @@ describe('chat image attachments', () => {
 
   it('drops images for every other focus mode', () => {
     expect(imagesForFocus('agentSFC', [image(32)])).toEqual([]);
-    expect(imagesForFocus('agentDocument', [image(32)])).toEqual([]);
+    expect(imagesForFocus('agentDocument', [image(32)])).toHaveLength(1);
+    expect(imagesForFocus('agentKnowledge', [image(32)])).toHaveLength(1);
   });
 
   it('rejects a non-image, invalid base64, and a file over 10 MB', () => {

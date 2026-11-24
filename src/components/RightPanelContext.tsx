@@ -11,12 +11,12 @@ import {
   type ReactNode,
 } from 'react';
 import { usePathname } from 'next/navigation';
-import { useChat } from '@/lib/hooks/useChat';
 import {
   defaultRightPanelOpen,
   RIGHT_PANEL_OPEN_STORAGE_KEY,
   usesRightPanel,
 } from '@/lib/chat/rightPanel';
+import { isKnowledgeFocusMode } from '@/lib/agents';
 import {
   activeTabAfterClose,
   closePreviewTab as removePreviewTab,
@@ -89,7 +89,7 @@ export function RightPanelProvider({ children }: { children: ReactNode }) {
       setOpenState(true);
       return;
     }
-    if (focusMode === 'agentWriting') {
+    if (isKnowledgeFocusMode(focusMode)) {
       if (shouldHidePanel(previewTabsRef.current)) setOpenState(false);
       return;
     }

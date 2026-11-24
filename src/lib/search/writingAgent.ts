@@ -15,6 +15,7 @@ import {
   writingToolsForTurn,
 } from './shared/prompts/writingTurnPrefix';
 import { bindTurnDochubTools } from './shared/runtime/bindTurnDochubTools';
+import { bindTurnFsTools } from './shared/runtime/bindTurnFsTools';
 import { stripHtmlTurnPrefixesFromMessages } from '@/lib/html/htmlSkill';
 import { WRITING_AGENT_EMPTY_REPLY } from './shared/prompts/writingAgentSystemPrompt';
 import { getWritingTurnContext } from './shared/runtime/writingTurnContext';
@@ -56,8 +57,8 @@ export default class WritingAgent implements MetaSearchAgentType {
               status: 'processing',
               total: 2,
               current: 1,
-              question: 'Initializing Writing Agent',
-              message: 'Initializing Writing Kode Agent...',
+              question: 'Initializing Knowledge Agent',
+              message: 'Initializing Knowledge Agent...',
             },
           })}\n`,
         );
@@ -71,7 +72,7 @@ export default class WritingAgent implements MetaSearchAgentType {
         const stableAgentId =
           harnessAgentManager.normalizeAgentId(requestAgentId);
 
-        const tools = writingToolsForTurn();
+        const tools = writingToolsForTurn(writingCtx);
         const agent = await harnessAgentManager.getOrCreateAgent(
           stableAgentId,
           tools,
@@ -83,8 +84,16 @@ export default class WritingAgent implements MetaSearchAgentType {
         agent.state.messages = stripHtmlTurnPrefixesFromMessages(
           agent.state.messages ?? [],
         );
-        const restoreDochub = writingCtx
-          ? bindTurnDochubTools(agent, writingCtx)
+        const restoreTools = writingCtx
+          ? writingCtx.retrievalMode === 'wiki' && writingCtx.wikiRootAbs
+            ? bindTurnFsTools(agent, {
+                document: {
+                  id: writingCtx.pin || 'folder',
+                  title: writingCtx.wikiTitle || writingCtx.pin || 'bound folder',
+                  rootAbs: writingCtx.wikiRootAbs,
+                },
+              })
+            : bindTurnDochubTools(agent, writingCtx)
           : () => undefined;
         try {
           const subscriptionPromise = streamAgentProgressToEmitter({
@@ -105,13 +114,13 @@ export default class WritingAgent implements MetaSearchAgentType {
             const prompt = promptWithImages(
               buildWritingUserPrompt(message, writingCtx),
               turnImages,
-              'agentWriting',
+              'agentKnowledge',
             );
             await agent.prompt(prompt.text, prompt.images);
           }
           await subscriptionPromise;
         } finally {
-          restoreDochub();
+          restoreTools();
           await harnessAgentManager.markIdle(stableAgentId);
         }
       } catch (error: unknown) {

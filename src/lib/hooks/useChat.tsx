@@ -25,6 +25,7 @@ import {
   SFC_DOCUMENT_FOCUS_MODE,
   SFC_DOCUMENT_ID,
   focusStateFromStored,
+  isKnowledgeFocusMode,
   resolveFocusMode,
   resolveLoadedFocusMode,
   shouldPersistFocusMode,
@@ -275,6 +276,14 @@ const loadMessages = async (args: {
           ? SFC_DOCUMENT_ID
           : null,
     );
+    if (
+      isKnowledgeFocusMode(resolvedFocus) &&
+      typeof data.chat.documentId === 'string' &&
+      data.chat.documentId &&
+      data.chat.focusMode === 'agentDocument'
+    ) {
+      setKnowledgeFolder(`public:${data.chat.documentId}`);
+    }
     const loadedWcms = parseWcmsBind({
       wcmsContentId: data.chat.wcmsContentId,
       pageIndex: data.chat.wcmsPageIndex,
@@ -555,7 +564,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   }, [focusMode, wcmsContentId, wcmsPageIndex, wcmsLang, userId]);
 
   useEffect(() => {
-    if (focusMode !== 'agentDocument') return;
+    if (focusMode !== SFC_DOCUMENT_FOCUS_MODE) return;
     let cancelled = false;
     fetch('/itms/ai/api/documents', { headers: getAuthHeaders() })
       .then((res) => (res.ok ? res.json() : { items: [] }))
@@ -774,12 +783,6 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
     const attached = imagesForFocus(focusModeRef.current, images);
     if (loading || !userId) return;
     if (!message.trim() && attached.length === 0) return;
-    if (
-      focusModeRef.current === 'agentDocument' &&
-      !documentIdRef.current
-    ) {
-      return;
-    }
 
     setLoading(true);
     setMessageAppeared(false);
@@ -1024,7 +1027,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
               : undefined,
           htmlReady:
             fm === 'agentHtml' && wcmsHtmlReadyRef.current ? true : undefined,
-          ...(fm === 'agentWriting' && knowledgeFolderRef.current
+          ...(isKnowledgeFocusMode(fm) && knowledgeFolderRef.current
             ? { knowledgeFolder: knowledgeFolderRef.current }
             : {}),
           history: rewriteMode

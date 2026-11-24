@@ -47,6 +47,16 @@ function errorResult(error: string) {
   return jsonToolResult({ ok: false, error });
 }
 
+function turnScope(ctx: NonNullable<ReturnType<typeof getWritingTurnContext>>): {
+  library: 'private' | 'public';
+  tree: KnowledgeTreeNode | null;
+} {
+  const library = ctx.pinLibrary === 'public' ? 'public' : 'private';
+  const tree =
+    library === 'public' ? (ctx.publicTree ?? ctx.tree) : ctx.tree;
+  return { library, tree };
+}
+
 function presentError(error: string): string {
   if (
     error === 'Knowledge service is unavailable.' ||
@@ -248,6 +258,7 @@ export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
       if (!mapped.ok) return errorResult(mapped.error);
       const path = clampPathToPin(mapped.path, ctx.pin);
       try {
+        const { library } = turnScope(ctx);
         const raw = await doSearch(ctx.userId, {
           mode: mapped.mode,
           limit: mapped.limit,
@@ -258,7 +269,7 @@ export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
           ...(mapped.minScore != null ? { minScore: mapped.minScore } : {}),
           ...(mapped.candidateLimit != null ? { candidateLimit: mapped.candidateLimit } : {}),
           ...(path ? { path } : {}),
-        });
+        }, { library });
         const { user_id: _userId, results: rawResults, ...rest } = raw;
         void _userId;
         const results = stripHitFiles(
@@ -293,14 +304,16 @@ export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
       const file = typeof rec.file === 'string' ? rec.file : '';
       if (!file) return errorResult('file is required');
       try {
+        const { library, tree } = turnScope(ctx);
         const result = await doGet({
           userId: ctx.userId,
-          tree: ctx.tree,
+          tree,
           pin: ctx.pin,
           mentionedDocuments: ctx.mentionedDocuments,
           file,
           fromLine: rec.fromLine,
           maxLines: rec.maxLines,
+          deps: { library },
         });
         if (!result.ok) return errorResult(presentError(result.error));
         return jsonToolResult(result);
@@ -334,7 +347,8 @@ export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
       const rec = asRecord(args);
       const raw = rawFilesArg(rec);
       if (raw === undefined) return errorResult('files is required');
-      const files = expandFiles(raw, ctx.tree);
+      const { library, tree } = turnScope(ctx);
+      const files = expandFiles(raw, tree);
       const results: DochubGetResult[] = [];
       const globs = files.filter((file) => /[*?]/.test(file));
       const concrete = files.filter((file) => !/[*?]/.test(file));
@@ -345,13 +359,17 @@ export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
       if (globs.length) {
         try {
           const loadMulti = deps?.multiGetDocuments ?? multiGetDocuments;
-          const payload = await loadMulti(ctx.userId, {
-            files: globs,
-            fromLine: typeof rec.fromLine === 'number' ? rec.fromLine : undefined,
-            maxLines: typeof rec.maxLines === 'number' ? rec.maxLines : undefined,
-            maxBytes,
-            path: ctx.pin || undefined,
-          });
+          const payload = await loadMulti(
+            ctx.userId,
+            {
+              files: globs,
+              fromLine: typeof rec.fromLine === 'number' ? rec.fromLine : undefined,
+              maxLines: typeof rec.maxLines === 'number' ? rec.maxLines : undefined,
+              maxBytes,
+              path: ctx.pin || undefined,
+            },
+            { library },
+          );
           for (const doc of payload.documents || []) {
             results.push({
               ok: true,
@@ -385,13 +403,14 @@ export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
         try {
           const result = await doGet({
             userId: ctx.userId,
-            tree: ctx.tree,
+            tree,
             pin: ctx.pin,
             mentionedDocuments: ctx.mentionedDocuments,
             file,
             fromLine: rec.fromLine,
             maxLines: rec.maxLines,
             maxBytes,
+            deps: { library },
           });
           results.push(
             result.ok ? result : { ok: false, error: presentError(result.error) },
@@ -428,11 +447,15 @@ export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
       const rec = asRecord(args);
       const requested =
         typeof rec.path === 'string' ? rec.path : undefined;
+      const { library, tree: scoped } = turnScope(ctx);
       const path = clampPathToPin(requested, ctx.pin) || '';
-      let tree = ctx.tree;
+      let tree = scoped;
       if (rec.refresh === true || !tree) {
         try {
-          const loaded = await (deps?.getTree ?? getTree)(ctx.userId, { path: path || undefined });
+          const loaded = await (deps?.getTree ?? getTree)(ctx.userId, {
+            path: path || undefined,
+            library,
+          });
           tree = loaded?.tree ?? tree;
         } catch (error) {
           if (!tree) {
@@ -452,12 +475,28 @@ export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
           path: '',
           children: [],
         };
-      const listed = listKnowledgeFiles(node);
+      const listed = listKnowledgeFiles(node).map((file) => ({
+        ...file,
+        library,
+      }));
+      if (!ctx.pin && !path) {
+        const otherLib = library === 'public' ? 'private' : 'public';
+        const otherTree = otherLib === 'public' ? ctx.publicTree : ctx.tree;
+        if (otherTree) {
+          listed.push(
+            ...listKnowledgeFiles(otherTree).map((file) => ({
+              ...file,
+              library: otherLib,
+            })),
+          );
+        }
+      }
       const truncated = listed.length > MAX_TREE_FILES;
       const files = truncated ? listed.slice(0, MAX_TREE_FILES) : listed;
       return jsonToolResult({
         ok: true,
         path,
+        library,
         fileCount: listed.length,
         truncated,
         files,
@@ -479,7 +518,8 @@ export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
       if (!ctx?.userId) return errorResult('No user bound');
       const loadStatus = deps?.getStatus ?? getStatus;
       try {
-        const status = await loadStatus(ctx.userId);
+        const { library } = turnScope(ctx);
+        const status = await loadStatus(ctx.userId, { library });
         const index = status.index || {};
         const hint =
           status.hint ||
@@ -490,6 +530,7 @@ export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
           ok: status.ok !== false,
           bound: true,
           pin: ctx.pin,
+          library,
           keyword_search_ready: status.keyword_search_ready ?? index.keyword_search_ready,
           semantic_search_ready: status.semantic_search_ready ?? index.semantic_search_ready,
           hint,

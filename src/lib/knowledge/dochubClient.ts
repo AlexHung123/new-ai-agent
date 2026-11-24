@@ -6,6 +6,7 @@ import { DochubError, unavailableError } from './errors';
 import { markdownName } from './paths';
 import type {
   DochubConfig,
+  KnowledgeLibraryName,
   KnowledgeSearchMode,
   KnowledgeTask,
   KnowledgeTreeNode,
@@ -14,7 +15,25 @@ import type {
 export type DochubDeps = {
   fetch?: typeof fetch;
   config?: DochubConfig;
+  library?: KnowledgeLibraryName;
+  path?: string;
 };
+
+function libraryQuery(library?: KnowledgeLibraryName, path?: string): string {
+  const params = new URLSearchParams();
+  if (library) params.set('library', library);
+  if (path) params.set('path', path);
+  const qs = params.toString();
+  return qs ? `?${qs}` : '';
+}
+
+function withLibrary<T extends Record<string, unknown>>(
+  body: T,
+  library?: KnowledgeLibraryName,
+): T {
+  if (!library) return body;
+  return { ...body, library };
+}
 
 function depsOf(deps?: DochubDeps): {
   fetch: typeof fetch;
@@ -88,15 +107,17 @@ async function send(
 
 export async function getTree(
   userId: string,
-  deps?: DochubDeps & { path?: string },
+  deps?: DochubDeps,
 ): Promise<{
   user_id: string;
+  library?: KnowledgeLibraryName;
   tree: KnowledgeTreeNode;
 }> {
   const { config } = depsOf(deps);
-  const path = deps?.path ? `?path=${encodeURIComponent(deps.path)}` : '';
-  return send(userId, `/v1/tree${path}`, { method: 'GET' }, config.timeoutMs, deps) as Promise<{
+  const qs = libraryQuery(deps?.library, deps?.path);
+  return send(userId, `/v1/tree${qs}`, { method: 'GET' }, config.timeoutMs, deps) as Promise<{
     user_id: string;
+    library?: KnowledgeLibraryName;
     tree: KnowledgeTreeNode;
   }>;
 }
@@ -105,7 +126,7 @@ export async function createFolder(
   userId: string,
   path: string,
   deps?: DochubDeps,
-): Promise<{ path: string }> {
+): Promise<{ path: string; library?: KnowledgeLibraryName; wiki?: boolean }> {
   const { config } = depsOf(deps);
   return send(
     userId,
@@ -113,11 +134,11 @@ export async function createFolder(
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path }),
+      body: JSON.stringify(withLibrary({ path }, deps?.library)),
     },
     config.timeoutMs,
     deps,
-  ) as Promise<{ path: string }>;
+  ) as Promise<{ path: string; library?: KnowledgeLibraryName; wiki?: boolean }>;
 }
 
 export async function uploadFile(
@@ -146,6 +167,7 @@ export async function uploadFile(
     }),
   );
   form.set('relative_path', input.relativePath);
+  if (deps?.library) form.set('library', deps.library);
   return send(
     userId,
     '/v1/files',
@@ -252,6 +274,7 @@ export async function search(
   if (typeof input.rerank === 'boolean') body.rerank = input.rerank;
   if (typeof input.minScore === 'number') body.minScore = input.minScore;
   if (typeof input.candidateLimit === 'number') body.candidateLimit = input.candidateLimit;
+  if (deps?.library) body.library = deps.library;
   return send(
     userId,
     '/v1/search',
@@ -289,6 +312,7 @@ export async function getDocument(
 ): Promise<{ user_id: string; document: DochubDocument }> {
   const { config } = depsOf(deps);
   const params = new URLSearchParams({ path: input.path });
+  if (deps?.library) params.set('library', deps.library);
   if (input.fromLine != null) params.set('from_line', String(input.fromLine));
   if (input.maxLines != null) params.set('max_lines', String(input.maxLines));
   if (input.maxBytes != null) params.set('max_bytes', String(input.maxBytes));
@@ -328,6 +352,7 @@ export async function multiGetDocuments(
   if (input.maxBytes != null) body.max_bytes = input.maxBytes;
   if (input.lineNumbers === false) body.line_numbers = false;
   if (input.path) body.path = input.path;
+  if (deps?.library) body.library = deps.library;
   return send(
     userId,
     '/v1/documents/multi',
@@ -372,7 +397,7 @@ export async function getStatus(
   index?: DochubIndexStatus;
 }> {
   const { config } = depsOf(deps);
-  return send(userId, '/v1/status', { method: 'GET' }, config.timeoutMs, deps) as Promise<{
+  return send(userId, `/v1/status${libraryQuery(deps?.library)}`, { method: 'GET' }, config.timeoutMs, deps) as Promise<{
     ok: boolean;
     service?: string;
     keyword_search_ready?: boolean;
@@ -389,7 +414,7 @@ export async function getContext(
   deps?: DochubDeps,
 ): Promise<{ contexts: Array<{ path: string; text: string }> }> {
   const { config } = depsOf(deps);
-  return send(userId, '/v1/context', { method: 'GET' }, config.timeoutMs, deps) as Promise<{
+  return send(userId, `/v1/context${libraryQuery(deps?.library)}`, { method: 'GET' }, config.timeoutMs, deps) as Promise<{
     contexts: Array<{ path: string; text: string }>;
   }>;
 }
@@ -414,4 +439,20 @@ export async function getHealth(
   } catch {
     throw unavailableError();
   }
+}
+
+export async function getMe(
+  userId: string,
+  deps?: DochubDeps,
+): Promise<{
+  user_id: string;
+  can_write_public?: boolean;
+  libraries?: KnowledgeLibraryName[];
+}> {
+  const { config } = depsOf(deps);
+  return send(userId, '/v1/me', { method: 'GET' }, config.timeoutMs, deps) as Promise<{
+    user_id: string;
+    can_write_public?: boolean;
+    libraries?: KnowledgeLibraryName[];
+  }>;
 }

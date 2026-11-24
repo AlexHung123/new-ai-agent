@@ -1,3 +1,4 @@
+import { parseKnowledgePin } from './library';
 import { isSafeRelativePath } from './paths';
 import { flattenKnowledgeNodes, nodeAtPath } from './tree';
 import type { KnowledgeTreeNode } from './types';
@@ -7,10 +8,12 @@ export type WritingMentionedDocument = {
   path: string;
   name: string;
   markdownRelpath: string;
+  library?: 'private' | 'public';
 };
 
 export type WritingPinResult = {
   pin: string | null;
+  pinLibrary: 'private' | 'public';
   mentionedFolders: string[];
   mentionedDocuments: WritingMentionedDocument[];
 };
@@ -68,17 +71,29 @@ function longestCommonParent(filePaths: string[]): string | null {
 export function resolveWritingKnowledgePin(input: {
   text: string;
   tree: KnowledgeTreeNode | null;
+  publicTree?: KnowledgeTreeNode | null;
   selectedFolder?: string;
+  documentId?: string | null;
 }): WritingPinResult {
   const empty: WritingPinResult = {
     pin: null,
+    pinLibrary: 'private',
     mentionedFolders: [],
     mentionedDocuments: [],
   };
-  if (!input.tree) return empty;
+  const privateTree = input.tree;
+  const publicTree = input.publicTree ?? null;
+  if (!privateTree && !publicTree) return empty;
   const text = input.text || '';
   const lower = text.toLowerCase();
-  const nodes = flattenKnowledgeNodes(input.tree).filter((n) => n.path);
+  const nodes = [
+    ...(privateTree
+      ? flattenKnowledgeNodes(privateTree).map((n) => ({ ...n, library: n.library || 'private' as const }))
+      : []),
+    ...(publicTree
+      ? flattenKnowledgeNodes(publicTree).map((n) => ({ ...n, library: n.library || 'public' as const }))
+      : []),
+  ].filter((n) => n.path);
   const folders = nodes
     .filter((n) => n.type === 'dir')
     .sort((a, b) => b.path.length - a.path.length);
@@ -86,10 +101,16 @@ export function resolveWritingKnowledgePin(input: {
     .filter((n) => n.type === 'file' && n.file)
     .sort((a, b) => b.path.length - a.path.length);
 
-  const mentionedFolders: { path: string; index: number }[] = [];
+  const mentionedFolders: { path: string; library: 'private' | 'public'; index: number }[] = [];
   for (const folder of folders) {
-    const index = findCompleteAt(lower, folder.path);
-    if (index >= 0) mentionedFolders.push({ path: folder.path, index });
+    const library = folder.library === 'public' ? 'public' : 'private';
+    const needles = [folder.path, `${library}/${folder.path}`, `${library}:${folder.path}`];
+    const index = needles.reduce((best, needle) => {
+      const idx = findCompleteAt(lower, needle);
+      if (idx < 0) return best;
+      return best < 0 ? idx : Math.min(best, idx);
+    }, -1);
+    if (index >= 0) mentionedFolders.push({ path: folder.path, library, index });
   }
   mentionedFolders.sort((a, b) => a.index - b.index);
 
@@ -97,8 +118,11 @@ export function resolveWritingKnowledgePin(input: {
   const seen = new Set<string>();
   for (const node of files) {
     const file = node.file!;
+    const library = node.library === 'public' ? 'public' : 'private';
     const needles = [
       node.path,
+      `${library}/${node.path}`,
+      `${library}:${node.path}`,
       file.original_filename,
       file.markdown_relpath,
       file.inbox_relpath,
@@ -115,24 +139,47 @@ export function resolveWritingKnowledgePin(input: {
         path: node.path,
         name: file.original_filename,
         markdownRelpath: file.markdown_relpath,
+        library,
       });
     }
   }
 
   let pin: string | null = null;
-  if (mentionedFolders.length) pin = mentionedFolders[0].path;
-  else if (mentionedDocuments.length) {
-    pin = longestCommonParent(mentionedDocuments.map((d) => d.path));
-  } else {
-    const selected = (input.selectedFolder || '').trim();
-    if (selected && isSafeRelativePath(selected)) {
-      const node = nodeAtPath(input.tree, selected);
-      if (node?.type === 'dir') pin = selected;
+  let pinLibrary: 'private' | 'public' = 'private';
+  if (mentionedFolders.length) {
+    pin = mentionedFolders[0].path;
+    pinLibrary = mentionedFolders[0].library;
+  } else if (mentionedDocuments.length) {
+    const lib = mentionedDocuments[0].library === 'public' ? 'public' : 'private';
+    const sameLib = mentionedDocuments.filter((d) => (d.library || 'private') === lib);
+    pin = longestCommonParent(sameLib.map((d) => d.path));
+    pinLibrary = lib;
+  } else if (input.selectedFolder) {
+    const parsed = parseKnowledgePin(input.selectedFolder);
+    if (parsed?.path && isSafeRelativePath(parsed.path)) {
+      const treeForLib = parsed.library === 'public' ? publicTree : privateTree;
+      const node = treeForLib ? nodeAtPath(treeForLib, parsed.path) : null;
+      if (parsed.library === 'public' || node?.type === 'dir') {
+        pin = parsed.path;
+        pinLibrary = parsed.library;
+      }
+    }
+  } else if (input.documentId) {
+    const raw = input.documentId.trim();
+    const parsed = parseKnowledgePin(raw);
+    const path = parsed?.path || raw;
+    if (path && isSafeRelativePath(path)) {
+      pin = path;
+      pinLibrary =
+        raw.includes(':') || raw.startsWith('public/')
+          ? parsed?.library || 'public'
+          : 'public';
     }
   }
 
   return {
     pin,
+    pinLibrary,
     mentionedFolders: mentionedFolders.map((f) => f.path),
     mentionedDocuments,
   };

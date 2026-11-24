@@ -11,7 +11,7 @@ import ProcessingStatus from './ProcessingStatus';
 import { HtmlPageEmbed } from './HtmlPageEmbed';
 import { useRightPanel } from './RightPanelContext';
 import { useChat, Section } from '@/lib/hooks/useChat';
-import { findDisplayFocusMode } from '@/lib/agents';
+import { findDisplayFocusMode, isKnowledgeFocusMode } from '@/lib/agents';
 import { parseHtmlPageIds } from '@/lib/html/pageLink';
 import { ImagePreview } from './AttachImageControls';
 
@@ -152,7 +152,7 @@ const MessageBox = memo(
                     thinkingEnded={thinkingEnded}
                   />
                   {htmlPageIds.map((pageId) =>
-                    focusMode === 'agentWriting' ? (
+                    isKnowledgeFocusMode(focusMode) ? (
                       <button
                         key={pageId}
                         type="button"

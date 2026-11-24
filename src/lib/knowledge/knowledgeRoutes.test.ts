@@ -9,6 +9,7 @@ const {
   getTask,
   getFileContent,
   search,
+  canWritePublicLibrary,
 } = vi.hoisted(() => ({
   getTree: vi.fn(),
   createFolder: vi.fn(),
@@ -16,6 +17,7 @@ const {
   getTask: vi.fn(),
   getFileContent: vi.fn(),
   search: vi.fn(),
+  canWritePublicLibrary: vi.fn(() => false),
 }));
 
 vi.mock('@/lib/knowledge/dochubClient', () => ({
@@ -25,6 +27,10 @@ vi.mock('@/lib/knowledge/dochubClient', () => ({
   getTask,
   getFileContent,
   search,
+}));
+
+vi.mock('@/lib/knowledge/publicAccess', () => ({
+  canWritePublicLibrary,
 }));
 
 import { GET as GET_TREE } from '@/app/api/knowledge/tree/route';
@@ -41,6 +47,8 @@ beforeEach(() => {
   getTask.mockReset();
   getFileContent.mockReset();
   search.mockReset();
+  canWritePublicLibrary.mockReset();
+  canWritePublicLibrary.mockReturnValue(false);
 });
 
 function req(
@@ -69,8 +77,12 @@ describe('knowledge routes', () => {
       req('http://localhost/itms/ai/api/knowledge/tree', { userId: '1' }),
     );
     expect(res.status).toBe(200);
-    expect(getTree).toHaveBeenCalledWith('1');
+    expect(getTree).toHaveBeenCalledWith('1', { library: 'private' });
+    expect(getTree).toHaveBeenCalledWith('1', { library: 'public' });
     const body = await res.json();
+    expect(body.private.tree).toBeTruthy();
+    expect(body.public.tree).toBeTruthy();
+    expect(body.canWritePublic).toBe(false);
     expect(body.storage).toMatchObject({
       usedBytes: 0,
       quotaBytes: expect.any(Number),
@@ -89,7 +101,65 @@ describe('knowledge routes', () => {
       }),
     );
     expect(res.status).toBe(200);
-    expect(createFolder).toHaveBeenCalledWith('1', 'docs');
+    expect(createFolder).toHaveBeenCalledWith('1', 'docs', { library: 'private' });
+  });
+
+  it('POST folders rejects public writes for non-curators', async () => {
+    const res = await POST_FOLDER(
+      req('http://localhost/itms/ai/api/knowledge/folders', {
+        method: 'POST',
+        userId: '1',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ path: 'spr', library: 'public' }),
+      }),
+    );
+    expect(res.status).toBe(403);
+    expect(createFolder).not.toHaveBeenCalled();
+  });
+
+  it('POST folders allows public writes for curators', async () => {
+    canWritePublicLibrary.mockReturnValue(true);
+    createFolder.mockResolvedValue({ path: 'spr' });
+    const res = await POST_FOLDER(
+      req('http://localhost/itms/ai/api/knowledge/folders', {
+        method: 'POST',
+        userId: 'admin',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ path: 'spr', library: 'public' }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(createFolder).toHaveBeenCalledWith('admin', 'spr', { library: 'public' });
+  });
+
+  it('GET tree hides the reserved public sfc folder', async () => {
+    getTree.mockImplementation(async (_userId: string, deps?: { library?: string }) => {
+      if (deps?.library === 'public') {
+        return {
+          user_id: '1',
+          tree: {
+            type: 'dir',
+            name: '',
+            path: '',
+            children: [
+              { type: 'dir', name: 'spr', path: 'spr', children: [] },
+              { type: 'dir', name: 'sfc', path: 'sfc', children: [] },
+            ],
+          },
+        };
+      }
+      return {
+        user_id: '1',
+        tree: { type: 'dir', name: '', path: '', children: [] },
+      };
+    });
+    const res = await GET_TREE(
+      req('http://localhost/itms/ai/api/knowledge/tree', { userId: '1' }),
+    );
+    const body = await res.json();
+    const names = (body.public.tree.children || []).map((n: { name: string }) => n.name);
+    expect(names).toEqual(['spr']);
+    expect(names).not.toContain('sfc');
   });
 
   it('POST folders rejects traversal paths', async () => {
@@ -210,11 +280,47 @@ describe('knowledge routes', () => {
       }),
     );
     expect(res.status).toBe(200);
-    expect(search).toHaveBeenCalledWith('1', {
-      query: 'q',
+    expect(search).toHaveBeenCalledWith(
+      '1',
+      {
+        query: 'q',
+        mode: 'search',
+        limit: 10,
+        path: undefined,
+      },
+      { library: 'private' },
+    );
+  });
+
+  it('POST search with library=public stays on the public index', async () => {
+    search.mockResolvedValue({
+      user_id: '1',
       mode: 'search',
-      limit: 10,
+      query: 'q',
+      results: [{ path: 'spr/wiki/index.md', text: 'SPR' }],
     });
+    const res = await POST_SEARCH(
+      req('http://localhost/itms/ai/api/knowledge/search', {
+        method: 'POST',
+        userId: '1',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ query: 'q', library: 'public' }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(search).toHaveBeenCalledWith(
+      '1',
+      {
+        query: 'q',
+        mode: 'search',
+        limit: 10,
+        path: undefined,
+      },
+      { library: 'public' },
+    );
+    const body = await res.json();
+    expect(body.library).toBe('public');
+    expect(body.results[0].library).toBe('public');
   });
 
   it('GET content defaults to markdown', async () => {
@@ -243,6 +349,22 @@ describe('knowledge routes', () => {
     );
     expect(res.status).toBe(200);
     expect(getTask).toHaveBeenCalledWith('1', 't1');
+  });
+
+  it('POST files rejects public uploads for non-curators', async () => {
+    const form = new FormData();
+    form.set('file', new Blob(['# Hello\n'], { type: 'text/markdown' }), 'notes.md');
+    form.set('relative_path', 'spr/notes.md');
+    form.set('library', 'public');
+    const res = await POST_FILE(
+      req('http://localhost/itms/ai/api/knowledge/files', {
+        method: 'POST',
+        userId: '1',
+        body: form,
+      }),
+    );
+    expect(res.status).toBe(403);
+    expect(uploadFile).not.toHaveBeenCalled();
   });
 
   it('does not add GET /api/knowledge/files', () => {

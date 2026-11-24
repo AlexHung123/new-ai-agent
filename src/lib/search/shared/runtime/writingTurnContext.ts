@@ -13,11 +13,18 @@ export type WritingIndexStatus = {
   hint?: string | null;
 };
 
+export type KnowledgeRetrievalMode = 'search' | 'wiki';
+
 export type WritingTurnContext = {
   userId: string;
   pin: string | null;
+  pinLibrary?: 'private' | 'public';
+  retrievalMode?: KnowledgeRetrievalMode;
+  wikiTitle?: string;
+  wikiRootAbs?: string;
   mentionedDocuments: WritingMentionedDocument[];
   tree: KnowledgeTreeNode | null;
+  publicTree?: KnowledgeTreeNode | null;
   libraryAvailable?: boolean;
   libraryError?: string;
   contexts?: WritingCollectionContext[];

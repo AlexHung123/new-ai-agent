@@ -11,10 +11,14 @@ export type KnowledgeFileMeta = {
   content_type?: string;
 };
 
+export type KnowledgeLibraryName = 'private' | 'public';
+
 export type KnowledgeTreeNode = {
   type: 'dir' | 'file';
   name: string;
   path: string;
+  library?: KnowledgeLibraryName;
+  wiki?: boolean;
   children?: KnowledgeTreeNode[];
   file?: KnowledgeFileMeta;
 };

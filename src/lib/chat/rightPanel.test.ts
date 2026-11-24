@@ -18,7 +18,8 @@ describe('usesRightPanel', () => {
   it('is only for Agent HTML and Agent Writing', () => {
     expect(usesRightPanel('agentHtml')).toBe(true);
     expect(usesRightPanel('agentWriting')).toBe(true);
-    expect(usesRightPanel('agentDocument')).toBe(false);
+    expect(usesRightPanel('agentDocument')).toBe(true);
+    expect(usesRightPanel('agentKnowledge')).toBe(true);
     expect(usesRightPanel('agentSFC')).toBe(false);
     expect(usesRightPanel('newSurveyAgent')).toBe(false);
     expect(usesRightPanel('agentVoice')).toBe(false);
@@ -86,7 +87,7 @@ describe('right panel layout contract', () => {
     expect(readSrc('../../components/RightPanelContext.tsx')).toMatch(
       /shouldHidePanel/,
     );
-    expect(box).toMatch(/focusMode === 'agentWriting'/);
+    expect(box).toMatch(/isKnowledgeFocusMode\(focusMode\)/);
     expect(box).toMatch(/Open HTML page/);
     expect(readSrc('../../components/WritingLeftRail.tsx')).not.toMatch(
       /openWritingFile/,

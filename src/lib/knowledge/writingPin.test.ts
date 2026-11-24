@@ -177,6 +177,44 @@ describe('resolveWritingKnowledgePin', () => {
         tree: null,
         selectedFolder: 'writing',
       }),
-    ).toEqual({ pin: null, mentionedFolders: [], mentionedDocuments: [] });
+    ).toEqual({
+      pin: null,
+      pinLibrary: 'private',
+      mentionedFolders: [],
+      mentionedDocuments: [],
+    });
   });
+
+  it('resolves @public mentions and public selected folders', () => {
+    const publicTree: KnowledgeTreeNode = {
+      type: 'dir',
+      name: '',
+      path: '',
+      children: [
+        {
+          type: 'dir',
+          name: 'spr',
+          path: 'spr',
+          wiki: true,
+          children: [],
+        },
+      ],
+    };
+    const mentioned = resolveWritingKnowledgePin({
+      text: 'see @public/spr',
+      tree,
+      publicTree,
+    });
+    expect(mentioned.pin).toBe('spr');
+    expect(mentioned.pinLibrary).toBe('public');
+    const selected = resolveWritingKnowledgePin({
+      text: 'hello',
+      tree,
+      publicTree,
+      selectedFolder: 'public:spr',
+    });
+    expect(selected.pin).toBe('spr');
+    expect(selected.pinLibrary).toBe('public');
+  });
+
 });

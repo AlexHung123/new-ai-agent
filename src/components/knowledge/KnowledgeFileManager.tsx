@@ -34,7 +34,9 @@ import type {
   KnowledgeTask,
   KnowledgeTreeNode,
 } from '@/lib/knowledge/types';
+import type { KnowledgeLibrary } from '@/lib/knowledge/library';
 import { getAuthBearerHeaders, getAuthHeaders } from '@/lib/utils/auth';
+import KnowledgeCreateFolderDialog from '@/components/KnowledgeCreateFolderDialog';
 import {
   useCallback,
   useEffect,
@@ -94,13 +96,15 @@ function StorageBar({ storage }: { storage: KnowledgeStorageUsage | null }) {
 }
 
 export default function KnowledgeFileManager() {
-  const [tree, setTree] = useState<KnowledgeTreeNode>(EMPTY_TREE);
+  const [privateTree, setPrivateTree] = useState<KnowledgeTreeNode>(EMPTY_TREE);
+  const [publicTree, setPublicTree] = useState<KnowledgeTreeNode>(EMPTY_TREE);
+  const [canWritePublic, setCanWritePublic] = useState(false);
+  const [currentLibrary, setCurrentLibrary] = useState<KnowledgeLibrary>('private');
   const [initialLoading, setInitialLoading] = useState(true);
   const [storage, setStorage] = useState<KnowledgeStorageUsage | null>(null);
   const [currentPath, setCurrentPath] = useState('');
   const [bannerError, setBannerError] = useState<string | null>(null);
   const [newFolderOpen, setNewFolderOpen] = useState(false);
-  const [newFolderName, setNewFolderName] = useState('');
   const [tasks, setTasks] = useState<Record<string, KnowledgeTask>>({});
   const [searchDraft, setSearchDraft] = useState('');
   const [searchMode, setSearchMode] = useState<KnowledgeSearchMode>('search');
@@ -124,10 +128,13 @@ export default function KnowledgeFileManager() {
         return;
       }
       setBannerError(null);
-      const nextTree = body.tree || EMPTY_TREE;
-      setTree(nextTree);
+      const nextPrivate = body.private?.tree || body.tree || EMPTY_TREE;
+      const nextPublic = body.public?.tree || EMPTY_TREE;
+      setPrivateTree(nextPrivate);
+      setPublicTree(nextPublic);
+      setCanWritePublic(body.canWritePublic === true);
       if (body.storage) setStorage(body.storage);
-      const ids = fileTaskIds(nextTree);
+      const ids = [...fileTaskIds(nextPrivate), ...fileTaskIds(nextPublic)];
       if (ids.length === 0) return;
       setTasks((prev) => {
         const next = { ...prev };
@@ -203,6 +210,9 @@ export default function KnowledgeFileManager() {
     return () => window.clearInterval(timer);
   }, [tasks]);
 
+  const tree = currentLibrary === 'public' ? publicTree : privateTree;
+  const publicWriteBlocked = currentLibrary === 'public' && !canWritePublic;
+
   const items = useMemo(
     () => childrenAtPath(tree, currentPath),
     [tree, currentPath],
@@ -225,36 +235,45 @@ export default function KnowledgeFileManager() {
     setPreviewTitle(null);
   };
 
-  const selectFolder = (path: string) => {
+  const selectFolder = (path: string, library: KnowledgeLibrary = currentLibrary) => {
+    setCurrentLibrary(library);
     setCurrentPath(path);
     setHits(null);
     clearPreview();
   };
 
-  const createFolder = async () => {
-    const segment = sanitizePathSegment(newFolderName);
-    if (!segment) return;
-    const path = joinKnowledgePath(currentPath, segment);
+  const createFolder = async (input: { name: string; library: KnowledgeLibrary }) => {
+    const segment = sanitizePathSegment(input.name);
+    if (!segment) throw new Error('Enter a folder name.');
+    const path =
+      input.library === currentLibrary
+        ? joinKnowledgePath(currentPath, segment)
+        : segment;
     const res = await fetch(FOLDERS_URL, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ path }),
+      body: JSON.stringify({ path, library: input.library }),
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      toast.error(
+      throw new Error(
         typeof body.message === 'string' ? body.message : 'Could not create folder',
       );
-      return;
     }
-    setNewFolderName('');
-    setNewFolderOpen(false);
     await loadTree();
-    selectFolder(path);
+    selectFolder(path, input.library);
   };
 
-  const uploadFiles = async (folderPath: string, list: FileList | File[]) => {
-    if (storage && storage.remainingBytes <= 0) {
+  const uploadFiles = async (
+    folderPath: string,
+    list: FileList | File[],
+    library: KnowledgeLibrary = currentLibrary,
+  ) => {
+    if (library === 'public' && !canWritePublic) {
+      toast.error('Public folders are read-only for this account.');
+      return;
+    }
+    if (library === 'private' && storage && storage.remainingBytes <= 0) {
       toast.error('Storage full — delete files or ask an admin to raise your quota');
       return;
     }
@@ -267,6 +286,7 @@ export default function KnowledgeFileManager() {
       const form = new FormData();
       form.set('file', file, file.name);
       form.set('relative_path', buildRelativePath(folderPath, file.name));
+      form.set('library', library);
       const res = await fetch(FILES_URL, {
         method: 'POST',
         headers: getAuthBearerHeaders(),
@@ -341,7 +361,13 @@ export default function KnowledgeFileManager() {
     const res = await fetch('/itms/ai/api/knowledge/search', {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ query, mode: searchMode, limit: 10 }),
+      body: JSON.stringify({
+        query,
+        mode: searchMode,
+        limit: 10,
+        library: currentLibrary,
+        path: currentPath || undefined,
+      }),
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -393,32 +419,27 @@ export default function KnowledgeFileManager() {
     </form>
   );
 
-  const newFolderForm = newFolderOpen ? (
-    <form
-      className="knowledge-new-folder"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void createFolder();
-      }}
-    >
-      <input
-        value={newFolderName}
-        onChange={(event) => setNewFolderName(event.target.value)}
-        placeholder="Folder name"
-        aria-label="Folder name"
-      />
-      <button type="submit">Create</button>
-    </form>
-  ) : null;
+  const newFolderForm = (
+    <KnowledgeCreateFolderDialog
+      open={newFolderOpen}
+      canWritePublic={canWritePublic}
+      defaultLibrary={currentLibrary}
+      currentPath={currentPath}
+      onClose={() => setNewFolderOpen(false)}
+      onCreate={createFolder}
+    />
+  );
 
   const uploadInput = (
     <>
       <button
         type="button"
         className="knowledge-btn"
-        disabled={storageFull}
+        disabled={storageFull || publicWriteBlocked}
         title={
-          storageFull
+          publicWriteBlocked
+            ? 'Public folders are read-only for this account.'
+            : storageFull
             ? 'Storage full — delete files or ask an admin to raise your quota'
             : 'Upload files'
         }
@@ -488,26 +509,43 @@ export default function KnowledgeFileManager() {
             <button
               type="button"
               className={
-                currentPath === ''
+                currentLibrary === 'private' && currentPath === ''
                   ? 'knowledge-tree-item is-active'
                   : 'knowledge-tree-item'
               }
-              onClick={() => selectFolder('')}
+              onClick={() => selectFolder('', 'private')}
               onDragOver={(event) => event.preventDefault()}
               onDrop={(event) => {
                 event.preventDefault();
                 if (event.dataTransfer.files?.length) {
-                  void uploadFiles('', event.dataTransfer.files);
+                  void uploadFiles('', event.dataTransfer.files, 'private');
                 }
               }}
             >
-              Folders
+              Private
             </button>
             <KnowledgeTree
-              node={tree}
-              currentPath={currentPath}
-              onSelect={selectFolder}
-              onDropFiles={(path, files) => void uploadFiles(path, files)}
+              node={privateTree}
+              currentPath={currentLibrary === 'private' ? currentPath : '__none__'}
+              onSelect={(path) => selectFolder(path, 'private')}
+              onDropFiles={(path, files) => void uploadFiles(path, files, 'private')}
+            />
+            <button
+              type="button"
+              className={
+                currentLibrary === 'public' && currentPath === ''
+                  ? 'knowledge-tree-item is-active'
+                  : 'knowledge-tree-item'
+              }
+              onClick={() => selectFolder('', 'public')}
+            >
+              Public
+            </button>
+            <KnowledgeTree
+              node={publicTree}
+              currentPath={currentLibrary === 'public' ? currentPath : '__none__'}
+              onSelect={(path) => selectFolder(path, 'public')}
+              onDropFiles={(path, files) => void uploadFiles(path, files, 'public')}
             />
           </nav>
         </aside>
@@ -516,7 +554,7 @@ export default function KnowledgeFileManager() {
             <div>
               <h2 className="knowledge-files-title">Files</h2>
               <p className="knowledge-files-subtitle">
-                Browse folders in the tree. Drop files here or use Add file.
+                Private folders are just yours. Public folders are shared with signed-in users.
               </p>
             </div>
             <div className="knowledge-files-header-actions">

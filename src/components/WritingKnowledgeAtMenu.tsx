@@ -1,10 +1,15 @@
 'use client';
 
 import { useEffect } from 'react';
-import { FileText, Folder } from 'lucide-react';
+import { FileText, Folder, Globe, Lock } from 'lucide-react';
+import {
+  knowledgeMentionToken,
+  type KnowledgeLibrary,
+} from '@/lib/knowledge/library';
 import { flattenKnowledgeNodes } from '@/lib/knowledge/tree';
 import { useKnowledgeTree } from '@/lib/knowledge/useKnowledgeTree';
 import { atQueryAtCursor, insertMention } from '@/lib/writing/mentions';
+import type { KnowledgeTreeNode } from '@/lib/knowledge/types';
 
 type Props = {
   text: string;
@@ -17,23 +22,42 @@ function parentPath(path: string): string {
   return parts.slice(0, -1).join('/');
 }
 
+function listedNodes(
+  tree: KnowledgeTreeNode,
+  library: KnowledgeLibrary,
+  query: string,
+) {
+  return flattenKnowledgeNodes(tree)
+    .filter((node) => node.path)
+    .map((node) => ({
+      ...node,
+      library,
+      token: knowledgeMentionToken({ library, path: node.path }),
+    }))
+    .filter((node) => {
+      if (!query) return true;
+      return (
+        node.name.toLowerCase().includes(query) ||
+        node.path.toLowerCase().includes(query) ||
+        node.token.toLowerCase().includes(query) ||
+        library.includes(query)
+      );
+    });
+}
+
 export default function WritingKnowledgeAtMenu({
   text,
   cursor,
   onPick,
 }: Props) {
   const mention = atQueryAtCursor(text, cursor);
-  const { tree } = useKnowledgeTree();
+  const { privateTree, publicTree } = useKnowledgeTree();
   const query = mention?.query.toLowerCase() ?? '';
   const nodes = mention
-    ? flattenKnowledgeNodes(tree).filter((node) => {
-        if (!node.path) return false;
-        if (!query) return true;
-        return (
-          node.name.toLowerCase().includes(query) ||
-          node.path.toLowerCase().includes(query)
-        );
-      })
+    ? [
+        ...listedNodes(privateTree, 'private', query),
+        ...listedNodes(publicTree, 'public', query),
+      ]
     : [];
 
   useEffect(() => {
@@ -43,7 +67,7 @@ export default function WritingKnowledgeAtMenu({
       event.preventDefault();
       event.stopPropagation();
       const node = nodes[0];
-      onPick(insertMention(text, cursor, mention.start, node.path));
+      onPick(insertMention(text, cursor, mention.start, node.token));
     };
     document.addEventListener('keydown', onKey, true);
     return () => document.removeEventListener('keydown', onKey, true);
@@ -59,22 +83,19 @@ export default function WritingKnowledgeAtMenu({
         nodes.map((node, index) => {
           const isFolder = node.type === 'dir';
           const parent = parentPath(node.path);
+          const isPublic = node.library === 'public';
           return (
-            <li key={node.path} role="option">
+            <li key={`${node.library}:${node.path}`} role="option">
               <button
                 type="button"
-                className={`writing-knowledge-at-item${
-                  index === 0 ? ' is-active' : ''
-                }`}
+                className={`writing-knowledge-at-item${index === 0 ? ' is-active' : ''}`}
                 onMouseDown={(event) => {
                   event.preventDefault();
-                  onPick(insertMention(text, cursor, mention.start, node.path));
+                  onPick(insertMention(text, cursor, mention.start, node.token));
                 }}
               >
                 <span
-                  className={`writing-knowledge-icon ${
-                    isFolder ? 'is-folder' : 'is-file'
-                  }`}
+                  className={`writing-knowledge-icon ${isFolder ? 'is-folder' : 'is-file'}`}
                   aria-hidden
                 >
                   {isFolder ? <Folder size={16} /> : <FileText size={16} />}
@@ -83,9 +104,16 @@ export default function WritingKnowledgeAtMenu({
                   <span className="writing-knowledge-at-name">
                     {node.name || node.path}
                   </span>
-                  {parent ? (
-                    <span className="writing-knowledge-at-path">{parent}</span>
-                  ) : null}
+                  <span className="writing-knowledge-at-path">
+                    {isPublic ? 'Public' : 'Private'}
+                    {parent ? ` · ${parent}` : ''}
+                  </span>
+                </span>
+                <span
+                  className={`writing-knowledge-at-scope is-${node.library}`}
+                  aria-label={isPublic ? 'Public' : 'Private'}
+                >
+                  {isPublic ? <Globe size={12} /> : <Lock size={12} />}
                 </span>
               </button>
             </li>

@@ -4,6 +4,7 @@ import { useChat } from '@/lib/hooks/useChat';
 import {
   SFC_DOCUMENT_FOCUS_MODE,
   findDisplayFocusMode,
+  isKnowledgeFocusMode,
 } from '@/lib/agents';
 import SfcExactMatchToggle from './SfcExactMatchToggle';
 import {
@@ -12,6 +13,7 @@ import {
   useAttachedImages,
 } from './AttachImageControls';
 import WritingKnowledgeAtMenu from './WritingKnowledgeAtMenu';
+import KnowledgeComposerScope from './KnowledgeComposerScope';
 import { atQueryAtCursor } from '@/lib/writing/mentions';
 
 const SendArrow = () => (
@@ -35,7 +37,6 @@ const MessageInput = memo(function MessageInput() {
     stop,
     focusMode,
     sfcExactMatch,
-    documentId,
   } = useChat();
 
   const [message, setMessage] = useState('');
@@ -56,8 +57,6 @@ const MessageInput = memo(function MessageInput() {
 
   const submit = useCallback(() => {
     if (loading) return;
-    if (focusMode === 'agentDocument' && !documentId) return;
-
     const content = message.trim();
     if (!content && images.payload.length === 0) return;
 
@@ -65,7 +64,7 @@ const MessageInput = memo(function MessageInput() {
     setMessage('');
     images.clear();
     inputRef.current?.focus();
-  }, [images, loading, message, sendMessage, focusMode, documentId]);
+  }, [images, loading, message, sendMessage]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -107,7 +106,7 @@ const MessageInput = memo(function MessageInput() {
       syncCursor(e.currentTarget);
       if (e.key === 'Enter' && !e.shiftKey) {
         if (
-          focusMode === 'agentWriting' &&
+          isKnowledgeFocusMode(focusMode) &&
           atQueryAtCursor(message, cursor)
         ) {
           return;
@@ -128,17 +127,14 @@ const MessageInput = memo(function MessageInput() {
     [loading, stop, submit],
   );
 
-  const documentBlocked = focusMode === 'agentDocument' && !documentId;
-  const canSend =
-    (message.trim().length > 0 || images.payload.length > 0) &&
-    !documentBlocked;
+  const canSend = message.trim().length > 0 || images.payload.length > 0;
   const disabled = loading ? false : !canSend;
 
   return (
     <form onSubmit={onSubmit} className="composer">
       <AttachedImageStrip images={images} />
       <div className="composer-input-wrap">
-        {focusMode === 'agentWriting' ? (
+        {isKnowledgeFocusMode(focusMode) ? (
           <WritingKnowledgeAtMenu
             text={message}
             cursor={cursor}
@@ -176,6 +172,7 @@ const MessageInput = memo(function MessageInput() {
         <div className="composer-toolbar-left">
           <SfcExactMatchToggle />
           <AttachImageControls images={images} />
+          <KnowledgeComposerScope />
         </div>
         <div className="composer-toolbar-right">
           <button

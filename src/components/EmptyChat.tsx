@@ -1,11 +1,15 @@
 import EmptyChatMessageInput from './EmptyChatMessageInput';
 import SettingsButtonMobile from '@/components/Settings/SettingsButtonMobile';
 import { useChat } from '@/lib/hooks/useChat';
-import { SFC_DOCUMENT_FOCUS_MODE, SFC_REPLY_FOCUS_MODE } from '@/lib/agents';
-import DocumentPicker from './DocumentPicker';
+import {
+  SFC_DOCUMENT_FOCUS_MODE,
+  SFC_REPLY_FOCUS_MODE,
+  findDisplayFocusMode,
+  isKnowledgeFocusMode,
+} from '@/lib/agents';
 
 const EmptyChat = () => {
-  const { focusMode, documentId, documentItems } = useChat();
+  const { focusMode } = useChat();
 
   const focusDescriptions: Record<string, string> = {
     agentSFC: 'Your assistant for searching SFC questions and replies',
@@ -14,17 +18,23 @@ const EmptyChat = () => {
     [SFC_DOCUMENT_FOCUS_MODE]:
       'Your assistant for searching SFC questions and replies',
     newSurveyAgent: 'Your assistant for summarizing survey results',
-    agentWriting: 'Your assistant for drafting, rewriting, and polishing text',
-    agentDocument: 'Ask about a selected policy document',
+    agentKnowledge:
+      'Write with your private files, or ask about shared policy folders.',
+    agentWriting:
+      'Write with your private files, or ask about shared policy folders.',
+    agentDocument:
+      'Write with your private files, or ask about shared policy folders.',
     agentHtml: 'Your assistant for create and modify HTML webpages',
   };
 
-  const selectedDocument = documentItems.find((item) => item.id === documentId);
-  const needsDocumentPick = focusMode === 'agentDocument' && !documentId;
-  const heading = selectedDocument
-    ? selectedDocument.title
-    : focusDescriptions[focusMode] || 'Research begins here.';
-  const subheading = selectedDocument?.description;
+  const current = findDisplayFocusMode(focusMode);
+  const heading =
+    focusDescriptions[focusMode] ||
+    current?.description ||
+    'Research begins here.';
+  const subheading = isKnowledgeFocusMode(focusMode)
+    ? 'Pin a folder from FILES, or type @ to mention one. Public folders are shared with signed-in users.'
+    : undefined;
 
   return (
     <div className="relative h-full min-h-full">
@@ -35,7 +45,7 @@ const EmptyChat = () => {
         <div className="welcome-wiki">
           <h2>{heading}</h2>
           {subheading ? <p>{subheading}</p> : null}
-          {needsDocumentPick ? <DocumentPicker /> : <EmptyChatMessageInput />}
+          <EmptyChatMessageInput />
         </div>
       </div>
     </div>

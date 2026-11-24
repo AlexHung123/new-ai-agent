@@ -61,7 +61,8 @@ describe('knowledge UI contracts', () => {
     expect(manager).not.toMatch(/knowledge base/i);
     expect(manager).not.toMatch(/knowledge-folder-grid/);
     expect(manager).not.toMatch(/knowledge-page-title/);
-    expect(manager).toMatch(/knowledge-new-folder/);
+    expect(manager).toMatch(/KnowledgeCreateFolderDialog/);
+    expect(manager).toMatch(/canWritePublic/);
     expect(manager).not.toMatch(/window\.prompt/);
     expect(manager).toMatch(/knowledge-upload/);
     expect(manager).toMatch(/knowledge-detail-folder-card/);
@@ -139,5 +140,20 @@ describe('knowledge UI contracts', () => {
     expect(manager).toMatch(/timed_out/);
     expect(manager).toMatch(/clearPreview/);
     expect(listing).toMatch(/last_error/);
+  });
+
+  it('uses a create-folder dialog with private and public choices', () => {
+    const dialog = readSrc('../../components/KnowledgeCreateFolderDialog.tsx');
+    expect(dialog).toMatch(/Create folder/);
+    expect(dialog).toMatch(/Shared with all signed-in users/);
+    expect(dialog).toMatch(/canWritePublic/);
+    expect(dialog).not.toMatch(/window\.prompt/);
+    const empty = readSrc('../../components/EmptyChat.tsx');
+    expect(empty).not.toMatch(/DocumentPicker/);
+    expect(empty).toMatch(/isKnowledgeFocusMode/);
+    const chip = readSrc('../../components/KnowledgeScopeChip.tsx');
+    expect(chip).toMatch(/Pinned folder/);
+    expect(chip).toMatch(/Structured/);
+    expect(chip).toMatch(/Unpin folder/);
   });
 });

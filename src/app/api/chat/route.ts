@@ -27,6 +27,7 @@ import {
   type DocumentTurnContext,
 } from '@/lib/search/shared/runtime/documentTurnContext';
 import { runWithWritingTurn } from '@/lib/search/shared/runtime/writingTurnContext';
+import { isKnowledgeFocusMode } from '@/lib/agents';
 import { loadWritingTurnContext } from '@/lib/search/shared/runtime/loadWritingTurnContext';
 import {
   resolveBoundWcms,
@@ -288,11 +289,12 @@ export const POST = async (req: Request) => {
       stream = unavailableDocumentEmitter();
     } else if (documentTurn) {
       stream = await runWithDocumentTurn(documentTurn, runSearch);
-    } else if (body.focusMode === 'agentWriting') {
+    } else if (isKnowledgeFocusMode(body.focusMode)) {
       const writingTurn = await loadWritingTurnContext({
         userId,
         text: body.message.content,
         selectedFolder: body.knowledgeFolder,
+        documentId: body.documentId,
       });
       stream = await runWithWritingTurn(writingTurn, runSearch);
     } else if (body.focusMode === 'agentHtml') {

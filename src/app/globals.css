@@ -1385,6 +1385,268 @@
   color: var(--wiki-muted, #64748b);
 }
 
+.writing-knowledge-section {
+  padding: 0.15rem 0 0.55rem;
+}
+
+.writing-knowledge-section + .writing-knowledge-section {
+  border-top: 1px solid color-mix(in srgb, var(--wiki-border) 80%, transparent);
+  margin-top: 0.15rem;
+  padding-top: 0.45rem;
+}
+
+.writing-knowledge-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0 0 0.2rem;
+  padding: 0.15rem 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--wiki-muted, #64748b);
+}
+
+.writing-knowledge-section-icon {
+  display: inline-flex;
+  color: var(--wiki-muted, #64748b);
+}
+
+.writing-knowledge-wiki-badge,
+.knowledge-scope-chip-badge {
+  margin-left: auto;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #0f766e;
+  background: rgba(15, 118, 110, 0.12);
+}
+
+.writing-knowledge-at-scope {
+  display: inline-flex;
+  color: var(--wiki-muted, #64748b);
+  flex: 0 0 auto;
+}
+
+.knowledge-scope-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 100%;
+  margin: 0 0 0.45rem;
+  padding: 0.2rem 0.3rem 0.2rem 0.5rem;
+  border: 1px solid var(--wiki-border, #e5e7eb);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--wiki-surface, #fff) 88%, #0f766e 12%);
+  font-size: 0.78rem;
+  color: inherit;
+}
+
+.knowledge-scope-chip-icon {
+  display: inline-flex;
+  color: #0f766e;
+}
+
+.knowledge-scope-chip-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.knowledge-scope-chip-label {
+  color: var(--wiki-muted, #64748b);
+  font-weight: 600;
+}
+
+.knowledge-scope-chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.knowledge-scope-chip button {
+  display: inline-flex;
+  border: 0;
+  background: transparent;
+  color: var(--wiki-muted, #64748b);
+  padding: 0.15rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.knowledge-scope-chip button:hover {
+  color: inherit;
+  background: color-mix(in srgb, var(--wiki-border) 70%, transparent);
+}
+
+.knowledge-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.knowledge-dialog {
+  width: min(28rem, 100%);
+  border-radius: 1rem;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+  padding: 1.15rem 1.2rem 1.1rem;
+  color: #111827;
+}
+
+.dark .knowledge-dialog {
+  background: #171717;
+  border-color: #3f3f46;
+  color: #f4f4f5;
+}
+
+.knowledge-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.knowledge-dialog-header h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+
+.knowledge-dialog-header p {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.knowledge-dialog-close {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0.25rem;
+  border-radius: 0.4rem;
+  cursor: pointer;
+}
+
+.knowledge-dialog-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.knowledge-dialog-field input {
+  height: 2.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.65rem;
+  padding: 0 0.75rem;
+  font: inherit;
+  font-weight: 500;
+  background: #fff;
+  color: inherit;
+}
+
+.dark .knowledge-dialog-field input {
+  background: #0a0a0a;
+  border-color: #3f3f46;
+}
+
+.knowledge-visibility {
+  border: 0;
+  margin: 0 0 1rem;
+  padding: 0;
+}
+
+.knowledge-visibility legend {
+  margin-bottom: 0.45rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.knowledge-visibility-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+
+.knowledge-visibility-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  text-align: left;
+  border: 1px solid #d1d5db;
+  border-radius: 0.8rem;
+  padding: 0.7rem 0.75rem;
+  background: #fff;
+  color: inherit;
+  cursor: pointer;
+}
+
+.dark .knowledge-visibility-card {
+  background: #0a0a0a;
+  border-color: #3f3f46;
+}
+
+.knowledge-visibility-card strong,
+.knowledge-visibility-card em {
+  display: block;
+}
+
+.knowledge-visibility-card strong {
+  font-size: 0.85rem;
+}
+
+.knowledge-visibility-card em {
+  margin-top: 0.15rem;
+  font-style: normal;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: #64748b;
+}
+
+.knowledge-visibility-card.is-selected {
+  border-color: #0f766e;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.16);
+}
+
+.knowledge-visibility-card.is-disabled,
+.knowledge-visibility-card:disabled {
+  opacity: 0.62;
+  cursor: not-allowed;
+}
+
+.knowledge-dialog-error {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  color: #b42318;
+}
+
+.knowledge-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .knowledge-visibility-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .chat-workspace {
   display: flex;
   flex-direction: row;

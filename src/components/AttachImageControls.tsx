@@ -1,4 +1,5 @@
 'use client';
+import { isKnowledgeFocusMode } from '@/lib/agents';
 
 import {
   useCallback,
@@ -94,7 +95,7 @@ async function compressImageFile(file: File): Promise<ChatImageAttachment> {
 }
 
 export function useAttachedImages(focusMode: string) {
-  const enabled = focusMode === 'agentWriting' || focusMode === 'agentHtml';
+  const enabled = isKnowledgeFocusMode(focusMode) || focusMode === 'agentHtml';
   const enabledRef = useRef(enabled);
   const [previews, setPreviews] = useState<PreviewImage[]>([]);
   const previewsRef = useRef(previews);

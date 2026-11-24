@@ -13,7 +13,7 @@ describe('attach image composer', () => {
     const empty = readSrc('../../components/EmptyChatMessageInput.tsx');
     expect(control).toMatch(/Attach image/);
     expect(control).toMatch(/accept="image\/\*"/);
-    expect(control).toMatch(/agentWriting/);
+    expect(control).toMatch(/isKnowledgeFocusMode/);
     expect(control).toMatch(/agentHtml/);
     expect(input).toMatch(/AttachImageControls/);
     expect(empty).toMatch(/AttachImageControls/);
@@ -36,7 +36,7 @@ describe('attach image composer', () => {
     const writing = readSrc('../search/writingAgent.ts');
     expect(html).toMatch(/promptWithImages\([\s\S]*'agentHtml'/);
     expect(html).toMatch(/agent\.prompt\(prompt\.text, prompt\.images\)/);
-    expect(writing).toMatch(/promptWithImages\([\s\S]*'agentWriting'/);
+    expect(writing).toMatch(/promptWithImages\([\s\S]*'agentKnowledge'/);
     expect(writing).toMatch(/agent\.prompt\(prompt\.text, prompt\.images\)/);
   });
 

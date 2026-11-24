@@ -9,6 +9,7 @@ describe('searchHandlers', () => {
         'agentSFC',
         'agentDocument',
         'agentWriting',
+        'agentKnowledge',
         'agentHtml',
         'newSfcAgent',
         'newSurveyAgent',
@@ -17,7 +18,12 @@ describe('searchHandlers', () => {
     );
   });
 
-  it('routes Agent SFC Document Q&A through the document agent', () => {
-    expect(searchHandlers.sfcDocumentAgent).toBe(searchHandlers.agentDocument);
+  it('routes Agent Knowledge aliases to the same writing agent', () => {
+    expect(searchHandlers.agentKnowledge).toBe(searchHandlers.agentWriting);
+    expect(searchHandlers.agentDocument).toBe(searchHandlers.agentWriting);
+  });
+
+  it('keeps Agent SFC Document Q&A on the document agent', () => {
+    expect(searchHandlers.sfcDocumentAgent).not.toBe(searchHandlers.agentDocument);
   });
 });

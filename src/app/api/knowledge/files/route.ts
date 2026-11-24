@@ -10,6 +10,8 @@ import {
   storageForTree,
   wouldExceedQuota,
 } from '@/lib/knowledge/storage';
+import { parseKnowledgeLibrary, parseKnowledgeLibraryStrict } from '@/lib/knowledge/library';
+import { canWritePublicLibrary } from '@/lib/knowledge/publicAccess';
 import { displayFilename } from '@/lib/writing/types';
 
 export const runtime = 'nodejs';
@@ -35,6 +37,23 @@ export async function POST(req: Request) {
   if (!isSafeRelativePath(relativePath)) {
     return NextResponse.json({ message: 'Invalid relative_path' }, { status: 400 });
   }
+  const rawLibrary = String(form.get('library') || form.get('visibility') || '').trim();
+  if (rawLibrary && parseKnowledgeLibraryStrict(rawLibrary) == null) {
+    return NextResponse.json(
+      { message: 'library must be private or public' },
+      { status: 400 },
+    );
+  }
+  const library = parseKnowledgeLibrary(rawLibrary, 'private');
+  if (library === 'public' && !canWritePublicLibrary(userId)) {
+    return NextResponse.json(
+      {
+        message: 'Public folders are read-only for this account.',
+        error: 'forbidden',
+      },
+      { status: 403 },
+    );
+  }
   const config = getDochubConfig();
   const bytes = new Uint8Array(await uploaded.arrayBuffer());
   if (bytes.byteLength > config.maxUploadBytes) {
@@ -42,16 +61,18 @@ export async function POST(req: Request) {
   }
   const filename = displayFilename(relativePath);
   try {
-    const treeBody = await getTree(userId);
-    const usage = storageForTree(
-      treeBody.tree || { type: 'dir', name: '', path: '', children: [] },
-      quotaForUser(userId, config.maxUserBytes, config.userQuotaBytes),
-    );
-    if (wouldExceedQuota(usage, bytes.byteLength)) {
-      return NextResponse.json(
-        { message: quotaExceededMessage(usage, bytes.byteLength) },
-        { status: 400 },
+    if (library === 'private') {
+      const treeBody = await getTree(userId, { library: 'private' });
+      const usage = storageForTree(
+        treeBody.tree || { type: 'dir', name: '', path: '', children: [] },
+        quotaForUser(userId, config.maxUserBytes, config.userQuotaBytes),
       );
+      if (wouldExceedQuota(usage, bytes.byteLength)) {
+        return NextResponse.json(
+          { message: quotaExceededMessage(usage, bytes.byteLength) },
+          { status: 400 },
+        );
+      }
     }
   } catch (error) {
     return jsonFromUnknownError(error);
@@ -63,13 +84,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: converted.error }, { status: 400 });
   }
   try {
-    const result = await uploadFile(userId, {
-      original: bytes,
-      originalName: filename,
-      originalType: uploaded.type || undefined,
-      markdown: converted.markdown,
-      relativePath,
-    });
+    const result = await uploadFile(
+      userId,
+      {
+        original: bytes,
+        originalName: filename,
+        originalType: uploaded.type || undefined,
+        markdown: converted.markdown,
+        relativePath,
+      },
+      { library },
+    );
     return NextResponse.json(result, { status: 202 });
   } catch (error) {
     return jsonFromUnknownError(error);

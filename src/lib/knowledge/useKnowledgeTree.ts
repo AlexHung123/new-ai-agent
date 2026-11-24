@@ -15,10 +15,15 @@ export const KNOWLEDGE_TREE_API = '/itms/ai/api/knowledge/tree';
 
 export function useKnowledgeTree(treeUrl = KNOWLEDGE_TREE_API): {
   tree: KnowledgeTreeNode;
+  privateTree: KnowledgeTreeNode;
+  publicTree: KnowledgeTreeNode;
+  canWritePublic: boolean;
   error: string | null;
   loading: boolean;
 } {
-  const [tree, setTree] = useState<KnowledgeTreeNode>(EMPTY_TREE);
+  const [privateTree, setPrivateTree] = useState<KnowledgeTreeNode>(EMPTY_TREE);
+  const [publicTree, setPublicTree] = useState<KnowledgeTreeNode>(EMPTY_TREE);
+  const [canWritePublic, setCanWritePublic] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -36,19 +41,31 @@ export function useKnowledgeTree(treeUrl = KNOWLEDGE_TREE_API): {
               ? body.message
               : 'Knowledge service is unavailable.';
           setError(message);
-          setTree(EMPTY_TREE);
+          setPrivateTree(EMPTY_TREE);
+          setPublicTree(EMPTY_TREE);
+          setCanWritePublic(false);
           return;
         }
-        const next =
-          body && typeof body === 'object' && body.tree && typeof body.tree === 'object'
-            ? (body.tree as KnowledgeTreeNode)
+        const privateNext =
+          body?.private?.tree && typeof body.private.tree === 'object'
+            ? (body.private.tree as KnowledgeTreeNode)
+            : body?.tree && typeof body.tree === 'object'
+              ? (body.tree as KnowledgeTreeNode)
+              : EMPTY_TREE;
+        const publicNext =
+          body?.public?.tree && typeof body.public.tree === 'object'
+            ? (body.public.tree as KnowledgeTreeNode)
             : EMPTY_TREE;
         setError(null);
-        setTree(next);
+        setPrivateTree(privateNext);
+        setPublicTree(publicNext);
+        setCanWritePublic(body?.canWritePublic === true);
       } catch {
         if (cancelled) return;
         setError('Knowledge service is unavailable.');
-        setTree(EMPTY_TREE);
+        setPrivateTree(EMPTY_TREE);
+        setPublicTree(EMPTY_TREE);
+        setCanWritePublic(false);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -58,5 +75,12 @@ export function useKnowledgeTree(treeUrl = KNOWLEDGE_TREE_API): {
     };
   }, [treeUrl]);
 
-  return { tree, error, loading };
+  return {
+    tree: privateTree,
+    privateTree,
+    publicTree,
+    canWritePublic,
+    error,
+    loading,
+  };
 }

@@ -8,7 +8,7 @@ export type ChatImageAttachment = {
   mimeType: string;
 };
 
-const IMAGE_FOCUS_MODES = new Set(['agentWriting', 'agentHtml']);
+const IMAGE_FOCUS_MODES = new Set(['agentKnowledge', 'agentWriting', 'agentDocument', 'agentHtml']);
 
 function isBase64DataChar(code: number): boolean {
   return (
@@ -99,7 +99,7 @@ export function selectImageFiles<T extends { type: string; size: number }>(
 }
 
 export function imageReferenceNote(
-  focusMode: 'agentHtml' | 'agentWriting',
+  focusMode: 'agentHtml' | 'agentWriting' | 'agentKnowledge',
 ): string {
   if (focusMode === 'agentHtml') {
     return 'The attached images are visual references for this edit. Do not embed their bytes into the HTML.';
@@ -110,7 +110,7 @@ export function imageReferenceNote(
 export function promptWithImages(
   text: string,
   images: ChatImageAttachment[] | undefined,
-  focusMode: 'agentHtml' | 'agentWriting',
+  focusMode: 'agentHtml' | 'agentWriting' | 'agentKnowledge',
 ): { text: string; images?: ChatImageAttachment[] } {
   if (!images?.length) return { text };
   return {

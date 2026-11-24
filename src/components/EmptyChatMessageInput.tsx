@@ -4,6 +4,7 @@ import { useChat } from '@/lib/hooks/useChat';
 import {
   SFC_DOCUMENT_FOCUS_MODE,
   findDisplayFocusMode,
+  isKnowledgeFocusMode,
 } from '@/lib/agents';
 import SfcExactMatchToggle from './SfcExactMatchToggle';
 import {
@@ -12,6 +13,7 @@ import {
   useAttachedImages,
 } from './AttachImageControls';
 import WritingKnowledgeAtMenu from './WritingKnowledgeAtMenu';
+import KnowledgeComposerScope from './KnowledgeComposerScope';
 import { atQueryAtCursor } from '@/lib/writing/mentions';
 
 const SendArrow = () => (
@@ -29,7 +31,7 @@ const SendArrow = () => (
 );
 
 const EmptyChatMessageInput = () => {
-  const { sendMessage, focusMode, sfcExactMatch, documentId } = useChat();
+  const { sendMessage, focusMode, sfcExactMatch } = useChat();
   const [message, setMessage] = useState('');
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const [cursor, setCursor] = useState(0);
@@ -40,8 +42,6 @@ const EmptyChatMessageInput = () => {
 
   const currentAgent = findDisplayFocusMode(focusMode);
   let placeholder = currentAgent?.placeholder || 'Ask a question…';
-  const documentBlocked = focusMode === 'agentDocument' && !documentId;
-
   if (focusMode === 'agentSFC' && sfcExactMatch) {
     placeholder = 'Search exact wording ...';
   } else if (focusMode === SFC_DOCUMENT_FOCUS_MODE) {
@@ -71,9 +71,7 @@ const EmptyChatMessageInput = () => {
     };
   }, []);
 
-  const canSend =
-    (message.trim().length > 0 || images.payload.length > 0) &&
-    !documentBlocked;
+  const canSend = message.trim().length > 0 || images.payload.length > 0;
 
   const submit = () => {
     if (!canSend) return;
@@ -92,7 +90,7 @@ const EmptyChatMessageInput = () => {
     >
       <AttachedImageStrip images={images} />
       <div className="composer-input-wrap">
-        {focusMode === 'agentWriting' ? (
+        {isKnowledgeFocusMode(focusMode) ? (
           <WritingKnowledgeAtMenu
             text={message}
             cursor={cursor}
@@ -122,7 +120,7 @@ const EmptyChatMessageInput = () => {
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               if (
-                focusMode === 'agentWriting' &&
+                isKnowledgeFocusMode(focusMode) &&
                 atQueryAtCursor(message, cursor)
               ) {
                 return;
@@ -143,6 +141,7 @@ const EmptyChatMessageInput = () => {
         <div className="composer-toolbar-left">
           <SfcExactMatchToggle />
           <AttachImageControls images={images} />
+          <KnowledgeComposerScope />
         </div>
         <div className="composer-toolbar-right">
           <button

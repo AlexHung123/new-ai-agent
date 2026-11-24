@@ -14,7 +14,8 @@ describe('writing agent Dochub wiring', () => {
     const agent = readSrc('writingAgent.ts');
     expect(agent).toMatch(/emptyResponseFallback: WRITING_AGENT_EMPTY_REPLY/);
     expect(agent).toMatch(/bindTurnDochubTools/);
-    expect(agent).not.toMatch(/bindTurnFsTools/);
+    expect(agent).toMatch(/bindTurnFsTools/);
+    expect(agent).toMatch(/retrievalMode === 'wiki'/);
     const route = readFileSync(
       path.join(__dirname, '../../app/api/chat/route.ts'),
       'utf8',

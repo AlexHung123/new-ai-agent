@@ -1,6 +1,5 @@
 import {
   Code2,
-  FileText,
   Mic,
   NotepadText,
   UsersRound,
@@ -15,6 +14,8 @@ export interface AgentMode {
   icon: LucideIcon;
   image: string;
   permissionCode?: string;
+  /** If set, the card is shown when the user has any of these permissions. */
+  permissionCodes?: string[];
   placeholder?: string;
   followUpPlaceholder?: string;
   kind?: 'chat' | 'tool';
@@ -43,24 +44,16 @@ export const focusModes: AgentMode[] = [
     followUpPlaceholder: 'Please enter survey id ...',
   },
   {
-    key: 'agentWriting',
-    title: 'Agent Writing',
-    description: 'Your assistant on writing and reviewing document',
+    key: 'agentKnowledge',
+    title: 'Agent Knowledge',
+    description:
+      'Write with your private files, or ask about shared policy folders',
     icon: PenLine,
     image: '/itms/ai/agent-writing.png',
     permissionCode: 'chatGuideAgent:execute',
-    placeholder: 'Describe what you want to write or paste text to improve...',
-    followUpPlaceholder: 'Continue editing or ask for another revision...',
-  },
-  {
-    key: 'agentDocument',
-    title: 'Agent Document',
-    description: 'Ask about a selected policy document',
-    icon: FileText,
-    image: '/itms/ai/agent-document.png',
-    permissionCode: 'chatDocumentAgent:execute',
-    placeholder: 'Ask about the selected document…',
-    followUpPlaceholder: 'Ask a follow-up about this document…',
+    permissionCodes: ['chatGuideAgent:execute', 'chatDocumentAgent:execute'],
+    placeholder: 'Write a draft, or ask about a pinned Knowledge folder…',
+    followUpPlaceholder: 'Continue writing, or ask a follow-up about this folder…',
   },
   {
     key: 'agentHtml',
@@ -87,7 +80,20 @@ export const focusModes: AgentMode[] = [
 const DEFAULT_FOCUS_MODE = 'agentSFC';
 const FOCUS_MODE_ALIASES: Record<string, string> = {
   agentSurvey: 'newSurveyAgent',
+  agentWriting: 'agentKnowledge',
+  agentDocument: 'agentKnowledge',
 };
+
+export const KNOWLEDGE_FOCUS_MODE = 'agentKnowledge';
+const KNOWLEDGE_FOCUS_MODES = new Set([
+  'agentKnowledge',
+  'agentWriting',
+  'agentDocument',
+]);
+
+export function isKnowledgeFocusMode(key: string | null | undefined): boolean {
+  return Boolean(key && KNOWLEDGE_FOCUS_MODES.has(key));
+}
 
 /** Internal SFC chat modes that are not separate agent cards. */
 export const SFC_REPLY_FOCUS_MODE = 'newSfcAgent';
@@ -105,7 +111,8 @@ export function isSfcFocusMode(key: string): boolean {
 }
 
 export function isChatFocusMode(key: string): boolean {
-  return focusModes.some((mode) => mode.key === key && mode.kind !== 'tool');
+  const resolved = FOCUS_MODE_ALIASES[key] || key;
+  return focusModes.some((mode) => mode.key === resolved && mode.kind !== 'tool');
 }
 
 export function isToolFocusMode(key: string): boolean {
@@ -123,7 +130,8 @@ export function shouldPersistFocusMode(mode: string): boolean {
 }
 
 export function resolveDisplayFocusMode(key: string): string {
-  return isSfcFocusMode(key) ? DEFAULT_FOCUS_MODE : key;
+  if (isSfcFocusMode(key)) return DEFAULT_FOCUS_MODE;
+  return FOCUS_MODE_ALIASES[key] || key;
 }
 
 export function findDisplayFocusMode(key: string): AgentMode | undefined {

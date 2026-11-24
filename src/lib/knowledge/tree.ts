@@ -149,3 +149,24 @@ export function findFileForSearchHit(
   });
   return found;
 }
+
+export function stampLibrary(
+  node: KnowledgeTreeNode,
+  library: KnowledgeTreeNode['library'],
+): KnowledgeTreeNode {
+  return {
+    ...node,
+    library,
+    children: (node.children || []).map((child) => stampLibrary(child, library)),
+  };
+}
+
+export function filterTree(
+  node: KnowledgeTreeNode,
+  keep: (node: KnowledgeTreeNode) => boolean,
+): KnowledgeTreeNode {
+  const children = (node.children || [])
+    .map((child) => filterTree(child, keep))
+    .filter((child) => keep(child) || (child.type === 'dir' && (child.children || []).length > 0));
+  return { ...node, children };
+}

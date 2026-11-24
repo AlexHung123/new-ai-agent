@@ -14,9 +14,14 @@ export function filterFocusModesByPermissions(
   permissions: readonly string[] | undefined,
 ): AgentMode[] {
   return modes.filter((mode) => {
-    if (!mode.permissionCode) {
+    const codes = mode.permissionCodes?.length
+      ? mode.permissionCodes
+      : mode.permissionCode
+        ? [mode.permissionCode]
+        : [];
+    if (codes.length === 0) {
       return true;
     }
-    return permissions?.includes(mode.permissionCode) ?? false;
+    return codes.some((code) => permissions?.includes(code) ?? false);
   });
 }

@@ -65,4 +65,63 @@ describe('loadWritingTurnContext', () => {
       hint: 'Use keyword search',
     });
   });
+
+  it('detects a structured public folder from wiki/index.md', async () => {
+    const publicTree: KnowledgeTreeNode = {
+      type: 'dir',
+      name: '',
+      path: '',
+      children: [
+        {
+          type: 'dir',
+          name: 'spr',
+          path: 'spr',
+          children: [
+            {
+              type: 'dir',
+              name: 'wiki',
+              path: 'spr/wiki',
+              children: [
+                { type: 'file', name: 'index.md', path: 'spr/wiki/index.md' },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const ctx = await loadWritingTurnContext({
+      userId: '1',
+      text: 'hello',
+      selectedFolder: 'public:spr',
+      loadTree: async (_userId, deps) => {
+        if (deps?.library === 'public') {
+          return { user_id: '1', tree: publicTree };
+        }
+        return {
+          user_id: '1',
+          tree: { type: 'dir', name: '', path: '', children: [] },
+        };
+      },
+      loadStatus: async () => ({ ok: true }),
+    });
+    expect(ctx.pin).toBe('spr');
+    expect(ctx.pinLibrary).toBe('public');
+    expect(ctx.retrievalMode).toBe('wiki');
+  });
+
+  it('keeps ordinary private folders on search retrieval', async () => {
+    const ctx = await loadWritingTurnContext({
+      userId: '1',
+      text: 'hello',
+      selectedFolder: 'writing',
+      loadTree: async (_userId, deps) => ({
+        user_id: '1',
+        tree: deps?.library === 'private' ? tree : { type: 'dir', name: '', path: '', children: [] },
+      }),
+      loadStatus: async () => ({ ok: true }),
+    });
+    expect(ctx.pin).toBe('writing');
+    expect(ctx.pinLibrary).toBe('private');
+    expect(ctx.retrievalMode).toBe('search');
+  });
 });

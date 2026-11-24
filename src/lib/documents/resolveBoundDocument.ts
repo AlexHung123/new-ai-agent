@@ -18,13 +18,7 @@ export function resolveBoundDocument(
   if (input.focusMode === SFC_DOCUMENT_FOCUS_MODE) {
     return { status: 'ok', documentId: SFC_DOCUMENT_ID };
   }
-  if (input.focusMode !== 'agentDocument') return { status: 'none' };
-  if (input.chatExists) {
-    const id = (input.existingDocumentId || '').trim();
-    if (!id) return { status: 'error', message: 'Select a document' };
-    return { status: 'ok', documentId: id };
-  }
-  const id = (input.bodyDocumentId || '').trim();
-  if (!id) return { status: 'error', message: 'Select a document' };
-  return { status: 'ok', documentId: id };
+  // Agent Document is now Agent Knowledge. Policy folders are pinned
+  // public Knowledge folders rather than a separate document binder.
+  return { status: 'none' };
 }
