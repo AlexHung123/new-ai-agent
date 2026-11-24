@@ -14,6 +14,11 @@ import { listKnowledgeFiles, nodeAtPath } from '@/lib/knowledge/tree';
 import type { KnowledgeTreeNode } from '@/lib/knowledge/types';
 import { parseKnowledgePin } from '@/lib/knowledge/library';
 import {
+  grepWikiRoot,
+  hitsFromSearchResults,
+  joinWikiHitPath,
+} from '@/lib/knowledge/wikiGrep';
+import {
   clampPathToPin,
   pathInsidePin,
   splitRetrievalLimit,
@@ -24,6 +29,7 @@ import {
   writingScopeLabel,
   writingSearchScopes,
   writingTurnScopes,
+  writingWikiScopes,
   type WritingKnowledgeScope,
   type WritingTurnContext,
 } from '../runtime/writingTurnContext';
@@ -34,6 +40,7 @@ export const DOCHUB_TOOL_NAMES = [
   'multi_get',
   'tree',
   'status',
+  'grep',
 ] as const;
 
 type DochubToolDeps = {
@@ -62,7 +69,7 @@ function errorResult(error: string) {
 const NO_KNOWLEDGE_SCOPE =
   'No knowledge folder is pinned. Pin a folder from FILES or @mention one.';
 const WIKI_ONLY_QUERY =
-  'This turn includes structured folders only. Read wiki/index.md with get or fs_read first; do not use query.';
+  'This turn includes structured folders only. Read wiki/index.md with get or fs_read first, or use grep for keywords; do not use query.';
 
 function turnScope(ctx: NonNullable<ReturnType<typeof getWritingTurnContext>>): {
   library: 'private' | 'public';
@@ -109,6 +116,40 @@ function searchTargets(ctx: WritingTurnContext): WritingKnowledgeScope[] {
     ];
   }
   return [];
+}
+
+const NO_WIKI_SCOPE =
+  'This turn has no structured folders. Use query for ordinary folders.';
+
+function wikiGrepTargets(
+  ctx: WritingTurnContext,
+  rawPath?: string,
+): WritingKnowledgeScope[] | { error: string } {
+  const scopes = writingWikiScopes(ctx);
+  if (!rawPath) return scopes;
+  const { path: requested, library } = stripLibraryPrefix(rawPath);
+  const matches = scopes.filter(
+    (scope) =>
+      (!library || scope.library === library) &&
+      (requested === scope.path ||
+        requested.startsWith(`${scope.path}/`) ||
+        scope.path.startsWith(`${requested}/`) ||
+        pathInsidePin(requested, scope.path)),
+  );
+  if (matches.length === 0) {
+    return { error: 'path is outside the pinned structured folders' };
+  }
+  return matches;
+}
+
+function wikiGrepSubpath(scope: WritingKnowledgeScope, rawPath?: string): string | undefined {
+  if (!rawPath) return undefined;
+  const { path: requested } = stripLibraryPrefix(rawPath);
+  if (!requested || requested === scope.path) return undefined;
+  if (requested.startsWith(`${scope.path}/`)) {
+    return requested.slice(scope.path.length + 1);
+  }
+  return undefined;
 }
 
 function stripLibraryPrefix(raw: string): {
@@ -727,5 +768,102 @@ export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
     },
   };
 
-  return [query, get, multiGet, treeTool, status];
+  const grep: AgentTool = {
+    name: 'grep',
+    label: 'Search structured documents',
+    description:
+      'Keyword search across pinned structured folders. Searches each structured folder separately and labels hits with their source (for example public:g3), path, and a short snippet. Do not use this for ordinary folders — use query instead. Never pass user_id.',
+    parameters: Type.Object({
+      query: Type.String({ description: 'Literal keyword or phrase to find' }),
+      path: Type.Optional(
+        Type.String({
+          description:
+            'Optional structured folder or subpath (for example public:g3 or g3/wiki/chapters)',
+        }),
+      ),
+      limit: Type.Optional(Type.Number({ description: '1–50, default 20' })),
+      caseInsensitive: Type.Optional(
+        Type.Boolean({ description: 'Case-insensitive match. Default true.' }),
+      ),
+    }),
+    execute: async (_id, args) => {
+      const ctx = getWritingTurnContext();
+      if (!ctx?.userId) return errorResult('No user bound');
+      if (!hasKnowledgeScope(ctx)) return errorResult(NO_KNOWLEDGE_SCOPE);
+      const rec = asRecord(args);
+      const query = typeof rec.query === 'string' ? rec.query.trim() : '';
+      if (!query) return errorResult('query is required');
+      const rawPath = typeof rec.path === 'string' ? rec.path.trim() : '';
+      const selected = wikiGrepTargets(ctx, rawPath || undefined);
+      if ('error' in selected) return errorResult(selected.error);
+      if (selected.length === 0) return errorResult(NO_WIKI_SCOPE);
+      const limitRaw =
+        typeof rec.limit === 'number' && Number.isFinite(rec.limit)
+          ? Math.floor(rec.limit)
+          : 20;
+      const limit = Math.min(50, Math.max(1, limitRaw));
+      const caseInsensitive =
+        rec.caseInsensitive === undefined ? true : rec.caseInsensitive === true;
+      const perLimit = splitRetrievalLimit(limit, selected.length);
+      const hits: ReturnType<typeof hitsFromSearchResults> = [];
+      const sources: string[] = [];
+      try {
+        for (const target of selected) {
+          const source = writingScopeLabel(target);
+          sources.push(source);
+          const subpath = wikiGrepSubpath(target, rawPath || undefined);
+          if (target.wikiRootAbs) {
+            const local = grepWikiRoot({
+              rootAbs: target.wikiRootAbs,
+              query,
+              ...(subpath ? { subpath } : {}),
+              limit: perLimit,
+              caseInsensitive,
+            });
+            if (!('error' in local)) {
+              for (const hit of local) {
+                hits.push({
+                  ...hit,
+                  source,
+                  path: joinWikiHitPath(target.path, hit.path),
+                });
+              }
+              continue;
+            }
+          }
+          const raw = await doSearch(
+            ctx.userId,
+            {
+              mode: 'search',
+              query,
+              limit: perLimit,
+              path: subpath ? `${target.path}/${subpath}` : target.path,
+            },
+            { library: target.library },
+          );
+          hits.push(
+            ...hitsFromSearchResults(
+              Array.isArray(raw.results) ? raw.results : [],
+              source,
+              perLimit,
+            ),
+          );
+        }
+        return jsonToolResult({
+          ok: true,
+          query,
+          hits,
+          sources,
+          limitPerSource: perLimit,
+        });
+      } catch (error) {
+        return errorResult(
+          presentError(error instanceof Error ? error.message : String(error)),
+        );
+      }
+    },
+  };
+
+  return [query, get, multiGet, treeTool, status, grep];
 }
+

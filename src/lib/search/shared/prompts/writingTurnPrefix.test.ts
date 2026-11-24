@@ -134,6 +134,7 @@ describe('buildWritingUserPrompt', () => {
       'multi_get',
       'tree',
       'status',
+      'grep',
     ]);
   });
 
@@ -147,5 +148,52 @@ describe('buildWritingUserPrompt', () => {
         tree: null,
       }),
     ).toEqual([]);
+  });
+
+  it('does not bind grep when only ordinary folders are pinned', () => {
+    expect(
+      writingToolsForTurn({
+        ...ctx,
+        pin: 'writing',
+        pinLibrary: 'private',
+        retrievalMode: 'search',
+        mentionedDocuments: [],
+        scopes: [
+          { path: 'writing', library: 'private', retrievalMode: 'search' },
+        ],
+      }),
+    ).toEqual(['query', 'get', 'multi_get', 'tree', 'status']);
+  });
+
+  it('adds grep for multiple structured folders and keeps fs tools off', () => {
+    const multiWiki = {
+      ...ctx,
+      pin: 'g3',
+      pinLibrary: 'public' as const,
+      retrievalMode: 'wiki' as const,
+      scopes: [
+        {
+          path: 'g3',
+          library: 'public' as const,
+          retrievalMode: 'wiki' as const,
+          wikiRootAbs: '/tmp/g3',
+        },
+        {
+          path: 's17',
+          library: 'public' as const,
+          retrievalMode: 'wiki' as const,
+          wikiRootAbs: '/tmp/s17',
+        },
+      ],
+    };
+    expect(writingToolsForTurn(multiWiki)).toEqual([
+      'query',
+      'get',
+      'multi_get',
+      'tree',
+      'status',
+      'grep',
+    ]);
+    expect(writingToolsForTurn(multiWiki)).not.toContain('fs_grep');
   });
 });

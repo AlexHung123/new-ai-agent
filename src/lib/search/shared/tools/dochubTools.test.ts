@@ -28,7 +28,7 @@ describe('createDochubTools', () => {
     for (const tool of createDochubTools()) {
       const params = JSON.stringify(tool.parameters);
       expect(params).not.toMatch(/user_id/);
-      expect(tool.name).toMatch(/^(query|get|multi_get|tree|status)$/);
+      expect(tool.name).toMatch(/^(query|get|multi_get|tree|status|grep)$/);
     }
   });
 
@@ -309,5 +309,145 @@ describe('createDochubTools', () => {
       'writing/plan.md',
       'testing1/note.md',
     ]);
+  });
+  it('greps each structured folder and skips ordinary ones', async () => {
+    const { mkdtempSync, mkdirSync, writeFileSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const g3 = mkdtempSync(join(tmpdir(), 'wiki-g3-'));
+    const s17 = mkdtempSync(join(tmpdir(), 'wiki-s17-'));
+    mkdirSync(join(g3, 'wiki'), { recursive: true });
+    mkdirSync(join(s17, 'wiki', 'chapters'), { recursive: true });
+    writeFileSync(join(g3, 'wiki', 'index.md'), 'Password policy for G3.\n', 'utf8');
+    writeFileSync(
+      join(s17, 'wiki', 'chapters', '07.md'),
+      'Password resets follow S17.\n',
+      'utf8',
+    );
+    const search = vi.fn(async () => ({
+      user_id: '1',
+      mode: 'search',
+      query: 'password',
+      results: [{ file: 'writing/plan.md', snippet: 'password in ordinary folder' }],
+    }));
+    const tools = createDochubTools({ search });
+    const grep = tools.find((t) => t.name === 'grep')!;
+    const result = await runWithWritingTurn(
+      {
+        userId: '1',
+        pin: 'writing',
+        pinLibrary: 'private',
+        retrievalMode: 'search',
+        mentionedDocuments: [],
+        tree,
+        scopes: [
+          { path: 'writing', library: 'private', retrievalMode: 'search' },
+          {
+            path: 'g3',
+            library: 'public',
+            retrievalMode: 'wiki',
+            wikiRootAbs: g3,
+          },
+          {
+            path: 's17',
+            library: 'public',
+            retrievalMode: 'wiki',
+            wikiRootAbs: s17,
+          },
+        ],
+      },
+      () => grep.execute('id', { query: 'password' }),
+    );
+    expect(search).not.toHaveBeenCalled();
+    const details = result.details as {
+      hits: Array<{ source: string; path: string; snippet: string }>;
+      sources: string[];
+    };
+    expect(details.sources).toEqual(['public:g3', 'public:s17']);
+    expect(details.hits.map((hit) => hit.source)).toEqual([
+      'public:g3',
+      'public:s17',
+    ]);
+    expect(details.hits.map((hit) => hit.path)).toEqual([
+      'g3/wiki/index.md',
+      's17/wiki/chapters/07.md',
+    ]);
+    expect(details.hits.some((hit) => hit.path.includes('writing'))).toBe(false);
+  });
+
+  it('uses path-scoped keyword search for remote structured folders', async () => {
+    const search = vi.fn(async (_userId: string, body: { path?: string; mode?: string }) => ({
+      user_id: '1',
+      mode: 'search',
+      query: 'password',
+      results:
+        body.path === 'g3'
+          ? [{ file: 'qmd://markdown/g3/wiki/index.md', line: 2, snippet: 'G3 password' }]
+          : [{ path: 's17/wiki/chapters/07.md', text: 'S17 password' }],
+    }));
+    const tools = createDochubTools({ search });
+    const grep = tools.find((t) => t.name === 'grep')!;
+    const result = await runWithWritingTurn(
+      {
+        userId: '1',
+        pin: 'g3',
+        pinLibrary: 'public',
+        retrievalMode: 'wiki',
+        mentionedDocuments: [],
+        tree,
+        scopes: [
+          { path: 'g3', library: 'public', retrievalMode: 'wiki' },
+          { path: 's17', library: 'public', retrievalMode: 'wiki' },
+        ],
+      },
+      () => grep.execute('id', { query: 'password' }),
+    );
+    expect(search).toHaveBeenCalledTimes(2);
+    expect(search).toHaveBeenCalledWith(
+      '1',
+      expect.objectContaining({ mode: 'search', query: 'password', path: 'g3' }),
+      { library: 'public' },
+    );
+    expect(search).toHaveBeenCalledWith(
+      '1',
+      expect.objectContaining({ mode: 'search', query: 'password', path: 's17' }),
+      { library: 'public' },
+    );
+    const details = result.details as {
+      hits: Array<{ source: string; path: string; snippet: string }>;
+    };
+    expect(details.hits).toEqual([
+      {
+        source: 'public:g3',
+        path: 'g3/wiki/index.md',
+        line: 2,
+        snippet: 'G3 password',
+      },
+      {
+        source: 'public:s17',
+        path: 's17/wiki/chapters/07.md',
+        snippet: 'S17 password',
+      },
+    ]);
+  });
+
+  it('does not grep when nothing is pinned or mentioned', async () => {
+    const search = vi.fn(async () => ({
+      user_id: '1',
+      mode: 'search',
+      query: 'password',
+      results: [],
+    }));
+    const tools = createDochubTools({ search });
+    const grep = tools.find((t) => t.name === 'grep')!;
+    const result = await runWithWritingTurn(
+      { ...ctx, pin: null, scopes: [] },
+      () => grep.execute('id', { query: 'password' }),
+    );
+    expect(search).not.toHaveBeenCalled();
+    expect(result.details).toMatchObject({
+      ok: false,
+      error: expect.stringMatching(/No knowledge folder is pinned/),
+    });
   });
 });

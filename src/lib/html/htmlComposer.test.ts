@@ -53,9 +53,9 @@ describe('HTML explainer feature removed', () => {
     expect(ctx).not.toMatch(/createAmRenderTool/);
     expect(ctx).toMatch(/tools: \['fs_ls', 'fs_read', 'fs_grep', 'fs_find'\]/);
     expect(ctx).toMatch(
-      /tools: \['query', 'get', 'multi_get', 'tree', 'status'\]/,
+      /tools: \['query', 'get', 'multi_get', 'tree', 'status', 'grep'\]/,
     );
-    expect(ctx).toMatch(/SHARED_AGENT_CONTEXT_REV = 16/);
+    expect(ctx).toMatch(/SHARED_AGENT_CONTEXT_REV = 17/);
     expect(ctx).toMatch(/'html-agent-template'/);
     expect(ctx).toMatch(/tools: \['html_get', 'html_set'\]/);
   });

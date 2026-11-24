@@ -82,6 +82,22 @@ describe('buildToolEndSummary', () => {
     expect(out.summary).toBe('8 files (truncated) · 進修');
   });
 
+  it('summarizes structured grep hits and query', () => {
+    const out = buildToolEndSummary(
+      'grep',
+      {
+        details: {
+          ok: true,
+          query: 'password',
+          hits: [{ source: 'public:g3', path: 'g3/wiki/index.md' }],
+        },
+      },
+      false,
+    );
+    expect(out.summary).toBe('1 hit · password');
+    expect(out.hitCount).toBe(1);
+  });
+
   it('summarizes skipped fs_ls with the bound-folder error', () => {
     const out = buildToolEndSummary(
       'fs_ls',

@@ -238,6 +238,27 @@ export function buildToolEndSummary(
       };
     }
 
+    case 'grep': {
+      if (details && details.ok === false && typeof details.error === 'string') {
+        return { summary: clip(details.error, MAX_SUMMARY_CHARS) };
+      }
+      const n =
+        details && Array.isArray(details.hits)
+          ? details.hits.length
+          : details && typeof details.hitCount === 'number'
+            ? Math.max(0, Math.floor(details.hitCount))
+            : undefined;
+      const q = details ? firstQuery(details) : undefined;
+      const qPart = q ? ` · ${clip(q, MAX_QUERY_CHARS)}` : '';
+      return {
+        summary: clip(
+          `${n === undefined ? 'Search finished' : n === 1 ? '1 hit' : `${n} hits`}${qPart}`,
+          MAX_SUMMARY_CHARS,
+        ),
+        ...(n !== undefined ? { hitCount: n } : {}),
+      };
+    }
+
     case 'get': {
       if (details && details.ok === false && typeof details.error === 'string') {
         return { summary: clip(details.error, MAX_SUMMARY_CHARS) };

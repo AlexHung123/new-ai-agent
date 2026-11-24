@@ -17,6 +17,8 @@ export const WRITING_DOCHUB_TOOLS = [
 
 export const WIKI_FS_TOOLS = ['fs_ls', 'fs_read', 'fs_grep', 'fs_find'];
 
+export const WIKI_GREP_TOOL = 'grep';
+
 export function writingToolsForTurn(
   ctx: WritingTurnContext | undefined = getWritingTurnContext(),
 ): string[] {
@@ -40,6 +42,7 @@ export function writingToolsForTurn(
     localWikis.length !== 1;
   const tools: string[] = [];
   if (needsDochub) tools.push(...WRITING_DOCHUB_TOOLS);
+  if (writingWikiScopes(ctx).length > 0) tools.push(WIKI_GREP_TOOL);
   if (localWikis.length === 1) tools.push(...WIKI_FS_TOOLS);
   return tools;
 }
@@ -74,7 +77,7 @@ export function buildWritingUserPrompt(
       )
       .join('\n');
     blocks.push(
-      `[Pinned folders]\n${lines}\nOrdinary folders use query, get, and multi_get; each hit is labeled with its source folder. Structured folders use their own index-first path. Never mix those modes in one query. Retrieval is split across the pinned folders.\n`,
+      `[Pinned folders]\n${lines}\nOrdinary folders use query, get, and multi_get; each hit is labeled with its source folder. Structured folders use grep for keywords and their own index-first path. Never mix those modes in one query. Retrieval is split across the pinned folders.\n`,
     );
   }
   const wikiScopes = writingWikiScopes(ctx);
@@ -92,7 +95,7 @@ export function buildWritingUserPrompt(
         );
       } else {
         blocks.push(
-          `[Structured folder]\nTitle: ${title}\nThis is a structured policy folder. Call get on wiki/index.md first, then follow citations with get or multi_get. Do not start with query. Never use the word "wiki" or 「維基」 in the user-visible answer; call this the bound document.\n`,
+          `[Structured folder]\nTitle: ${title}\nThis is a structured policy folder. Call get on wiki/index.md first, then follow citations with get or multi_get. Use grep to search keywords across pinned structured folders. Do not start with query. Never use the word "wiki" or 「維基」 in the user-visible answer; call this the bound document.\n`,
         );
       }
     } else if (localFs) {
@@ -101,7 +104,7 @@ export function buildWritingUserPrompt(
       );
     } else {
       blocks.push(
-        `[Structured folder]\nTitle: ${title}\nSource: ${source}\nThis is a structured policy folder. Call get on wiki/index.md first, then follow citations with get or multi_get. Do not start with query. Never use the word "wiki" or 「維基」 in the user-visible answer; call this the bound document.\n`,
+        `[Structured folder]\nTitle: ${title}\nSource: ${source}\nThis is a structured policy folder. Call get on wiki/index.md first, then follow citations with get or multi_get. Use grep to search keywords across pinned structured folders. Do not start with query. Never use the word "wiki" or 「維基」 in the user-visible answer; call this the bound document.\n`,
       );
     }
   }

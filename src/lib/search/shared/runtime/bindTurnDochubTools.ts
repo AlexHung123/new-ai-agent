@@ -10,6 +10,7 @@ const DOCHUB_TOOL_NAMES = new Set([
   'multi_get',
   'tree',
   'status',
+  'grep',
 ]);
 
 type ExecutableTool = NamedTool & {
