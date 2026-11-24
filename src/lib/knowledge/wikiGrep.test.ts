@@ -7,6 +7,7 @@ import {
   grepWikiRoot,
   hitsFromSearchResults,
   joinWikiHitPath,
+  readWikiRootFile,
 } from './wikiGrep';
 
 function writeWiki(root: string, rel: string, body: string) {
@@ -63,5 +64,21 @@ describe('wikiGrep helpers', () => {
     expect(clipSnippet('x'.repeat(201)).length).toBe(200);
     expect(joinWikiHitPath('g3', 'wiki/index.md')).toBe('g3/wiki/index.md');
     expect(joinWikiHitPath('g3', 'g3/wiki/index.md')).toBe('g3/wiki/index.md');
+  });
+
+  it('reads a local wiki file with numbered lines', () => {
+    const root = mkdtempSync(join(tmpdir(), 'wiki-read-'));
+    writeWiki(root, 'wiki/index.md', '# Index\nPassword policy.\n');
+    const result = readWikiRootFile({
+      rootAbs: root,
+      rel: 'wiki/index.md',
+      fromLine: 2,
+      maxLines: 1,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.rel).toBe('wiki/index.md');
+    expect(result.fromLine).toBe(2);
+    expect(result.text).toMatch(/2\|Password policy/);
   });
 });

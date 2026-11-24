@@ -16,7 +16,7 @@ import { resolveWritingKnowledgePin } from '@/lib/knowledge/writingPin';
 import type { WritingTurnContext } from './writingTurnContext';
 
 const LIBRARY_UNAVAILABLE =
-  'Knowledge service is unavailable. Knowledge tools will fail; do not retry query, get, multi_get, or tree. Tell the user the knowledge library is unreachable.';
+  'Knowledge service is unavailable. Knowledge tools will fail; do not retry search or read. Tell the user the knowledge library is unreachable.';
 
 function localWikiSlot(path: string | null) {
   if (!path) return null;

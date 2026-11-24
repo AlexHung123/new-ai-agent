@@ -1,6 +1,6 @@
 ---
 name: dochub
-description: Search and retrieve this user's indexed documents through in-process Dochub tools (query, get, multi_get, tree, status). Use when the user asks about their files, folders, notes, uploads, contracts, or knowledge base, or wants an answer from their documents.
+description: Search and retrieve this user's indexed documents through in-process Knowledge tools (search, read). Use when the user asks about their files, folders, notes, uploads, contracts, or knowledge base, or wants an answer from their documents.
 compatibility: in-process host tools. Identity and optional folder pin come from the host.
 ---
 
@@ -8,32 +8,27 @@ compatibility: in-process host tools. Identity and optional folder pin come from
 
 Search the user's indexed markdown, then read the source, then answer. Snippets are leads, not evidence.
 
-Tools: `query`, `get`, `multi_get`, `tree`, `status`. These are in-process host tools. Never pass `user_id`. Never run the `qmd` CLI.
+Tools: `search`, `read`. These are in-process host tools. Never pass `user_id`. Never run the `qmd` CLI.
 
-For a question about what a document says, keep workflow query → get (or `multi_get`) then answer. For a request to list files, call `tree` once and answer from `files`.
+For a question about what a document says, keep workflow search → read then answer. One search covers all pinned folders. Prefer reading several paths in one `read`. Do not repeat the same keyword search.
 
 ## Workflow
 
-1. `query` for candidate documents.
-2. `get` or `multi_get` the best hits. Use `path:from:count` around a hit line (for example `contracts/note.md:120:40`).
+1. `search` once for candidate documents across every pinned folder.
+2. `read` the best hits, preferably several paths in one call. Use `path:from:count` around a hit line (for example `contracts/note.md:120:40`).
 3. Answer from retrieved text. Cite `dochub_path` and line numbers.
-
-## List the library
-
-When the user asks which files exist, or to list, enumerate, or show every file or folder (列出文件, 有哪些文件, all files, files submitted to the library), call `tree` once. The `files` array is the inventory. Each entry is `{ path, name }`. Reply with those names and paths. Do not call `query`, `get`, or `multi_get` to build a file list, and do not open file bodies.
-
-If `truncated` is true, say the list is incomplete and include every path you were given.
 
 ## When a tool fails
 
-A validation error, `file not found`, or `Knowledge service is unavailable` is final for that call. Do not retry it and do not switch tools to keep reading. Answer from `files` or from text you already have. The reply must contain the list or the answer. Never stop after tools with an empty message.
+A validation error, `file not found`, or `Knowledge service is unavailable` is final for that call. Do not retry it and do not switch tools to keep reading. Answer from text you already have. Never stop after tools with an empty message.
 
 Typical loop:
 
 ```text
-query  { "searches": [{ "type": "lex", "query": "quarterly plan OKR" }], "limit": 5 }
-# leads: contracts/2024/plan.md:42  invoices/acme.md:18
-get    { "file": "contracts/2024/plan.md:22:80" }
+search  { "query": "quarterly plan OKR", "limit": 10 }
+# leads: private:contracts contracts/2024/plan.md:42
+#        private:invoices invoices/acme.md:18
+read    { "files": ["contracts/2024/plan.md:22:80", "invoices/acme.md"] }
 ```
 
 When reporting what you retrieved:
@@ -46,9 +41,11 @@ Retrieved:
 
 ## Pick the search mode
 
-**Exact words, titles, names, rare phrases** — `query` with `searches: [{ "type": "lex", "query": "..." }]` (BM25, fast, works after index update even before embeddings).
+One `search` call covers every pinned folder. Ordinary folders can use structured `searches`; structured (bound) folders always use keyword search and ignore `vec` / `hyde` / `mode: query`.
 
-**Idea / paraphrase / conceptual recall** — default to a structured query you write yourself:
+**Exact words, titles, names, rare phrases** — `search` with `searches: [{ "type": "lex", "query": "..." }]` or a bare `query` (keyword search on structured folders; BM25 on ordinary folders).
+
+**Idea / paraphrase / conceptual recall** (ordinary folders only):
 
 ```json
 {
@@ -64,44 +61,40 @@ Retrieved:
 }
 ```
 
-These fields are sent through to Dochub / qmd. `lex` / `vec` / `hyde` stay on separate channels and are fused with RRF. Rerank is off by default; set `rerank: true` to enable the slower cross-encoder. Do not collapse them into one string.
+These fields are sent through to ordinary-folder search. `lex` / `vec` / `hyde` stay on separate channels and are fused with RRF. Rerank is off by default; set `rerank: true` to enable the slower cross-encoder. Do not collapse them into one string. Structured folders still use the keyword string only.
 
 - `intent` — what to find and what to avoid.
 - `lex` — exact terms, aliases, titles you expect in the source.
 - `vec` — the idea in source-like wording.
 - `hyde` — a short passage that would satisfy the request.
 
-A bare `query: "<the user's sentence>"` throws away context only you have. Prefer structured `searches`. If the user gave a single rare token, lex-only is enough.
+A bare `query: "<the user's sentence>"` throws away context only you have. Prefer structured `searches` for ordinary folders. If the user gave a single rare token, lex-only or a bare keyword is enough.
 
-A bare `query` with `mode: query` is expanded by the server into `lex:` + `vec:`. If hybrid search times out, is busy, fails, or embeddings are not ready, Dochub retries keyword search automatically and returns `fallback.reason` (`timeout`, `busy`, `qmd_exec_failed`, `semantic_not_ready`, or `parse_failed`). You usually do not need to retry. Set `fallback: false` only if you must fail instead of falling back.
+A bare `query` with `mode: query` is expanded by the server into `lex:` + `vec:` for ordinary folders. If hybrid search times out, is busy, fails, or embeddings are not ready, the host retries keyword search automatically and may return `fallback.reason`. You usually do not need to retry. Do not repeat the same keyword search.
 
 ## Folder scope
 
-If the user names a folder, pass it as `path` on `query` / `tree` (markdown-relative, for example `contracts/2024`). The host already pins the session; extra `path` stays inside the host pin.
-
-`tree` lists the folder tree when you need to see what exists before searching.
+If the user names a folder, pass it as `path` on `search` (markdown-relative, for example `contracts/2024` or `public:g3`). The host already pins the session; extra `path` stays inside the host pin. Hits are labeled with their source, for example `public:g3`.
 
 ## Retrieve
 
-`get` / `multi_get` take `dochub_path` values from search (also `qmd://markdown/...` or `#abc123` docids). They return line-numbered text by default.
+`read` takes `dochub_path` values from search (also `qmd://markdown/...` or `#abc123` docids). It returns line-numbered text by default. Prefer several paths in one call.
 
 - `contracts/note.md:120:40` — 40 lines starting at 120.
 - `contracts/note.md:120` — from 120 to end.
 - `#abc123:120:40` — the same range by docid.
-- `get` args `fromLine` / `maxLines` override a suffix.
+- args `fromLine` / `maxLines` override a suffix.
+- `files` may be a comma-separated string or an array. Globs including recursive `contracts/**/*.md` are allowed. Optional `maxBytes` caps each file.
 
 If a path is missing, the tool returns similar path or filename hints. Do not invent a path.
 
 Do not slice documents with `sed`, `head`, `tail`, or `awk`.
-
-`multi_get` accepts comma-separated paths, docids, or globs, including recursive `contracts/**/*.md`. Optional `maxBytes` caps each file.
-
-`tree` can take `refresh: true` to fetch a live file list instead of the start-of-turn snapshot.
 
 ## Pitfalls
 
 - Do not stop at snippets. Fetch before claiming facts, quotes, or decisions.
 - Do not invent `user_id`, paths outside the pin, or a second search backend.
 - Do not mutate indexes. Upload and ingest stay on the Knowledge page / Mac worker.
-- Call `status` when search looks empty or stale. Keyword search works after ingest (`qmd update`). Semantic `vec` / `hyde` / `mode: query` need embeddings; if `semantic_search_ready` is false, use lex / `mode: search`.
+- If search looks empty or stale and embeddings are not ready, use keyword search (`lex` or a bare `query`) instead of `vec` / `hyde` / `mode: query`.
+- Do not repeat the same keyword search. Prefer one `search`, then one batched `read`.
 - If the user message says the knowledge library is unreachable, do not retry knowledge tools. Tell the user.

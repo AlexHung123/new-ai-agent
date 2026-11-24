@@ -4,14 +4,7 @@ import {
   type WritingTurnContext,
 } from './writingTurnContext';
 
-const DOCHUB_TOOL_NAMES = new Set([
-  'query',
-  'get',
-  'multi_get',
-  'tree',
-  'status',
-  'grep',
-]);
+const DOCHUB_TOOL_NAMES = new Set(['search', 'read']);
 
 type ExecutableTool = NamedTool & {
   execute?: (...args: unknown[]) => unknown;

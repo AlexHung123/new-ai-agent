@@ -222,4 +222,56 @@ describe('buildToolEndSummary', () => {
     const out = buildToolEndSummary('html_get', { details: {} }, false);
     expect(out.summary).toBe('Done');
   });
+
+  it('summarizes unified search hits and query', () => {
+    const out = buildToolEndSummary(
+      'search',
+      {
+        details: {
+          ok: true,
+          query: 'password',
+          hits: [
+            { source: 'public:g3', path: 'g3/wiki/index.md' },
+            { source: 'private:writing', path: 'writing/plan.md' },
+          ],
+        },
+      },
+      false,
+    );
+    expect(out.summary).toBe('2 hits · password');
+    expect(out.hitCount).toBe(2);
+  });
+
+  it('summarizes a single knowledge read path', () => {
+    const out = buildToolEndSummary(
+      'read',
+      {
+        details: {
+          ok: true,
+          dochub_path: 'g3/wiki/index.md',
+          text: '1|hello',
+        },
+      },
+      false,
+    );
+    expect(out.summary).toBe('Read g3/wiki/index.md');
+  });
+
+  it('summarizes a batched knowledge read', () => {
+    const out = buildToolEndSummary(
+      'read',
+      {
+        details: {
+          ok: true,
+          files: [
+            { ok: true, dochub_path: 'g3/wiki/index.md' },
+            { ok: true, dochub_path: 's17/wiki/index.md' },
+          ],
+        },
+      },
+      false,
+    );
+    expect(out.summary).toBe('2 files');
+    expect(out.hitCount).toBe(2);
+  });
 });

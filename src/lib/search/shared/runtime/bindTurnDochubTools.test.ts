@@ -25,11 +25,11 @@ function fakeAgent(tools: PooledAgent['state']['tools']): PooledAgent {
 }
 
 describe('bindTurnDochubTools', () => {
-  it('re-enters writing context during query after the outer turn is gone', async () => {
+  it('re-enters writing context during search after the outer turn is gone', async () => {
     let seen: string | undefined;
     const agent = fakeAgent([
       {
-        name: 'query',
+        name: 'search',
         execute: async () => {
           seen = getWritingTurnContext()?.userId;
           return { ok: true };

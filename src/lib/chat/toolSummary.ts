@@ -223,21 +223,8 @@ export function buildToolEndSummary(
       };
     }
 
-    case 'query': {
-      if (details && details.ok === false && typeof details.error === 'string') {
-        return { summary: clip(details.error, MAX_SUMMARY_CHARS) };
-      }
-      const n =
-        details && Array.isArray(details.results) ? details.results.length : undefined;
-      return {
-        summary: clip(
-          n === undefined ? 'Search finished' : n === 1 ? '1 hit' : `${n} hits`,
-          MAX_SUMMARY_CHARS,
-        ),
-        ...(n !== undefined ? { hitCount: n } : {}),
-      };
-    }
-
+    case 'query':
+    case 'search':
     case 'grep': {
       if (details && details.ok === false && typeof details.error === 'string') {
         return { summary: clip(details.error, MAX_SUMMARY_CHARS) };
@@ -245,9 +232,11 @@ export function buildToolEndSummary(
       const n =
         details && Array.isArray(details.hits)
           ? details.hits.length
-          : details && typeof details.hitCount === 'number'
-            ? Math.max(0, Math.floor(details.hitCount))
-            : undefined;
+          : details && Array.isArray(details.results)
+            ? details.results.length
+            : details && typeof details.hitCount === 'number'
+              ? Math.max(0, Math.floor(details.hitCount))
+              : undefined;
       const q = details ? firstQuery(details) : undefined;
       const qPart = q ? ` · ${clip(q, MAX_QUERY_CHARS)}` : '';
       return {
@@ -259,14 +248,36 @@ export function buildToolEndSummary(
       };
     }
 
-    case 'get': {
+    case 'get':
+    case 'read': {
       if (details && details.ok === false && typeof details.error === 'string') {
         return { summary: clip(details.error, MAX_SUMMARY_CHARS) };
+      }
+      const files = details && Array.isArray(details.files) ? details.files : undefined;
+      if (files && (files.length !== 1 || typeof details.dochub_path !== 'string')) {
+        const n = files.length;
+        if (n === 1) {
+          const only = files[0] && typeof files[0] === 'object' ? (files[0] as Record<string, unknown>) : null;
+          const rel =
+            (only && typeof only.dochub_path === 'string' && only.dochub_path) ||
+            (only && typeof only.path === 'string' && only.path) ||
+            (only && typeof only.rel === 'string' && only.rel) ||
+            undefined;
+          return { summary: clip(rel ? `Read ${rel}` : 'Read file', MAX_SUMMARY_CHARS), hitCount: 1 };
+        }
+        return {
+          summary: clip(n === 0 ? 'Read files' : `${n} files`, MAX_SUMMARY_CHARS),
+          hitCount: n,
+        };
       }
       const rel =
         details && typeof details.dochub_path === 'string'
           ? details.dochub_path
-          : undefined;
+          : details && typeof details.rel === 'string'
+            ? details.rel
+            : details && typeof details.path === 'string'
+              ? details.path
+              : undefined;
       return { summary: clip(rel ? `Read ${rel}` : 'Read file', MAX_SUMMARY_CHARS) };
     }
 

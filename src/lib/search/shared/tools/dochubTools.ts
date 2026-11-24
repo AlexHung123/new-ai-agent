@@ -1,28 +1,23 @@
 import { Type } from 'typebox';
 import type { AgentTool } from '@earendil-works/pi-agent-core';
-import {
-  getHealth,
-  getStatus,
-  getTree,
-  multiGetDocuments,
-  search,
-} from '@/lib/knowledge/dochubClient';
+import { multiGetDocuments, search } from '@/lib/knowledge/dochubClient';
 import { getDochubMarkdown, type DochubGetResult } from '@/lib/knowledge/dochubGet';
 import { mapDochubQueryArgs } from '@/lib/knowledge/dochubQuery';
-import { stripQmdMarkdownPath } from '@/lib/knowledge/search';
+import { parseKnowledgePin } from '@/lib/knowledge/library';
 import { listKnowledgeFiles, nodeAtPath } from '@/lib/knowledge/tree';
 import type { KnowledgeTreeNode } from '@/lib/knowledge/types';
-import { parseKnowledgePin } from '@/lib/knowledge/library';
 import {
   grepWikiRoot,
   hitsFromSearchResults,
   joinWikiHitPath,
+  readWikiRootFile,
 } from '@/lib/knowledge/wikiGrep';
 import {
   clampPathToPin,
   pathInsidePin,
   splitRetrievalLimit,
 } from '@/lib/knowledge/writingPin';
+import { parseFsReadLocator } from '@/lib/search/shared/tools/fs/fsReadLocator';
 import { jsonToolResult } from '../runtime/piToolResult';
 import {
   getWritingTurnContext,
@@ -34,21 +29,11 @@ import {
   type WritingTurnContext,
 } from '../runtime/writingTurnContext';
 
-export const DOCHUB_TOOL_NAMES = [
-  'query',
-  'get',
-  'multi_get',
-  'tree',
-  'status',
-  'grep',
-] as const;
+export const DOCHUB_TOOL_NAMES = ['search', 'read'] as const;
 
 type DochubToolDeps = {
   search?: typeof search;
   getDochubMarkdown?: typeof getDochubMarkdown;
-  getHealth?: typeof getHealth;
-  getStatus?: typeof getStatus;
-  getTree?: typeof getTree;
   multiGetDocuments?: typeof multiGetDocuments;
 };
 
@@ -58,9 +43,8 @@ function asRecord(args: unknown): Record<string, unknown> {
     : {};
 }
 
-const MAX_TREE_FILES = 2000;
 const STOP_RETRY =
-  ' Do not retry this call. If the user wants a file list, answer from the tree tool files array.';
+  ' Do not retry this call. If the user wants a file list, answer from the evidence you already have.';
 
 function errorResult(error: string) {
   return jsonToolResult({ ok: false, error });
@@ -68,8 +52,6 @@ function errorResult(error: string) {
 
 const NO_KNOWLEDGE_SCOPE =
   'No knowledge folder is pinned. Pin a folder from FILES or @mention one.';
-const WIKI_ONLY_QUERY =
-  'This turn includes structured folders only. Read wiki/index.md with get or fs_read first, or use grep for keywords; do not use query.';
 
 function turnScope(ctx: NonNullable<ReturnType<typeof getWritingTurnContext>>): {
   library: 'private' | 'public';
@@ -118,14 +100,10 @@ function searchTargets(ctx: WritingTurnContext): WritingKnowledgeScope[] {
   return [];
 }
 
-const NO_WIKI_SCOPE =
-  'This turn has no structured folders. Use query for ordinary folders.';
-
-function wikiGrepTargets(
-  ctx: WritingTurnContext,
-  rawPath?: string,
+function scopesMatchingPath(
+  scopes: WritingKnowledgeScope[],
+  rawPath: string | undefined,
 ): WritingKnowledgeScope[] | { error: string } {
-  const scopes = writingWikiScopes(ctx);
   if (!rawPath) return scopes;
   const { path: requested, library } = stripLibraryPrefix(rawPath);
   const matches = scopes.filter(
@@ -137,12 +115,15 @@ function wikiGrepTargets(
         pathInsidePin(requested, scope.path)),
   );
   if (matches.length === 0) {
-    return { error: 'path is outside the pinned structured folders' };
+    return { error: 'path is outside the pinned folders' };
   }
   return matches;
 }
 
-function wikiGrepSubpath(scope: WritingKnowledgeScope, rawPath?: string): string | undefined {
+function wikiGrepSubpath(
+  scope: WritingKnowledgeScope,
+  rawPath?: string,
+): string | undefined {
   if (!rawPath) return undefined;
   const { path: requested } = stripLibraryPrefix(rawPath);
   if (!requested || requested === scope.path) return undefined;
@@ -181,7 +162,10 @@ function scopeForPath(
   return scopes.find(
     (scope) =>
       (!library || scope.library === library) &&
-      (path === scope.path || path.startsWith(`${scope.path}/`) || scope.path.startsWith(`${path}/`) || pathInsidePin(path, scope.path)),
+      (path === scope.path ||
+        path.startsWith(`${scope.path}/`) ||
+        scope.path.startsWith(`${path}/`) ||
+        pathInsidePin(path, scope.path)),
   );
 }
 
@@ -203,6 +187,7 @@ function rawFilesArg(rec: Record<string, unknown>): unknown {
     (Array.isArray(files) && files.length > 0);
   if (hasFiles) return files;
   if (typeof rec.file === 'string' && rec.file.trim()) return rec.file;
+  if (typeof rec.path === 'string' && rec.path.trim()) return rec.path;
   return undefined;
 }
 
@@ -282,7 +267,12 @@ function expandFiles(
       }
       const listed = listKnowledgeFiles(
         item.includes('/') && !item.startsWith('**')
-          ? nodeAtPath(tree, item.replace(/\/\*\*.*$/, '').replace(/\/[^/]*[\*?].*$/, '')) || tree
+          ? nodeAtPath(
+              tree,
+              item
+                .replace(/\/\*\*.*$/, '')
+                .replace(/\/[^/]*[\*?].*$/, ''),
+            ) || tree
           : tree,
       );
       const matches = listed
@@ -334,167 +324,237 @@ function matchPathGlob(path: string, pattern: string): boolean {
   }
 }
 
-function stripHitFiles(results: unknown[]): unknown[] {
-  return results.map((hit) => {
-    if (!hit || typeof hit !== 'object') return hit;
-    const rec = hit as Record<string, unknown>;
-    if (typeof rec.file !== 'string') return hit;
-    return { ...rec, file: stripQmdMarkdownPath(rec.file) };
-  });
+function singleLocalWikiScope(
+  ctx: WritingTurnContext,
+): WritingKnowledgeScope | undefined {
+  const wikis = writingWikiScopes(ctx);
+  if (wikis.length !== 1 || !wikis[0]?.wikiRootAbs) return undefined;
+  return wikis[0];
+}
+
+function fsReadTarget(
+  ctx: WritingTurnContext,
+  rawPath: string,
+): { scope: WritingKnowledgeScope; rel: string } | undefined {
+  const scope = singleLocalWikiScope(ctx);
+  if (!scope?.wikiRootAbs) return undefined;
+  const locator = parseFsReadLocator(rawPath);
+  const { path: requested, library } = stripLibraryPrefix(locator.path);
+  if (!requested) return undefined;
+  if (library && library !== scope.library) return undefined;
+  const other = writingTurnScopes(ctx).find(
+    (item) =>
+      item.path !== scope.path &&
+      (requested === item.path || requested.startsWith(`${item.path}/`)),
+  );
+  if (other) return undefined;
+  const prefixed =
+    requested === scope.path || requested.startsWith(`${scope.path}/`);
+  const wikiRel = requested === 'wiki' || requested.startsWith('wiki/');
+  if (!prefixed && !wikiRel) return undefined;
+  if (requested === scope.path) return undefined;
+  const rel = prefixed ? requested.slice(scope.path.length + 1) : requested;
+  if (!rel) return undefined;
+  const suffix =
+    locator.fromLine != null
+      ? locator.maxLines != null
+        ? `:${locator.fromLine}:${locator.maxLines}`
+        : `:${locator.fromLine}`
+      : '';
+  return { scope, rel: `${rel}${suffix}` };
 }
 
 export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
   const doSearch = deps?.search ?? search;
   const doGet = deps?.getDochubMarkdown ?? getDochubMarkdown;
-  const doHealth = deps?.getHealth ?? getHealth;
 
-  const query: AgentTool = {
-    name: 'query',
+  const searchTool: AgentTool = {
+    name: 'search',
     label: 'Search knowledge',
     description:
-      'Search inside this user\'s Knowledge documents. Do not use this to list every file; call tree for an inventory. Prefer structured searches (lex/vec/hyde). The host supplies identity and folder pin; never pass user_id.',
+      "Search all pinned Knowledge folders in one call. Ordinary folders use semantic or keyword query; structured folders use keyword search. Hits are labeled with source (for example public:g3), path, and a short snippet. Prefer one search, then read. Do not repeat the same keyword search. Never pass user_id.",
     parameters: Type.Object({
       query: Type.Optional(
-        Type.String({ description: 'Bare search string when searches is omitted' }),
+        Type.String({
+          description: 'Search string or keyword. Required unless searches is set.',
+        }),
       ),
       mode: Type.Optional(
-        Type.String({ description: 'search | vsearch | query' }),
+        Type.String({
+          description:
+            'Ordinary folders only: search | vsearch | query. Ignored for structured folders.',
+        }),
       ),
       searches: Type.Optional(
         Type.Array(
           Type.Object({
-            type: Type.String({ description: 'lex | vec | hyde' }),
+            type: Type.String({ description: 'lex | vec | hyde (ordinary folders only)' }),
             query: Type.String(),
           }),
         ),
       ),
-      intent: Type.Optional(Type.String()),
-      limit: Type.Optional(Type.Number({ description: '1–10, default 5' })),
+      intent: Type.Optional(
+        Type.String({ description: 'Ordinary folders only: what to find and avoid' }),
+      ),
+      limit: Type.Optional(Type.Number({ description: '1–50, default 20' })),
       path: Type.Optional(
-        Type.String({ description: 'Optional subfolder; clamped to the host pin' }),
+        Type.String({
+          description:
+            'Optional folder or subpath; clamped to the pinned folders (for example public:g3)',
+        }),
       ),
-      rerank: Type.Optional(Type.Boolean({ description: 'Cross-encoder rerank for query mode; default false, set true to enable' })),
-      minScore: Type.Optional(Type.Number({ description: 'Minimum score 0–1' })),
+      rerank: Type.Optional(
+        Type.Boolean({
+          description: 'Ordinary folders only: cross-encoder rerank; default false',
+        }),
+      ),
+      minScore: Type.Optional(Type.Number({ description: 'Ordinary folders only: minimum score 0–1' })),
       candidateLimit: Type.Optional(
-        Type.Number({ description: 'Max candidates to rerank (qmd --candidate-limit)' }),
+        Type.Number({ description: 'Ordinary folders only: max candidates to rerank' }),
       ),
-    }),
-    execute: async (_id, args) => {
-      const ctx = getWritingTurnContext();
-      if (!ctx?.userId) return errorResult('No user bound');
-      if (!hasKnowledgeScope(ctx)) return errorResult(NO_KNOWLEDGE_SCOPE);
-      const mapped = mapDochubQueryArgs(args);
-      if (!mapped.ok) return errorResult(mapped.error);
-      const targets = searchTargets(ctx);
-      if (targets.length === 0) return errorResult(WIKI_ONLY_QUERY);
-      let selected = targets;
-      if (mapped.path && targets.length > 1) {
-        const { path: requested, library } = stripLibraryPrefix(mapped.path);
-        const matches = targets.filter(
-          (target) =>
-            (!library || target.library === library) &&
-            (requested === target.path ||
-              requested.startsWith(`${target.path}/`) ||
-              pathInsidePin(requested, target.path)),
-        );
-        if (matches.length === 0) {
-          return errorResult('path is outside the pinned folders');
-        }
-        selected = matches;
-      }
-      const perLimit = splitRetrievalLimit(mapped.limit ?? 5, selected.length);
-      try {
-        const merged: unknown[] = [];
-        let rest: Record<string, unknown> = {};
-        for (const target of selected) {
-          const path =
-            selected.length === 1
-              ? clampPathToPin(mapped.path ? stripLibraryPrefix(mapped.path).path : undefined, target.path)
-              : target.path;
-          const raw = await doSearch(ctx.userId, {
-            mode: mapped.mode,
-            limit: perLimit,
-            ...(mapped.query ? { query: mapped.query } : {}),
-            ...(mapped.searches ? { searches: mapped.searches } : {}),
-            ...(mapped.intent ? { intent: mapped.intent } : {}),
-            ...(typeof mapped.rerank === 'boolean' ? { rerank: mapped.rerank } : {}),
-            ...(mapped.minScore != null ? { minScore: mapped.minScore } : {}),
-            ...(mapped.candidateLimit != null
-              ? { candidateLimit: mapped.candidateLimit }
-              : {}),
-            ...(path ? { path } : {}),
-          }, { library: target.library });
-          const { user_id: _userId, results: rawResults, ...rawRest } = raw;
-          void _userId;
-          rest = rawRest as Record<string, unknown>;
-          const labeled = stripHitFiles(
-            Array.isArray(rawResults) ? rawResults : [],
-          ).map((hit) => {
-            if (!hit || typeof hit !== 'object') {
-              return { source: writingScopeLabel(target), hit };
-            }
-            return { ...hit, source: writingScopeLabel(target) };
-          });
-          merged.push(...labeled);
-        }
-        return jsonToolResult({
-          ...rest,
-          results: merged,
-          ok: true,
-          ...(selected.length > 1
-            ? {
-                sources: selected.map((target) => writingScopeLabel(target)),
-                limitPerSource: perLimit,
-              }
-            : {}),
-        });
-      } catch (error) {
-        return errorResult(
-          presentError(error instanceof Error ? error.message : String(error)),
-        );
-      }
-    },
-  };
-
-  const get: AgentTool = {
-    name: 'get',
-    label: 'Get knowledge file',
-    description:
-      'Read markdown for one Knowledge file. Path may include :from:count. Mentioned documents may sit outside the pin.',
-    parameters: Type.Object({
-      file: Type.String({
-        description:
-          'Library path or #docid, optional :fromLine or :fromLine:maxLines suffix',
-      }),
-      fromLine: Type.Optional(Type.Number({ description: '1-based start line' })),
-      maxLines: Type.Optional(Type.Number({ description: 'Lines to return' })),
+      caseInsensitive: Type.Optional(
+        Type.Boolean({
+          description: 'Structured folders only: case-insensitive keyword match. Default true.',
+        }),
+      ),
     }),
     execute: async (_id, args) => {
       const ctx = getWritingTurnContext();
       if (!ctx?.userId) return errorResult('No user bound');
       if (!hasKnowledgeScope(ctx)) return errorResult(NO_KNOWLEDGE_SCOPE);
       const rec = asRecord(args);
-      const file = typeof rec.file === 'string' ? rec.file : '';
-      if (!file) return errorResult('file is required');
+      const rawPath = typeof rec.path === 'string' ? rec.path.trim() : '';
+      let qmdTargets = searchTargets(ctx);
+      let wikiTargets = writingWikiScopes(ctx);
+      if (rawPath) {
+        const qmdSelected = scopesMatchingPath(qmdTargets, rawPath);
+        const wikiSelected = scopesMatchingPath(wikiTargets, rawPath);
+        const qmdOk = !('error' in qmdSelected) && qmdSelected.length > 0;
+        const wikiOk = !('error' in wikiSelected) && wikiSelected.length > 0;
+        if (qmdOk || wikiOk) {
+          qmdTargets = qmdOk ? qmdSelected : [];
+          wikiTargets = wikiOk ? wikiSelected : [];
+        } else if (qmdTargets.length === 1 && wikiTargets.length === 0) {
+          // Single ordinary pin: clamp the extra path into that folder.
+        } else {
+          return errorResult('path is outside the pinned folders');
+        }
+      } else if (qmdTargets.length === 0 && wikiTargets.length === 0) {
+        if (ctx.mentionedDocuments.length) {
+          return errorResult(
+            'No knowledge folder is pinned. Read the mentioned documents directly.',
+          );
+        }
+        return errorResult(NO_KNOWLEDGE_SCOPE);
+      }
+      const mapped = mapDochubQueryArgs(args);
+      const recQuery = typeof rec.query === 'string' ? rec.query.trim() : '';
+      const keyword =
+        recQuery ||
+        (mapped.ok && mapped.query) ||
+        (mapped.ok && mapped.searches?.[0]?.query) ||
+        '';
+      if (qmdTargets.length > 0 && !mapped.ok) return errorResult(mapped.error);
+      if (qmdTargets.length === 0 && wikiTargets.length > 0 && !keyword) {
+        return errorResult('query is required');
+      }
+      const limitRaw =
+        typeof rec.limit === 'number' && Number.isFinite(rec.limit)
+          ? Math.floor(rec.limit)
+          : 20;
+      const limit = Math.min(50, Math.max(1, limitRaw));
+      const selectedCount = qmdTargets.length + wikiTargets.length;
+      const perLimit = splitRetrievalLimit(limit, selectedCount);
+      const caseInsensitive =
+        rec.caseInsensitive === undefined ? true : rec.caseInsensitive === true;
+      const hits: ReturnType<typeof hitsFromSearchResults> = [];
+      const sources: string[] = [];
       try {
-        const stripped = stripLibraryPrefix(file);
-        const scope = scopeForPath(ctx, file);
-        const library = scope?.library || stripped.library || turnScope(ctx).library;
-        const tree = treeForLibrary(ctx, library);
-        const result = await doGet({
-          userId: ctx.userId,
-          tree,
-          pin: pinPaths(ctx),
-          mentionedDocuments: ctx.mentionedDocuments,
-          file: stripped.path || file,
-          fromLine: rec.fromLine,
-          maxLines: rec.maxLines,
-          deps: { library },
-        });
-        if (!result.ok) return errorResult(presentError(result.error));
+        for (const target of qmdTargets) {
+          if (!mapped.ok) break;
+          const source = writingScopeLabel(target);
+          sources.push(source);
+          const path =
+            qmdTargets.length === 1
+              ? clampPathToPin(
+                  rawPath ? stripLibraryPrefix(rawPath).path : undefined,
+                  target.path,
+                )
+              : target.path;
+          const raw = await doSearch(
+            ctx.userId,
+            {
+              mode: mapped.mode,
+              limit: Math.min(10, perLimit),
+              ...(mapped.query ? { query: mapped.query } : {}),
+              ...(mapped.searches ? { searches: mapped.searches } : {}),
+              ...(mapped.intent ? { intent: mapped.intent } : {}),
+              ...(typeof mapped.rerank === 'boolean'
+                ? { rerank: mapped.rerank }
+                : {}),
+              ...(mapped.minScore != null ? { minScore: mapped.minScore } : {}),
+              ...(mapped.candidateLimit != null
+                ? { candidateLimit: mapped.candidateLimit }
+                : {}),
+              ...(path ? { path } : {}),
+            },
+            { library: target.library },
+          );
+          hits.push(
+            ...hitsFromSearchResults(
+              Array.isArray(raw.results) ? raw.results : [],
+              source,
+              Math.min(10, perLimit),
+            ),
+          );
+        }
+        for (const target of wikiTargets) {
+          const source = writingScopeLabel(target);
+          sources.push(source);
+          const subpath = wikiGrepSubpath(target, rawPath || undefined);
+          if (target.wikiRootAbs) {
+            const local = grepWikiRoot({
+              rootAbs: target.wikiRootAbs,
+              query: keyword,
+              ...(subpath ? { subpath } : {}),
+              limit: perLimit,
+              caseInsensitive,
+            });
+            if (!('error' in local)) {
+              for (const hit of local) {
+                hits.push({
+                  ...hit,
+                  source,
+                  path: joinWikiHitPath(target.path, hit.path),
+                });
+              }
+              continue;
+            }
+          }
+          const raw = await doSearch(
+            ctx.userId,
+            {
+              mode: 'search',
+              query: keyword,
+              limit: perLimit,
+              path: subpath ? `${target.path}/${subpath}` : target.path,
+            },
+            { library: target.library },
+          );
+          hits.push(
+            ...hitsFromSearchResults(
+              Array.isArray(raw.results) ? raw.results : [],
+              source,
+              perLimit,
+            ),
+          );
+        }
         return jsonToolResult({
-          ...result,
-          source: scope ? writingScopeLabel(scope) : library,
+          ok: true,
+          ...(keyword ? { query: keyword } : {}),
+          hits,
+          sources,
+          limitPerSource: perLimit,
         });
       } catch (error) {
         return errorResult(
@@ -504,11 +564,73 @@ export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
     },
   };
 
-  const multiGet: AgentTool = {
-    name: 'multi_get',
-    label: 'Get several knowledge files',
+  async function readOne(
+    ctx: WritingTurnContext,
+    file: string,
+    rec: Record<string, unknown>,
+  ): Promise<(DochubGetResult & { source?: string }) | { ok: false; error: string }> {
+    const fsTarget = fsReadTarget(ctx, file);
+    if (fsTarget?.scope.wikiRootAbs) {
+      const local = readWikiRootFile({
+        rootAbs: fsTarget.scope.wikiRootAbs,
+        rel: fsTarget.rel,
+        fromLine: rec.fromLine,
+        maxLines: rec.maxLines,
+      });
+      if (local.ok) {
+        return {
+          ok: true,
+          dochub_path: joinWikiHitPath(fsTarget.scope.path, local.rel),
+          text: local.text,
+          fromLine: local.fromLine,
+          lineCount: local.lineCount,
+          source: writingScopeLabel(fsTarget.scope),
+        };
+      }
+      // Fall through to Dochub when the local file is missing.
+      if (/not a file|no such file|ENOENT|file is required/i.test(local.error)) {
+        // continue to Dochub below
+      } else if (local.error.startsWith('File too large') || local.error.startsWith('Refusing binary')) {
+        return { ok: false, error: presentError(local.error) };
+      } else if (local.error.includes('outside') || local.error.includes('escapes')) {
+        return { ok: false, error: presentError(local.error) };
+      }
+    }
+    try {
+      const stripped = stripLibraryPrefix(parseFsReadLocator(file).path || file);
+      const scope = scopeForPath(ctx, file) || scopeForPath(ctx, stripped.path);
+      const library =
+        scope?.library || stripped.library || turnScope(ctx).library;
+      const tree = treeForLibrary(ctx, library);
+      const result = await doGet({
+        userId: ctx.userId,
+        tree,
+        pin: pinPaths(ctx),
+        mentionedDocuments: ctx.mentionedDocuments,
+        file: stripped.path || file,
+        fromLine: rec.fromLine,
+        maxLines: rec.maxLines,
+        maxBytes: rec.maxBytes,
+        deps: { library },
+      });
+      if (!result.ok) return { ok: false, error: presentError(result.error) };
+      return {
+        ...result,
+        source: scope ? writingScopeLabel(scope) : library,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        error: presentError(error instanceof Error ? error.message : String(error)),
+      };
+    }
+  }
+
+  const readTool: AgentTool = {
+    name: 'read',
+    label: 'Read knowledge file',
     description:
-      'Read markdown for Knowledge paths, #docids, or globs including **/*.md. files may be a comma-separated string or an array. Optional maxBytes caps each file.',
+      'Read markdown for one or more Knowledge paths. Prefer several paths in one call (files may be an array or a comma-separated string). Path may include :from:count. Mentioned documents may sit outside the pin.',
     parameters: Type.Object({
       files: Type.Optional(
         Type.Union([Type.String(), Type.Array(Type.String())]),
@@ -516,9 +638,14 @@ export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
       file: Type.Optional(
         Type.String({ description: 'One path when files is omitted' }),
       ),
-      fromLine: Type.Optional(Type.Number()),
-      maxLines: Type.Optional(Type.Number()),
-      maxBytes: Type.Optional(Type.Number({ description: 'Skip or truncate files over this many bytes' })),
+      path: Type.Optional(
+        Type.String({ description: 'Alias for file' }),
+      ),
+      fromLine: Type.Optional(Type.Number({ description: '1-based start line' })),
+      maxLines: Type.Optional(Type.Number({ description: 'Lines to return' })),
+      maxBytes: Type.Optional(
+        Type.Number({ description: 'Skip or truncate files over this many bytes' }),
+      ),
     }),
     execute: async (_id, args) => {
       const ctx = getWritingTurnContext();
@@ -526,9 +653,10 @@ export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
       if (!hasKnowledgeScope(ctx)) return errorResult(NO_KNOWLEDGE_SCOPE);
       const rec = asRecord(args);
       const raw = rawFilesArg(rec);
-      if (raw === undefined) return errorResult('files is required');
+      if (raw === undefined) return errorResult('file is required');
       const { library, tree } = turnScope(ctx);
       const files = expandFiles(raw, tree);
+      if (files.length === 0) return errorResult('file is required');
       const results: Array<DochubGetResult & { source?: string }> = [];
       const globs = files.filter((file) => /[*?]/.test(file));
       const concrete = files.filter((file) => !/[*?]/.test(file));
@@ -566,7 +694,9 @@ export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
               : '';
             results.push({
               ok: false,
-              error: presentError(`${err.message || err.error || 'file not found'}${similar}`),
+              error: presentError(
+                `${err.message || err.error || 'file not found'}${similar}`,
+              ),
               ...(err.similar?.length ? { similar: err.similar } : {}),
             });
           }
@@ -580,290 +710,16 @@ export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
         }
       }
       for (const file of concrete) {
-        try {
-          const stripped = stripLibraryPrefix(file);
-          const scope = scopeForPath(ctx, file);
-          const fileLibrary = scope?.library || stripped.library || library;
-          const result = await doGet({
-            userId: ctx.userId,
-            tree: treeForLibrary(ctx, fileLibrary),
-            pin: pinPaths(ctx),
-            mentionedDocuments: ctx.mentionedDocuments,
-            file: stripped.path || file,
-            fromLine: rec.fromLine,
-            maxLines: rec.maxLines,
-            maxBytes,
-            deps: { library: fileLibrary },
-          });
-          results.push(
-            result.ok
-              ? { ...result, source: scope ? writingScopeLabel(scope) : fileLibrary }
-              : { ok: false, error: presentError(result.error) },
-          );
-        } catch (error) {
-          results.push({
-            ok: false,
-            error: presentError(
-              error instanceof Error ? error.message : String(error),
-            ),
-          });
-        }
+        results.push(await readOne(ctx, file, rec));
+      }
+      if (files.length === 1 && concrete.length === 1 && results.length === 1) {
+        const only = results[0]!;
+        if (!only.ok) return errorResult(presentError(only.error));
+        return jsonToolResult(only);
       }
       return jsonToolResult({ ok: true, files: results });
     },
   };
 
-  const treeTool: AgentTool = {
-    name: 'tree',
-    label: 'Knowledge tree',
-    description:
-      'List this user\'s Knowledge files. files is the full inventory ({path, name}). Use this once when the user asks what files exist, then answer from files. Do not follow with query or get just to name files.',
-    parameters: Type.Object({
-      path: Type.Optional(
-        Type.String({ description: 'Optional subfolder; clamped to the host pin' }),
-      ),
-      refresh: Type.Optional(
-        Type.Boolean({ description: 'Fetch a live tree from Dochub instead of the turn snapshot' }),
-      ),
-    }),
-    execute: async (_id, args) => {
-      const ctx = getWritingTurnContext();
-      if (!ctx?.userId) return errorResult('No user bound');
-      if (!hasKnowledgeScope(ctx)) return errorResult(NO_KNOWLEDGE_SCOPE);
-      const rec = asRecord(args);
-      const requested =
-        typeof rec.path === 'string' ? rec.path : undefined;
-      const scopes = writingTurnScopes(ctx);
-      const targets = requested
-        ? scopes.filter((scope) => {
-            const { path, library } = stripLibraryPrefix(requested);
-            return (
-              (!library || scope.library === library) &&
-              (path === scope.path ||
-                path.startsWith(`${scope.path}/`) ||
-                pathInsidePin(path, scope.path))
-            );
-          })
-        : scopes;
-      if (requested && targets.length === 0) {
-        return errorResult('path is outside the pinned folders');
-      }
-      const listed: Array<Record<string, unknown>> = [];
-      for (const target of targets.length ? targets : scopes) {
-        const path =
-          targets.length === 1 && requested
-            ? clampPathToPin(stripLibraryPrefix(requested).path, target.path) || target.path
-            : target.path;
-        let tree = treeForLibrary(ctx, target.library);
-        if (rec.refresh === true || !tree) {
-          try {
-            const loaded = await (deps?.getTree ?? getTree)(ctx.userId, {
-              path: path || undefined,
-              library: target.library,
-            });
-            tree = loaded?.tree ?? tree;
-          } catch (error) {
-            if (!tree && targets.length <= 1) {
-              return errorResult(
-                presentError(error instanceof Error ? error.message : 'Knowledge library is unavailable.'),
-              );
-            }
-          }
-        }
-        if (!tree) {
-          if (targets.length <= 1) {
-            return errorResult(presentError('Knowledge library is unavailable.'));
-          }
-          continue;
-        }
-        const node =
-          nodeAtPath(tree, path) || {
-            type: 'dir' as const,
-            name: '',
-            path: '',
-            children: [],
-          };
-        listed.push(
-          ...listKnowledgeFiles(node).map((file) => ({
-            ...file,
-            library: target.library,
-            source: writingScopeLabel(target),
-          })),
-        );
-      }
-      const truncated = listed.length > MAX_TREE_FILES;
-      const files = truncated ? listed.slice(0, MAX_TREE_FILES) : listed;
-      const first = (targets.length ? targets : scopes)[0];
-      return jsonToolResult({
-        ok: true,
-        path: requested ? stripLibraryPrefix(requested).path : first?.path || '',
-        library: first?.library || turnScope(ctx).library,
-        ...(scopes.length > 1
-          ? { sources: scopes.map((scope) => writingScopeLabel(scope)) }
-          : {}),
-        fileCount: listed.length,
-        truncated,
-        files,
-        note: truncated
-          ? 'List truncated. Answer with these paths and say there are more. Do not open files to continue the list.'
-          : 'This is the full file list. Answer with these names and paths. Do not call query, get, or multi_get just to list files.',
-      });
-    },
-  };
-
-  const status: AgentTool = {
-    name: 'status',
-    label: 'Knowledge status',
-    description:
-      'Report pin, index health, and whether keyword or semantic search is ready. Does not return the user id.',
-    parameters: Type.Object({}),
-    execute: async () => {
-      const ctx = getWritingTurnContext();
-      if (!ctx?.userId) return errorResult('No user bound');
-      const loadStatus = deps?.getStatus ?? getStatus;
-      try {
-        const { library } = turnScope(ctx);
-        const status = await loadStatus(ctx.userId, { library });
-        const index = status.index || {};
-        const hint =
-          status.hint ||
-          (status.semantic_search_ready === false
-            ? 'Embeddings are not ready. Use keyword search (mode=search or lex-only).'
-            : undefined);
-        const scopes = writingTurnScopes(ctx);
-        return jsonToolResult({
-          ok: status.ok !== false,
-          bound: true,
-          pin: ctx.pin,
-          pins: scopes.map((scope) => writingScopeLabel(scope)),
-          library,
-          keyword_search_ready: status.keyword_search_ready ?? index.keyword_search_ready,
-          semantic_search_ready: status.semantic_search_ready ?? index.semantic_search_ready,
-          hint,
-          queue: status.queue ?? index.queue,
-          ingest: index.ingest,
-          embedding_model: index.embedding_model,
-          collections: index.collections,
-          contexts: status.contexts ?? index.contexts ?? ctx.contexts,
-          ...(status.service ? { service: status.service } : {}),
-        });
-      } catch {
-        try {
-          const health = await doHealth();
-          return jsonToolResult({
-            ok: health.ok,
-            bound: true,
-            pin: ctx.pin,
-            ...(health.service ? { service: health.service } : {}),
-          });
-        } catch {
-          return jsonToolResult({
-            ok: false,
-            bound: true,
-            pin: ctx.pin,
-            error: 'Knowledge service is unavailable.',
-          });
-        }
-      }
-    },
-  };
-
-  const grep: AgentTool = {
-    name: 'grep',
-    label: 'Search structured documents',
-    description:
-      'Keyword search across pinned structured folders. Searches each structured folder separately and labels hits with their source (for example public:g3), path, and a short snippet. Do not use this for ordinary folders — use query instead. Never pass user_id.',
-    parameters: Type.Object({
-      query: Type.String({ description: 'Literal keyword or phrase to find' }),
-      path: Type.Optional(
-        Type.String({
-          description:
-            'Optional structured folder or subpath (for example public:g3 or g3/wiki/chapters)',
-        }),
-      ),
-      limit: Type.Optional(Type.Number({ description: '1–50, default 20' })),
-      caseInsensitive: Type.Optional(
-        Type.Boolean({ description: 'Case-insensitive match. Default true.' }),
-      ),
-    }),
-    execute: async (_id, args) => {
-      const ctx = getWritingTurnContext();
-      if (!ctx?.userId) return errorResult('No user bound');
-      if (!hasKnowledgeScope(ctx)) return errorResult(NO_KNOWLEDGE_SCOPE);
-      const rec = asRecord(args);
-      const query = typeof rec.query === 'string' ? rec.query.trim() : '';
-      if (!query) return errorResult('query is required');
-      const rawPath = typeof rec.path === 'string' ? rec.path.trim() : '';
-      const selected = wikiGrepTargets(ctx, rawPath || undefined);
-      if ('error' in selected) return errorResult(selected.error);
-      if (selected.length === 0) return errorResult(NO_WIKI_SCOPE);
-      const limitRaw =
-        typeof rec.limit === 'number' && Number.isFinite(rec.limit)
-          ? Math.floor(rec.limit)
-          : 20;
-      const limit = Math.min(50, Math.max(1, limitRaw));
-      const caseInsensitive =
-        rec.caseInsensitive === undefined ? true : rec.caseInsensitive === true;
-      const perLimit = splitRetrievalLimit(limit, selected.length);
-      const hits: ReturnType<typeof hitsFromSearchResults> = [];
-      const sources: string[] = [];
-      try {
-        for (const target of selected) {
-          const source = writingScopeLabel(target);
-          sources.push(source);
-          const subpath = wikiGrepSubpath(target, rawPath || undefined);
-          if (target.wikiRootAbs) {
-            const local = grepWikiRoot({
-              rootAbs: target.wikiRootAbs,
-              query,
-              ...(subpath ? { subpath } : {}),
-              limit: perLimit,
-              caseInsensitive,
-            });
-            if (!('error' in local)) {
-              for (const hit of local) {
-                hits.push({
-                  ...hit,
-                  source,
-                  path: joinWikiHitPath(target.path, hit.path),
-                });
-              }
-              continue;
-            }
-          }
-          const raw = await doSearch(
-            ctx.userId,
-            {
-              mode: 'search',
-              query,
-              limit: perLimit,
-              path: subpath ? `${target.path}/${subpath}` : target.path,
-            },
-            { library: target.library },
-          );
-          hits.push(
-            ...hitsFromSearchResults(
-              Array.isArray(raw.results) ? raw.results : [],
-              source,
-              perLimit,
-            ),
-          );
-        }
-        return jsonToolResult({
-          ok: true,
-          query,
-          hits,
-          sources,
-          limitPerSource: perLimit,
-        });
-      } catch (error) {
-        return errorResult(
-          presentError(error instanceof Error ? error.message : String(error)),
-        );
-      }
-    },
-  };
-
-  return [query, get, multiGet, treeTool, status, grep];
+  return [searchTool, readTool];
 }
-

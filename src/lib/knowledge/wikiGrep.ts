@@ -1,6 +1,11 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolveFsPath, shouldIgnoreDirName } from '@/lib/search/shared/tools/fs/fsPath';
+import {
+  asPositiveInt,
+  parseFsReadLocator,
+} from '@/lib/search/shared/tools/fs/fsReadLocator';
+import { sliceMarkdownLines } from './dochubGet';
 import { stripQmdMarkdownPath } from './search';
 
 export type WikiGrepHit = {
@@ -187,6 +192,59 @@ export function grepWikiRoot(opts: {
     }
   }
   return hits;
+}
+
+const DEFAULT_PEEK_LINES = 80;
+const UNLIMITED_LINES = Number.MAX_SAFE_INTEGER;
+
+export function readWikiRootFile(opts: {
+  rootAbs: string;
+  rel: string;
+  fromLine?: unknown;
+  maxLines?: unknown;
+}):
+  | { ok: true; rel: string; text: string; fromLine: number; lineCount: number }
+  | { ok: false; error: string } {
+  const locator = parseFsReadLocator(opts.rel);
+  if (!locator.path) return { ok: false, error: 'file is required' };
+  const start = resolveFsPath(opts.rootAbs, locator.path, { mustExist: true });
+  if (!start.ok) return { ok: false, error: start.message };
+  if (!start.isFile) return { ok: false, error: `Not a file: ${start.rel}` };
+  let buf: Buffer;
+  try {
+    buf = readFileSync(start.abs);
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+  if (buf.length > MAX_FILE_BYTES) {
+    return { ok: false, error: `File too large: ${start.rel}` };
+  }
+  if (!looksLikeTextBuffer(buf)) {
+    return { ok: false, error: `Refusing binary file: ${start.rel}` };
+  }
+  const argFrom = asPositiveInt(opts.fromLine);
+  const argMax = asPositiveInt(opts.maxLines);
+  const fromLine = argFrom ?? locator.fromLine ?? 1;
+  const hasMax = argMax !== undefined || locator.maxLines !== undefined;
+  const hasFrom = argFrom !== undefined || locator.fromLine !== undefined;
+  const maxLines =
+    argMax ??
+    locator.maxLines ??
+    (hasFrom && !hasMax ? UNLIMITED_LINES : DEFAULT_PEEK_LINES);
+  const sliced = sliceMarkdownLines(toUtf8(buf), fromLine, maxLines);
+  if (sliced.lineCount === 0 && fromLine > 1) {
+    return { ok: false, error: `fromLine ${fromLine} is past end of file` };
+  }
+  return {
+    ok: true,
+    rel: start.rel,
+    text: sliced.text,
+    fromLine: sliced.fromLine,
+    lineCount: sliced.lineCount,
+  };
 }
 
 function hitPath(raw: unknown): string | undefined {
