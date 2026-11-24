@@ -1,4 +1,4 @@
-import { parseKnowledgePin } from './library';
+import { isHiddenPublicFolder, parseKnowledgePin } from './library';
 import { isSafeRelativePath } from './paths';
 import { flattenKnowledgeNodes, nodeAtPath } from './tree';
 import type { KnowledgeTreeNode } from './types';
@@ -39,7 +39,23 @@ function mentionBoundaryOk(text: string, end: number): boolean {
   return after === undefined || /[\s,.;:!?)\]]/.test(after);
 }
 
-function findCompleteAt(lower: string, needlePath: string): number {
+function mentionNeedles(
+  ...values: Array<string | null | undefined>
+): string[] {
+  return values.filter(
+    (value): value is string => typeof value === 'string' && value.length > 0,
+  );
+}
+
+function isUsableNodePath(path: unknown): path is string {
+  return typeof path === 'string' && path.length > 0;
+}
+
+function findCompleteAt(
+  lower: string,
+  needlePath: string | null | undefined,
+): number {
+  if (typeof needlePath !== 'string' || !needlePath) return -1;
   const needle = `@${needlePath.toLowerCase()}`;
   let from = 0;
   while (from <= lower.length) {
@@ -93,7 +109,11 @@ export function resolveWritingKnowledgePin(input: {
     ...(publicTree
       ? flattenKnowledgeNodes(publicTree).map((n) => ({ ...n, library: n.library || 'public' as const }))
       : []),
-  ].filter((n) => n.path);
+  ].filter(
+    (n) =>
+      isUsableNodePath(n.path) &&
+      !(n.library === 'public' && isHiddenPublicFolder(n.path)),
+  );
   const folders = nodes
     .filter((n) => n.type === 'dir')
     .sort((a, b) => b.path.length - a.path.length);
@@ -104,7 +124,11 @@ export function resolveWritingKnowledgePin(input: {
   const mentionedFolders: { path: string; library: 'private' | 'public'; index: number }[] = [];
   for (const folder of folders) {
     const library = folder.library === 'public' ? 'public' : 'private';
-    const needles = [folder.path, `${library}/${folder.path}`, `${library}:${folder.path}`];
+    const needles = mentionNeedles(
+      folder.path,
+      `${library}/${folder.path}`,
+      `${library}:${folder.path}`,
+    );
     const index = needles.reduce((best, needle) => {
       const idx = findCompleteAt(lower, needle);
       if (idx < 0) return best;
@@ -119,14 +143,14 @@ export function resolveWritingKnowledgePin(input: {
   for (const node of files) {
     const file = node.file!;
     const library = node.library === 'public' ? 'public' : 'private';
-    const needles = [
+    const needles = mentionNeedles(
       node.path,
       `${library}/${node.path}`,
       `${library}:${node.path}`,
       file.original_filename,
       file.markdown_relpath,
       file.inbox_relpath,
-    ];
+    );
     const index = needles.reduce((best, needle) => {
       const idx = findCompleteAt(lower, needle);
       if (idx < 0) return best;

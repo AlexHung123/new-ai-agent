@@ -217,4 +217,118 @@ describe('resolveWritingKnowledgePin', () => {
     expect(selected.pinLibrary).toBe('public');
   });
 
+  it('skips null or undefined mention paths and still uses a pinned folder without @', () => {
+    const messy: KnowledgeTreeNode = {
+      type: 'dir',
+      name: '',
+      path: '',
+      children: [
+        {
+          type: 'dir',
+          name: 'testing2',
+          path: 'testing2',
+          children: [
+            {
+              type: 'file',
+              name: 'broken.md',
+              path: 'testing2/broken.md',
+              file: {
+                id: 'x1',
+                original_filename: null as unknown as string,
+                inbox_relpath: null as unknown as string,
+                markdown_relpath: undefined as unknown as string,
+                size_bytes: 1,
+              },
+            },
+          ],
+        },
+        {
+          type: 'file',
+          name: 'orphan.md',
+          path: null as unknown as string,
+          file: {
+            id: 'x2',
+            original_filename: 'orphan.md',
+            inbox_relpath: 'orphan.md',
+            markdown_relpath: 'orphan.md',
+            size_bytes: 1,
+          },
+        },
+      ],
+    };
+    const publicTree: KnowledgeTreeNode = {
+      type: 'dir',
+      name: '',
+      path: '',
+      children: [
+        {
+          type: 'dir',
+          name: 'sfc',
+          path: 'sfc',
+          children: [
+            {
+              type: 'file',
+              name: 'hidden.md',
+              path: 'sfc/hidden.md',
+              file: {
+                id: 'h1',
+                original_filename: null as unknown as string,
+                inbox_relpath: null as unknown as string,
+                markdown_relpath: 'sfc/hidden.md',
+                size_bytes: 1,
+              },
+            },
+          ],
+        },
+      ],
+    };
+    let result: ReturnType<typeof resolveWritingKnowledgePin> | undefined;
+    expect(() => {
+      result = resolveWritingKnowledgePin({
+        text: 'list out all the documents',
+        tree: messy,
+        publicTree,
+        selectedFolder: 'testing2',
+      });
+    }).not.toThrow();
+    expect(result?.pin).toBe('testing2');
+    expect(result?.pinLibrary).toBe('private');
+    expect(result?.mentionedFolders).toEqual([]);
+    expect(result?.mentionedDocuments).toEqual([]);
+  });
+
+  it('still resolves @mentions when other files have null paths or filenames', () => {
+    const messy: KnowledgeTreeNode = {
+      ...tree,
+      children: [
+        ...(tree.children || []),
+        {
+          type: 'file',
+          name: 'broken.md',
+          path: 'broken.md',
+          file: {
+            id: 'z1',
+            original_filename: null as unknown as string,
+            inbox_relpath: null as unknown as string,
+            markdown_relpath: '',
+            size_bytes: 1,
+          },
+        },
+      ],
+    };
+    const folder = resolveWritingKnowledgePin({
+      text: 'search @writing please',
+      tree: messy,
+      selectedFolder: 'testing2',
+    });
+    expect(folder.pin).toBe('writing');
+    expect(folder.mentionedFolders).toEqual(['writing']);
+    const document = resolveWritingKnowledgePin({
+      text: 'see @writing/a.md',
+      tree: messy,
+    });
+    expect(document.pin).toBe('writing');
+    expect(document.mentionedDocuments.map((d) => d.fileId)).toEqual(['a1']);
+  });
+
 });

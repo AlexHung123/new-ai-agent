@@ -124,4 +124,79 @@ describe('loadWritingTurnContext', () => {
     expect(ctx.pinLibrary).toBe('private');
     expect(ctx.retrievalMode).toBe('search');
   });
+
+  it('omits the hidden public sfc folder and still pins a private folder without @', async () => {
+    const privateTree: KnowledgeTreeNode = {
+      type: 'dir',
+      name: '',
+      path: '',
+      children: [
+        {
+          type: 'dir',
+          name: 'testing2',
+          path: 'testing2',
+          children: [
+            {
+              type: 'file',
+              name: 'note.md',
+              path: 'testing2/note.md',
+              file: {
+                id: 'n1',
+                original_filename: null as unknown as string,
+                inbox_relpath: null as unknown as string,
+                markdown_relpath: 'testing2/note.md',
+                size_bytes: 1,
+              },
+            },
+          ],
+        },
+      ],
+    };
+    const publicTree: KnowledgeTreeNode = {
+      type: 'dir',
+      name: '',
+      path: '',
+      children: [
+        {
+          type: 'dir',
+          name: 'sfc',
+          path: 'sfc',
+          children: [
+            {
+              type: 'file',
+              name: 'hidden.md',
+              path: 'sfc/hidden.md',
+              file: {
+                id: 'h1',
+                original_filename: null as unknown as string,
+                inbox_relpath: null as unknown as string,
+                markdown_relpath: null as unknown as string,
+                size_bytes: 1,
+              },
+            },
+          ],
+        },
+        {
+          type: 'dir',
+          name: 'spr',
+          path: 'spr',
+          wiki: true,
+          children: [],
+        },
+      ],
+    };
+    const ctx = await loadWritingTurnContext({
+      userId: '1',
+      text: 'list out all the documents',
+      selectedFolder: 'testing2',
+      loadTree: async (_userId, deps) => ({
+        user_id: '1',
+        tree: deps?.library === 'public' ? publicTree : privateTree,
+      }),
+      loadStatus: async () => ({ ok: true }),
+    });
+    expect(ctx.pin).toBe('testing2');
+    expect(ctx.pinLibrary).toBe('private');
+    expect(ctx.publicTree?.children?.map((child) => child.name)).toEqual(['spr']);
+  });
 });

@@ -5,8 +5,13 @@ import {
   documentRootAbs,
 } from '@/lib/documents/catalog';
 import { getStatus, getTree } from '@/lib/knowledge/dochubClient';
+import { isHiddenPublicFolder } from '@/lib/knowledge/library';
 import type { KnowledgeTreeNode } from '@/lib/knowledge/types';
-import { isStructuredKnowledgeNode, nodeAtPath } from '@/lib/knowledge/tree';
+import {
+  filterTree,
+  isStructuredKnowledgeNode,
+  nodeAtPath,
+} from '@/lib/knowledge/tree';
 import { resolveWritingKnowledgePin } from '@/lib/knowledge/writingPin';
 import type { WritingTurnContext } from './writingTurnContext';
 
@@ -58,7 +63,9 @@ export async function loadWritingTurnContext(opts: {
 
   const [priv, pub] = await Promise.all([loadOne('private'), loadOne('public')]);
   privateTree = priv;
-  publicTree = pub;
+  publicTree = pub
+    ? filterTree(pub, (node) => !isHiddenPublicFolder(node.path || ''))
+    : null;
   if (!libraryAvailable) {
     libraryError =
       errors.length > 0
