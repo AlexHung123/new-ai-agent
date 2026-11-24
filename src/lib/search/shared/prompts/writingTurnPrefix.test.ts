@@ -103,4 +103,49 @@ describe('buildWritingUserPrompt', () => {
     expect(prompt).toContain('Do not start with query');
     expect(prompt).toContain('Never use the word "wiki"');
   });
+
+  it('lists mixed scopes and binds both tool families', () => {
+    const mixed = {
+      ...ctx,
+      pin: 'writing',
+      pinLibrary: 'private' as const,
+      retrievalMode: 'search' as const,
+      scopes: [
+        { path: 'writing', library: 'private' as const, retrievalMode: 'search' as const },
+        { path: 'testing1', library: 'public' as const, retrievalMode: 'search' as const },
+        {
+          path: 'spr',
+          library: 'public' as const,
+          retrievalMode: 'wiki' as const,
+          wikiTitle: 'SPR',
+        },
+      ],
+    };
+    const prompt = buildWritingUserPrompt('Compare the policy', mixed);
+    expect(prompt).toContain('[Pinned folders]');
+    expect(prompt).toContain('private:writing (ordinary)');
+    expect(prompt).toContain('public:testing1 (ordinary)');
+    expect(prompt).toContain('public:spr (structured)');
+    expect(prompt).toContain('[Structured folder]');
+    expect(prompt).toContain('Never mix those modes in one query');
+    expect(writingToolsForTurn(mixed)).toEqual([
+      'query',
+      'get',
+      'multi_get',
+      'tree',
+      'status',
+    ]);
+  });
+
+  it('does not bind knowledge tools when nothing is pinned or mentioned', () => {
+    expect(
+      writingToolsForTurn({
+        userId: '1',
+        pin: null,
+        scopes: [],
+        mentionedDocuments: [],
+        tree: null,
+      }),
+    ).toEqual([]);
+  });
 });

@@ -95,3 +95,132 @@ export function pinsEqual(
   if (!a || !b) return false;
   return a.library === b.library && a.path === b.path;
 }
+
+export const MAX_KNOWLEDGE_PINS = 5;
+
+export const KNOWLEDGE_PIN_CAP_REASON = 'You can pin up to 5 folders.';
+
+function isUsablePin(pin: KnowledgePin | null | undefined): pin is KnowledgePin {
+  return Boolean(pin && pin.path);
+}
+
+export function knowledgePinKey(pin: {
+  library: KnowledgeLibrary;
+  path?: string | null;
+}): string {
+  return formatKnowledgePin(pin);
+}
+
+export function uniqueKnowledgePins(pins: KnowledgePin[]): KnowledgePin[] {
+  const seen = new Set<string>();
+  const out: KnowledgePin[] = [];
+  for (const pin of pins) {
+    if (!isUsablePin(pin)) continue;
+    const key = knowledgePinKey(pin);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      library: pin.library,
+      path: pin.path,
+      ...(pin.wiki ? { wiki: true } : {}),
+      ...(pin.title ? { title: pin.title } : {}),
+    });
+    if (out.length >= MAX_KNOWLEDGE_PINS) break;
+  }
+  return out;
+}
+
+/**
+ * Parse a stored pin list. A single legacy value (`public:spr`, `private:notes`,
+ * or a bare private path) becomes a one-item list. Also accepts a JSON array,
+ * a comma-separated list of the same keys, or a string array.
+ */
+export function parseKnowledgePins(raw: unknown): KnowledgePin[] {
+  if (raw == null) return [];
+  if (Array.isArray(raw)) {
+    return uniqueKnowledgePins(
+      raw.flatMap((item) => {
+        if (typeof item !== 'string') return [];
+        const pin = parseKnowledgePin(item);
+        return isUsablePin(pin) ? [pin] : [];
+      }),
+    );
+  }
+  if (typeof raw !== 'string') return [];
+  const text = raw.trim();
+  if (!text) return [];
+  if (text.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) return parseKnowledgePins(parsed);
+    } catch {
+      /* fall through to a single pin or comma list */
+    }
+  }
+  if (text.includes(',')) {
+    const parts = text
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean);
+    const pins = parts
+      .map((part) => parseKnowledgePin(part))
+      .filter(isUsablePin);
+    if (pins.length === parts.length && pins.length > 0) {
+      return uniqueKnowledgePins(pins);
+    }
+  }
+  const single = parseKnowledgePin(text);
+  return isUsablePin(single) ? [single] : [];
+}
+
+/** Serialize pins for chat state / API. One pin stays a single key. */
+export function formatKnowledgePins(pins: KnowledgePin[]): string {
+  const unique = uniqueKnowledgePins(pins);
+  if (unique.length === 0) return '';
+  if (unique.length === 1) return formatKnowledgePin(unique[0]);
+  return unique.map((pin) => formatKnowledgePin(pin)).join(',');
+}
+
+export function toggleKnowledgePin(
+  current: string | string[] | null | undefined,
+  next: string | KnowledgePin,
+): {
+  value: string;
+  pins: KnowledgePin[];
+  added: boolean;
+  reason?: string;
+} {
+  const pins = parseKnowledgePins(current);
+  const candidate = typeof next === 'string' ? parseKnowledgePin(next) : next;
+  if (!isUsablePin(candidate)) {
+    return { value: formatKnowledgePins(pins), pins, added: false };
+  }
+  const key = knowledgePinKey(candidate);
+  const existing = pins.findIndex((pin) => knowledgePinKey(pin) === key);
+  if (existing >= 0) {
+    const nextPins = pins.filter((_, index) => index !== existing);
+    return { value: formatKnowledgePins(nextPins), pins: nextPins, added: false };
+  }
+  if (pins.length >= MAX_KNOWLEDGE_PINS) {
+    return {
+      value: formatKnowledgePins(pins),
+      pins,
+      added: false,
+      reason: KNOWLEDGE_PIN_CAP_REASON,
+    };
+  }
+  const nextPins = [...pins, { library: candidate.library, path: candidate.path }];
+  return { value: formatKnowledgePins(nextPins), pins: nextPins, added: true };
+}
+
+export function removeKnowledgePin(
+  current: string | string[] | null | undefined,
+  key: string,
+): string {
+  const target = parseKnowledgePin(key);
+  if (!isUsablePin(target)) return formatKnowledgePins(parseKnowledgePins(current));
+  const next = parseKnowledgePins(current).filter(
+    (pin) => knowledgePinKey(pin) !== knowledgePinKey(target),
+  );
+  return formatKnowledgePins(next);
+}

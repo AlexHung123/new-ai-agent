@@ -12,9 +12,21 @@ import { mapDochubQueryArgs } from '@/lib/knowledge/dochubQuery';
 import { stripQmdMarkdownPath } from '@/lib/knowledge/search';
 import { listKnowledgeFiles, nodeAtPath } from '@/lib/knowledge/tree';
 import type { KnowledgeTreeNode } from '@/lib/knowledge/types';
-import { clampPathToPin } from '@/lib/knowledge/writingPin';
+import { parseKnowledgePin } from '@/lib/knowledge/library';
+import {
+  clampPathToPin,
+  pathInsidePin,
+  splitRetrievalLimit,
+} from '@/lib/knowledge/writingPin';
 import { jsonToolResult } from '../runtime/piToolResult';
-import { getWritingTurnContext } from '../runtime/writingTurnContext';
+import {
+  getWritingTurnContext,
+  writingScopeLabel,
+  writingSearchScopes,
+  writingTurnScopes,
+  type WritingKnowledgeScope,
+  type WritingTurnContext,
+} from '../runtime/writingTurnContext';
 
 export const DOCHUB_TOOL_NAMES = [
   'query',
@@ -47,14 +59,89 @@ function errorResult(error: string) {
   return jsonToolResult({ ok: false, error });
 }
 
+const NO_KNOWLEDGE_SCOPE =
+  'No knowledge folder is pinned. Pin a folder from FILES or @mention one.';
+const WIKI_ONLY_QUERY =
+  'This turn includes structured folders only. Read wiki/index.md with get or fs_read first; do not use query.';
+
 function turnScope(ctx: NonNullable<ReturnType<typeof getWritingTurnContext>>): {
   library: 'private' | 'public';
   tree: KnowledgeTreeNode | null;
 } {
-  const library = ctx.pinLibrary === 'public' ? 'public' : 'private';
+  const scopes = writingTurnScopes(ctx);
+  const library =
+    scopes[0]?.library ||
+    (ctx.pinLibrary === 'public' ? 'public' : 'private');
   const tree =
     library === 'public' ? (ctx.publicTree ?? ctx.tree) : ctx.tree;
   return { library, tree };
+}
+
+function treeForLibrary(
+  ctx: WritingTurnContext,
+  library: 'private' | 'public',
+): KnowledgeTreeNode | null {
+  return library === 'public' ? (ctx.publicTree ?? ctx.tree) : ctx.tree;
+}
+
+function hasKnowledgeScope(ctx: WritingTurnContext): boolean {
+  return (
+    writingTurnScopes(ctx).length > 0 || ctx.mentionedDocuments.length > 0
+  );
+}
+
+function pinPaths(ctx: WritingTurnContext): string[] {
+  const scopes = writingTurnScopes(ctx);
+  if (scopes.length) return scopes.map((scope) => scope.path);
+  return ctx.pin ? [ctx.pin] : [];
+}
+
+function searchTargets(ctx: WritingTurnContext): WritingKnowledgeScope[] {
+  const scopes = writingSearchScopes(ctx);
+  if (scopes.length) return scopes;
+  if (ctx.pin && ctx.retrievalMode !== 'wiki') {
+    return [
+      {
+        path: ctx.pin,
+        library: ctx.pinLibrary === 'public' ? 'public' : 'private',
+        retrievalMode: 'search',
+      },
+    ];
+  }
+  return [];
+}
+
+function stripLibraryPrefix(raw: string): {
+  path: string;
+  library?: 'private' | 'public';
+} {
+  const parsed = parseKnowledgePin(raw);
+  if (
+    parsed &&
+    (raw.startsWith('private:') ||
+      raw.startsWith('public:') ||
+      raw.startsWith('private/') ||
+      raw.startsWith('public/') ||
+      raw.startsWith('shared:') ||
+      raw.startsWith('shared/'))
+  ) {
+    return { path: parsed.path, library: parsed.library };
+  }
+  return { path: raw };
+}
+
+function scopeForPath(
+  ctx: WritingTurnContext,
+  rawPath: string | undefined,
+): WritingKnowledgeScope | undefined {
+  const scopes = writingTurnScopes(ctx);
+  if (!rawPath) return scopes[0];
+  const { path, library } = stripLibraryPrefix(rawPath);
+  return scopes.find(
+    (scope) =>
+      (!library || scope.library === library) &&
+      (path === scope.path || path.startsWith(`${scope.path}/`) || scope.path.startsWith(`${path}/`) || pathInsidePin(path, scope.path)),
+  );
 }
 
 function presentError(error: string): string {
@@ -254,28 +341,72 @@ export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
     execute: async (_id, args) => {
       const ctx = getWritingTurnContext();
       if (!ctx?.userId) return errorResult('No user bound');
+      if (!hasKnowledgeScope(ctx)) return errorResult(NO_KNOWLEDGE_SCOPE);
       const mapped = mapDochubQueryArgs(args);
       if (!mapped.ok) return errorResult(mapped.error);
-      const path = clampPathToPin(mapped.path, ctx.pin);
-      try {
-        const { library } = turnScope(ctx);
-        const raw = await doSearch(ctx.userId, {
-          mode: mapped.mode,
-          limit: mapped.limit,
-          ...(mapped.query ? { query: mapped.query } : {}),
-          ...(mapped.searches ? { searches: mapped.searches } : {}),
-          ...(mapped.intent ? { intent: mapped.intent } : {}),
-          ...(typeof mapped.rerank === 'boolean' ? { rerank: mapped.rerank } : {}),
-          ...(mapped.minScore != null ? { minScore: mapped.minScore } : {}),
-          ...(mapped.candidateLimit != null ? { candidateLimit: mapped.candidateLimit } : {}),
-          ...(path ? { path } : {}),
-        }, { library });
-        const { user_id: _userId, results: rawResults, ...rest } = raw;
-        void _userId;
-        const results = stripHitFiles(
-          Array.isArray(rawResults) ? rawResults : [],
+      const targets = searchTargets(ctx);
+      if (targets.length === 0) return errorResult(WIKI_ONLY_QUERY);
+      let selected = targets;
+      if (mapped.path && targets.length > 1) {
+        const { path: requested, library } = stripLibraryPrefix(mapped.path);
+        const matches = targets.filter(
+          (target) =>
+            (!library || target.library === library) &&
+            (requested === target.path ||
+              requested.startsWith(`${target.path}/`) ||
+              pathInsidePin(requested, target.path)),
         );
-        return jsonToolResult({ ...rest, results, ok: true });
+        if (matches.length === 0) {
+          return errorResult('path is outside the pinned folders');
+        }
+        selected = matches;
+      }
+      const perLimit = splitRetrievalLimit(mapped.limit ?? 5, selected.length);
+      try {
+        const merged: unknown[] = [];
+        let rest: Record<string, unknown> = {};
+        for (const target of selected) {
+          const path =
+            selected.length === 1
+              ? clampPathToPin(mapped.path ? stripLibraryPrefix(mapped.path).path : undefined, target.path)
+              : target.path;
+          const raw = await doSearch(ctx.userId, {
+            mode: mapped.mode,
+            limit: perLimit,
+            ...(mapped.query ? { query: mapped.query } : {}),
+            ...(mapped.searches ? { searches: mapped.searches } : {}),
+            ...(mapped.intent ? { intent: mapped.intent } : {}),
+            ...(typeof mapped.rerank === 'boolean' ? { rerank: mapped.rerank } : {}),
+            ...(mapped.minScore != null ? { minScore: mapped.minScore } : {}),
+            ...(mapped.candidateLimit != null
+              ? { candidateLimit: mapped.candidateLimit }
+              : {}),
+            ...(path ? { path } : {}),
+          }, { library: target.library });
+          const { user_id: _userId, results: rawResults, ...rawRest } = raw;
+          void _userId;
+          rest = rawRest as Record<string, unknown>;
+          const labeled = stripHitFiles(
+            Array.isArray(rawResults) ? rawResults : [],
+          ).map((hit) => {
+            if (!hit || typeof hit !== 'object') {
+              return { source: writingScopeLabel(target), hit };
+            }
+            return { ...hit, source: writingScopeLabel(target) };
+          });
+          merged.push(...labeled);
+        }
+        return jsonToolResult({
+          ...rest,
+          results: merged,
+          ok: true,
+          ...(selected.length > 1
+            ? {
+                sources: selected.map((target) => writingScopeLabel(target)),
+                limitPerSource: perLimit,
+              }
+            : {}),
+        });
       } catch (error) {
         return errorResult(
           presentError(error instanceof Error ? error.message : String(error)),
@@ -300,23 +431,30 @@ export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
     execute: async (_id, args) => {
       const ctx = getWritingTurnContext();
       if (!ctx?.userId) return errorResult('No user bound');
+      if (!hasKnowledgeScope(ctx)) return errorResult(NO_KNOWLEDGE_SCOPE);
       const rec = asRecord(args);
       const file = typeof rec.file === 'string' ? rec.file : '';
       if (!file) return errorResult('file is required');
       try {
-        const { library, tree } = turnScope(ctx);
+        const stripped = stripLibraryPrefix(file);
+        const scope = scopeForPath(ctx, file);
+        const library = scope?.library || stripped.library || turnScope(ctx).library;
+        const tree = treeForLibrary(ctx, library);
         const result = await doGet({
           userId: ctx.userId,
           tree,
-          pin: ctx.pin,
+          pin: pinPaths(ctx),
           mentionedDocuments: ctx.mentionedDocuments,
-          file,
+          file: stripped.path || file,
           fromLine: rec.fromLine,
           maxLines: rec.maxLines,
           deps: { library },
         });
         if (!result.ok) return errorResult(presentError(result.error));
-        return jsonToolResult(result);
+        return jsonToolResult({
+          ...result,
+          source: scope ? writingScopeLabel(scope) : library,
+        });
       } catch (error) {
         return errorResult(
           presentError(error instanceof Error ? error.message : String(error)),
@@ -344,12 +482,13 @@ export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
     execute: async (_id, args) => {
       const ctx = getWritingTurnContext();
       if (!ctx?.userId) return errorResult('No user bound');
+      if (!hasKnowledgeScope(ctx)) return errorResult(NO_KNOWLEDGE_SCOPE);
       const rec = asRecord(args);
       const raw = rawFilesArg(rec);
       if (raw === undefined) return errorResult('files is required');
       const { library, tree } = turnScope(ctx);
       const files = expandFiles(raw, tree);
-      const results: DochubGetResult[] = [];
+      const results: Array<DochubGetResult & { source?: string }> = [];
       const globs = files.filter((file) => /[*?]/.test(file));
       const concrete = files.filter((file) => !/[*?]/.test(file));
       const maxBytes =
@@ -366,7 +505,7 @@ export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
               fromLine: typeof rec.fromLine === 'number' ? rec.fromLine : undefined,
               maxLines: typeof rec.maxLines === 'number' ? rec.maxLines : undefined,
               maxBytes,
-              path: ctx.pin || undefined,
+              path: pinPaths(ctx).length === 1 ? pinPaths(ctx)[0] : undefined,
             },
             { library },
           );
@@ -401,19 +540,24 @@ export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
       }
       for (const file of concrete) {
         try {
+          const stripped = stripLibraryPrefix(file);
+          const scope = scopeForPath(ctx, file);
+          const fileLibrary = scope?.library || stripped.library || library;
           const result = await doGet({
             userId: ctx.userId,
-            tree,
-            pin: ctx.pin,
+            tree: treeForLibrary(ctx, fileLibrary),
+            pin: pinPaths(ctx),
             mentionedDocuments: ctx.mentionedDocuments,
-            file,
+            file: stripped.path || file,
             fromLine: rec.fromLine,
             maxLines: rec.maxLines,
             maxBytes,
-            deps: { library },
+            deps: { library: fileLibrary },
           });
           results.push(
-            result.ok ? result : { ok: false, error: presentError(result.error) },
+            result.ok
+              ? { ...result, source: scope ? writingScopeLabel(scope) : fileLibrary }
+              : { ok: false, error: presentError(result.error) },
           );
         } catch (error) {
           results.push({
@@ -444,59 +588,78 @@ export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
     execute: async (_id, args) => {
       const ctx = getWritingTurnContext();
       if (!ctx?.userId) return errorResult('No user bound');
+      if (!hasKnowledgeScope(ctx)) return errorResult(NO_KNOWLEDGE_SCOPE);
       const rec = asRecord(args);
       const requested =
         typeof rec.path === 'string' ? rec.path : undefined;
-      const { library, tree: scoped } = turnScope(ctx);
-      const path = clampPathToPin(requested, ctx.pin) || '';
-      let tree = scoped;
-      if (rec.refresh === true || !tree) {
-        try {
-          const loaded = await (deps?.getTree ?? getTree)(ctx.userId, {
-            path: path || undefined,
-            library,
-          });
-          tree = loaded?.tree ?? tree;
-        } catch (error) {
-          if (!tree) {
-            return errorResult(
-              presentError(error instanceof Error ? error.message : 'Knowledge library is unavailable.'),
+      const scopes = writingTurnScopes(ctx);
+      const targets = requested
+        ? scopes.filter((scope) => {
+            const { path, library } = stripLibraryPrefix(requested);
+            return (
+              (!library || scope.library === library) &&
+              (path === scope.path ||
+                path.startsWith(`${scope.path}/`) ||
+                pathInsidePin(path, scope.path))
             );
+          })
+        : scopes;
+      if (requested && targets.length === 0) {
+        return errorResult('path is outside the pinned folders');
+      }
+      const listed: Array<Record<string, unknown>> = [];
+      for (const target of targets.length ? targets : scopes) {
+        const path =
+          targets.length === 1 && requested
+            ? clampPathToPin(stripLibraryPrefix(requested).path, target.path) || target.path
+            : target.path;
+        let tree = treeForLibrary(ctx, target.library);
+        if (rec.refresh === true || !tree) {
+          try {
+            const loaded = await (deps?.getTree ?? getTree)(ctx.userId, {
+              path: path || undefined,
+              library: target.library,
+            });
+            tree = loaded?.tree ?? tree;
+          } catch (error) {
+            if (!tree && targets.length <= 1) {
+              return errorResult(
+                presentError(error instanceof Error ? error.message : 'Knowledge library is unavailable.'),
+              );
+            }
           }
         }
-      }
-      if (!tree) {
-        return errorResult(presentError('Knowledge library is unavailable.'));
-      }
-      const node =
-        nodeAtPath(tree, path) || {
-          type: 'dir' as const,
-          name: '',
-          path: '',
-          children: [],
-        };
-      const listed = listKnowledgeFiles(node).map((file) => ({
-        ...file,
-        library,
-      }));
-      if (!ctx.pin && !path) {
-        const otherLib = library === 'public' ? 'private' : 'public';
-        const otherTree = otherLib === 'public' ? ctx.publicTree : ctx.tree;
-        if (otherTree) {
-          listed.push(
-            ...listKnowledgeFiles(otherTree).map((file) => ({
-              ...file,
-              library: otherLib,
-            })),
-          );
+        if (!tree) {
+          if (targets.length <= 1) {
+            return errorResult(presentError('Knowledge library is unavailable.'));
+          }
+          continue;
         }
+        const node =
+          nodeAtPath(tree, path) || {
+            type: 'dir' as const,
+            name: '',
+            path: '',
+            children: [],
+          };
+        listed.push(
+          ...listKnowledgeFiles(node).map((file) => ({
+            ...file,
+            library: target.library,
+            source: writingScopeLabel(target),
+          })),
+        );
       }
       const truncated = listed.length > MAX_TREE_FILES;
       const files = truncated ? listed.slice(0, MAX_TREE_FILES) : listed;
+      const first = (targets.length ? targets : scopes)[0];
       return jsonToolResult({
         ok: true,
-        path,
-        library,
+        path: requested ? stripLibraryPrefix(requested).path : first?.path || '',
+        library: first?.library || turnScope(ctx).library,
+        ...(scopes.length > 1
+          ? { sources: scopes.map((scope) => writingScopeLabel(scope)) }
+          : {}),
         fileCount: listed.length,
         truncated,
         files,
@@ -526,10 +689,12 @@ export function createDochubTools(deps?: DochubToolDeps): AgentTool[] {
           (status.semantic_search_ready === false
             ? 'Embeddings are not ready. Use keyword search (mode=search or lex-only).'
             : undefined);
+        const scopes = writingTurnScopes(ctx);
         return jsonToolResult({
           ok: status.ok !== false,
           bound: true,
           pin: ctx.pin,
+          pins: scopes.map((scope) => writingScopeLabel(scope)),
           library,
           keyword_search_ready: status.keyword_search_ready ?? index.keyword_search_ready,
           semantic_search_ready: status.semantic_search_ready ?? index.semantic_search_ready,

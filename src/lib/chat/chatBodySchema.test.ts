@@ -34,6 +34,20 @@ describe('parseChatBody', () => {
     if (result.success) expect(result.data.knowledgeFolder).toBe('contracts/2024');
   });
 
+  it('accepts a knowledgeFolder list', () => {
+    const result = parseChatBody({
+      ...validWritingBody,
+      knowledgeFolder: ['private:notes', 'public:spr'],
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.knowledgeFolder).toEqual([
+        'private:notes',
+        'public:spr',
+      ]);
+    }
+  });
+
 
   it('accepts a WCMS content id for Agent HTML', () => {
     const result = parseChatBody({

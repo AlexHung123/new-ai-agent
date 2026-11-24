@@ -123,7 +123,7 @@ describe('createDochubTools', () => {
     );
   });
 
-  it('omits path when the turn is unpinned', async () => {
+  it('does not search when the turn has no pin and no @', async () => {
     const search = vi.fn(async () => ({
       user_id: '1',
       mode: 'query',
@@ -132,11 +132,14 @@ describe('createDochubTools', () => {
     }));
     const tools = createDochubTools({ search });
     const query = tools.find((t) => t.name === 'query')!;
-    await runWithWritingTurn({ ...ctx, pin: null }, () =>
+    const result = await runWithWritingTurn({ ...ctx, pin: null, scopes: [] }, () =>
       query.execute('id', { query: 'hi' }),
     );
-    const body = search.mock.calls[0][1] as { path?: string };
-    expect(body.path).toBeUndefined();
+    expect(search).not.toHaveBeenCalled();
+    expect(result.details).toMatchObject({
+      ok: false,
+      error: expect.stringMatching(/No knowledge folder is pinned/),
+    });
   });
 
   it('lists files from the tree and does not include file ids', async () => {
@@ -162,16 +165,37 @@ describe('createDochubTools', () => {
     const tools = createDochubTools();
     const treeTool = tools.find((t) => t.name === 'tree')!;
     const result = await runWithWritingTurn(
-      { ...ctx, pin: null, tree: library },
+      {
+        ...ctx,
+        pin: 'writing',
+        tree: {
+          type: 'dir' as const,
+          name: '',
+          path: '',
+          children: [
+            {
+              type: 'dir' as const,
+              name: 'writing',
+              path: 'writing',
+              children: library.children,
+            },
+          ],
+        },
+      },
       () => treeTool.execute('id', {}),
     );
     const details = result.details as {
       fileCount: number;
-      files: Array<{ path: string; name: string }>;
+      files: Array<{ path: string; name: string; library: string; source?: string }>;
     };
     expect(details.fileCount).toBe(1);
     expect(details.files).toEqual([
-      { path: 'writing/spec.md', name: 'Section 3.docx', library: 'private' },
+      {
+        path: 'writing/spec.md',
+        name: 'Section 3.docx',
+        library: 'private',
+        source: 'private:writing',
+      },
     ]);
     expect(JSON.stringify(details)).not.toMatch(/secret-id/);
   });
@@ -207,5 +231,83 @@ describe('createDochubTools', () => {
       ok: false,
       error: 'No user bound',
     });
+  });
+
+  it('runs ordinary folders separately and labels mixed sources', async () => {
+    const search = vi.fn(async (_userId: string, body: { path?: string }, deps?: { library?: string }) => ({
+      user_id: '1',
+      mode: 'search',
+      query: 'plan',
+      results: [
+        {
+          file:
+            deps?.library === 'public'
+              ? 'qmd://markdown/testing1/note.md'
+              : 'qmd://markdown/writing/plan.md',
+        },
+      ],
+    }));
+    const tools = createDochubTools({ search });
+    const query = tools.find((t) => t.name === 'query')!;
+    const result = await runWithWritingTurn(
+      {
+        userId: '1',
+        pin: 'writing',
+        pinLibrary: 'private',
+        retrievalMode: 'search',
+        mentionedDocuments: [],
+        tree,
+        publicTree: {
+          type: 'dir' as const,
+          name: '',
+          path: '',
+          children: [
+            {
+              type: 'dir' as const,
+              name: 'testing1',
+              path: 'testing1',
+              children: [],
+            },
+            {
+              type: 'dir' as const,
+              name: 'spr',
+              path: 'spr',
+              wiki: true,
+              children: [],
+            },
+          ],
+        },
+        scopes: [
+          { path: 'writing', library: 'private', retrievalMode: 'search' },
+          { path: 'testing1', library: 'public', retrievalMode: 'search' },
+          { path: 'spr', library: 'public', retrievalMode: 'wiki' },
+        ],
+      },
+      () => query.execute('id', { query: 'plan' }),
+    );
+    expect(search).toHaveBeenCalledTimes(2);
+    expect(search).toHaveBeenCalledWith(
+      '1',
+      expect.objectContaining({ path: 'writing', limit: 3 }),
+      { library: 'private' },
+    );
+    expect(search).toHaveBeenCalledWith(
+      '1',
+      expect.objectContaining({ path: 'testing1', limit: 3 }),
+      { library: 'public' },
+    );
+    const details = result.details as {
+      results: Array<{ file: string; source: string }>;
+      sources: string[];
+    };
+    expect(details.sources).toEqual(['private:writing', 'public:testing1']);
+    expect(details.results.map((hit) => hit.source)).toEqual([
+      'private:writing',
+      'public:testing1',
+    ]);
+    expect(details.results.map((hit) => hit.file)).toEqual([
+      'writing/plan.md',
+      'testing1/note.md',
+    ]);
   });
 });

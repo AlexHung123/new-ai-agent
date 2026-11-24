@@ -15,6 +15,14 @@ export type WritingIndexStatus = {
 
 export type KnowledgeRetrievalMode = 'search' | 'wiki';
 
+export type WritingKnowledgeScope = {
+  path: string;
+  library: 'private' | 'public';
+  retrievalMode: KnowledgeRetrievalMode;
+  wikiTitle?: string;
+  wikiRootAbs?: string;
+};
+
 export type WritingTurnContext = {
   userId: string;
   pin: string | null;
@@ -22,6 +30,7 @@ export type WritingTurnContext = {
   retrievalMode?: KnowledgeRetrievalMode;
   wikiTitle?: string;
   wikiRootAbs?: string;
+  scopes?: WritingKnowledgeScope[];
   mentionedDocuments: WritingMentionedDocument[];
   tree: KnowledgeTreeNode | null;
   publicTree?: KnowledgeTreeNode | null;
@@ -30,6 +39,42 @@ export type WritingTurnContext = {
   contexts?: WritingCollectionContext[];
   index?: WritingIndexStatus;
 };
+
+export function writingTurnScopes(
+  ctx: WritingTurnContext | undefined,
+): WritingKnowledgeScope[] {
+  if (!ctx) return [];
+  if (ctx.scopes?.length) return ctx.scopes;
+  if (!ctx.pin) return [];
+  return [
+    {
+      path: ctx.pin,
+      library: ctx.pinLibrary === 'public' ? 'public' : 'private',
+      retrievalMode: ctx.retrievalMode === 'wiki' ? 'wiki' : 'search',
+      ...(ctx.wikiTitle ? { wikiTitle: ctx.wikiTitle } : {}),
+      ...(ctx.wikiRootAbs ? { wikiRootAbs: ctx.wikiRootAbs } : {}),
+    },
+  ];
+}
+
+export function writingSearchScopes(
+  ctx: WritingTurnContext | undefined,
+): WritingKnowledgeScope[] {
+  return writingTurnScopes(ctx).filter((scope) => scope.retrievalMode !== 'wiki');
+}
+
+export function writingWikiScopes(
+  ctx: WritingTurnContext | undefined,
+): WritingKnowledgeScope[] {
+  return writingTurnScopes(ctx).filter((scope) => scope.retrievalMode === 'wiki');
+}
+
+export function writingScopeLabel(scope: {
+  library: 'private' | 'public';
+  path: string;
+}): string {
+  return `${scope.library}:${scope.path}`;
+}
 
 const globalForAls = globalThis as typeof globalThis & {
   __writingTurnAls?: AsyncLocalStorage<WritingTurnContext>;

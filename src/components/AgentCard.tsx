@@ -2,7 +2,7 @@
 
 import { useChat } from '@/lib/hooks/useChat';
 import { findDisplayFocusMode, isKnowledgeFocusMode } from '@/lib/agents';
-import { parseKnowledgePin, pinTitle } from '@/lib/knowledge/library';
+import { parseKnowledgePins, pinTitle } from '@/lib/knowledge/library';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { UsersRound } from 'lucide-react';
@@ -17,12 +17,19 @@ const AgentCard = () => {
     image: '/itms/ai/agent_sfc.png',
   };
   const selectedDocument = documentItems.find((item) => item.id === documentId);
-  const pin = isKnowledgeFocusMode(focusMode)
-    ? parseKnowledgePin(knowledgeFolder)
-    : null;
+  const pins = isKnowledgeFocusMode(focusMode)
+    ? parseKnowledgePins(knowledgeFolder)
+    : [];
   const description =
-    pin?.path
-      ? `${pin.library === 'public' ? 'Public' : 'Private'} folder: ${pinTitle(pin)}`
+    pins.length === 1
+      ? `${pins[0].library === 'public' ? 'Public' : 'Private'} folder: ${pinTitle(pins[0])}`
+      : pins.length > 1
+        ? pins
+            .map(
+              (pin) =>
+                `${pin.library === 'public' ? 'Public' : 'Private'} ${pinTitle(pin)}`,
+            )
+            .join(', ')
       : selectedDocument
         ? `${selectedDocument.title} — ${selectedDocument.description}`
         : currentFocusMode.description;

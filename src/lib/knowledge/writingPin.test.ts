@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 import type { KnowledgeTreeNode } from './types';
 import {
   clampPathToPin,
+  clampPathToPins,
   pathInsidePin,
+  pathInsidePins,
   resolveWritingKnowledgePin,
+  splitRetrievalLimit,
 } from './writingPin';
 
 function fileNode(
@@ -107,13 +110,17 @@ describe('resolveWritingKnowledgePin', () => {
     expect(resolveWritingKnowledgePin({ text: 'hello', tree }).pin).toBeNull();
   });
 
-  it('lets @folder win over selected folder', () => {
+  it('lets @folder add a turn scope without clearing the pinned folder', () => {
     const result = resolveWritingKnowledgePin({
       text: 'search @writing please',
       tree,
       selectedFolder: 'contracts/2024',
     });
-    expect(result.pin).toBe('writing');
+    expect(result.pin).toBe('contracts/2024');
+    expect(result.pins).toEqual([
+      { path: 'contracts/2024', library: 'private' },
+      { path: 'writing', library: 'private' },
+    ]);
     expect(result.mentionedFolders).toEqual(['writing']);
   });
 
@@ -123,7 +130,11 @@ describe('resolveWritingKnowledgePin', () => {
       tree,
       selectedFolder: 'invoices',
     });
-    expect(result.pin).toBe('contracts/2024');
+    expect(result.pin).toBe('invoices');
+    expect(result.pins).toEqual([
+      { path: 'invoices', library: 'private' },
+      { path: 'contracts/2024', library: 'private' },
+    ]);
     expect(result.mentionedFolders).toEqual([]);
     expect(result.mentionedDocuments.map((d) => d.fileId)).toEqual(['p1']);
   });
@@ -137,23 +148,30 @@ describe('resolveWritingKnowledgePin', () => {
     ).toBe('writing');
   });
 
-  it('clears the pin when @documents do not share a parent', () => {
-    expect(
-      resolveWritingKnowledgePin({
-        text: 'compare @writing/a.md and @invoices/acme.md',
-        tree,
-        selectedFolder: 'contracts',
-      }).pin,
-    ).toBeNull();
+  it('keeps the pinned folder when @documents do not share a parent', () => {
+    const result = resolveWritingKnowledgePin({
+      text: 'compare @writing/a.md and @invoices/acme.md',
+      tree,
+      selectedFolder: 'contracts',
+    });
+    expect(result.pin).toBe('contracts');
+    expect(result.pins).toEqual([{ path: 'contracts', library: 'private' }]);
+    expect(result.mentionedDocuments.map((d) => d.fileId).sort()).toEqual([
+      'a1',
+      'i1',
+    ]);
   });
 
   it('uses the first @folder in left-to-right order', () => {
-    expect(
-      resolveWritingKnowledgePin({
-        text: 'look in @invoices and @writing',
-        tree,
-      }).pin,
-    ).toBe('invoices');
+    const result = resolveWritingKnowledgePin({
+      text: 'look in @invoices and @writing',
+      tree,
+    });
+    expect(result.pin).toBe('invoices');
+    expect(result.pins).toEqual([
+      { path: 'invoices', library: 'private' },
+      { path: 'writing', library: 'private' },
+    ]);
   });
 
   it('ignores unknown @, unknown selected folder, unsafe paths, and a null tree', () => {
@@ -180,6 +198,7 @@ describe('resolveWritingKnowledgePin', () => {
     ).toEqual({
       pin: null,
       pinLibrary: 'private',
+      pins: [],
       mentionedFolders: [],
       mentionedDocuments: [],
     });
@@ -329,6 +348,54 @@ describe('resolveWritingKnowledgePin', () => {
     });
     expect(document.pin).toBe('writing');
     expect(document.mentionedDocuments.map((d) => d.fileId)).toEqual(['a1']);
+  });
+
+  it('loads a comma-separated pin list and keeps @ from clearing it', () => {
+    const result = resolveWritingKnowledgePin({
+      text: 'see @public/spr',
+      tree,
+      publicTree: {
+        type: 'dir',
+        name: '',
+        path: '',
+        children: [
+          { type: 'dir', name: 'spr', path: 'spr', wiki: true, children: [] },
+        ],
+      },
+      selectedFolder: 'private:writing,public:spr',
+    });
+    expect(result.pins).toEqual([
+      { path: 'writing', library: 'private' },
+      { path: 'spr', library: 'public' },
+    ]);
+    expect(result.mentionedFolders).toEqual(['spr']);
+  });
+
+  it('returns no scopes when nothing is pinned or mentioned', () => {
+    const result = resolveWritingKnowledgePin({ text: 'hello', tree });
+    expect(result.pin).toBeNull();
+    expect(result.pins).toEqual([]);
+    expect(result.mentionedFolders).toEqual([]);
+    expect(result.mentionedDocuments).toEqual([]);
+  });
+});
+
+describe('pathInsidePins and retrieval budget', () => {
+  it('matches a path against any pin', () => {
+    expect(pathInsidePins('writing/a.md', ['writing', 'invoices'])).toBe(true);
+    expect(pathInsidePins('other/a.md', ['writing', 'invoices'])).toBe(false);
+    expect(pathInsidePins('writing/a.md', [])).toBe(false);
+    expect(clampPathToPins('writing/a.md', ['writing', 'invoices'])).toBe(
+      'writing/a.md',
+    );
+    expect(clampPathToPins('other', ['writing', 'invoices'])).toBeNull();
+    expect(clampPathToPins('invoices', ['contracts/2024'])).toBe('contracts/2024');
+  });
+
+  it('splits a retrieval limit across scopes', () => {
+    expect(splitRetrievalLimit(5, 1)).toBe(5);
+    expect(splitRetrievalLimit(5, 3)).toBe(2);
+    expect(splitRetrievalLimit(10, 2)).toBe(5);
   });
 
 });

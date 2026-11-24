@@ -1,4 +1,9 @@
-import { isHiddenPublicFolder, parseKnowledgePin } from './library';
+import {
+  isHiddenPublicFolder,
+  MAX_KNOWLEDGE_PINS,
+  parseKnowledgePin,
+  parseKnowledgePins,
+} from './library';
 import { isSafeRelativePath } from './paths';
 import { flattenKnowledgeNodes, nodeAtPath } from './tree';
 import type { KnowledgeTreeNode } from './types';
@@ -11,12 +16,51 @@ export type WritingMentionedDocument = {
   library?: 'private' | 'public';
 };
 
+export type WritingPinScope = {
+  path: string;
+  library: 'private' | 'public';
+};
+
 export type WritingPinResult = {
   pin: string | null;
   pinLibrary: 'private' | 'public';
+  pins: WritingPinScope[];
   mentionedFolders: string[];
   mentionedDocuments: WritingMentionedDocument[];
 };
+
+export function splitRetrievalLimit(total: number, scopeCount: number): number {
+  const limit = Math.max(1, Math.floor(total) || 1);
+  if (scopeCount <= 1) return limit;
+  return Math.max(1, Math.ceil(limit / scopeCount));
+}
+
+export function pathInsidePins(
+  path: string | undefined,
+  pins: Array<string | null | undefined>,
+): boolean {
+  if (!path) return false;
+  return pins.some(
+    (pin) => typeof pin === 'string' && pin.length > 0 && pathInsidePin(path, pin),
+  );
+}
+
+export function clampPathToPins(
+  path: string | undefined,
+  pins: Array<string | null | undefined>,
+): string | null {
+  const usable = pins.filter(
+    (pin): pin is string => typeof pin === 'string' && pin.length > 0,
+  );
+  if (usable.length === 0) {
+    return typeof path === 'string' && isSafeRelativePath(path) ? path : null;
+  }
+  if (usable.length === 1) return clampPathToPin(path, usable[0]);
+  const safe =
+    typeof path === 'string' && isSafeRelativePath(path) ? path : null;
+  if (!safe) return null;
+  return pathInsidePins(safe, usable) ? safe : null;
+}
 
 export function pathInsidePin(path: string, pin: string | null): boolean {
   if (!pin) return true;
@@ -88,12 +132,13 @@ export function resolveWritingKnowledgePin(input: {
   text: string;
   tree: KnowledgeTreeNode | null;
   publicTree?: KnowledgeTreeNode | null;
-  selectedFolder?: string;
+  selectedFolder?: string | string[];
   documentId?: string | null;
 }): WritingPinResult {
   const empty: WritingPinResult = {
     pin: null,
     pinLibrary: 'private',
+    pins: [],
     mentionedFolders: [],
     mentionedDocuments: [],
   };
@@ -104,10 +149,16 @@ export function resolveWritingKnowledgePin(input: {
   const lower = text.toLowerCase();
   const nodes = [
     ...(privateTree
-      ? flattenKnowledgeNodes(privateTree).map((n) => ({ ...n, library: n.library || 'private' as const }))
+      ? flattenKnowledgeNodes(privateTree).map((n) => ({
+          ...n,
+          library: n.library || ('private' as const),
+        }))
       : []),
     ...(publicTree
-      ? flattenKnowledgeNodes(publicTree).map((n) => ({ ...n, library: n.library || 'public' as const }))
+      ? flattenKnowledgeNodes(publicTree).map((n) => ({
+          ...n,
+          library: n.library || ('public' as const),
+        }))
       : []),
   ].filter(
     (n) =>
@@ -121,7 +172,11 @@ export function resolveWritingKnowledgePin(input: {
     .filter((n) => n.type === 'file' && n.file)
     .sort((a, b) => b.path.length - a.path.length);
 
-  const mentionedFolders: { path: string; library: 'private' | 'public'; index: number }[] = [];
+  const mentionedFolders: {
+    path: string;
+    library: 'private' | 'public';
+    index: number;
+  }[] = [];
   for (const folder of folders) {
     const library = folder.library === 'public' ? 'public' : 'private';
     const needles = mentionNeedles(
@@ -139,7 +194,7 @@ export function resolveWritingKnowledgePin(input: {
   mentionedFolders.sort((a, b) => a.index - b.index);
 
   const mentionedDocuments: WritingMentionedDocument[] = [];
-  const seen = new Set<string>();
+  const seenDocs = new Set<string>();
   for (const node of files) {
     const file = node.file!;
     const library = node.library === 'public' ? 'public' : 'private';
@@ -156,8 +211,8 @@ export function resolveWritingKnowledgePin(input: {
       if (idx < 0) return best;
       return best < 0 ? idx : Math.min(best, idx);
     }, -1);
-    if (index >= 0 && !seen.has(file.id)) {
-      seen.add(file.id);
+    if (index >= 0 && !seenDocs.has(file.id)) {
+      seenDocs.add(file.id);
       mentionedDocuments.push({
         fileId: file.id,
         path: node.path,
@@ -168,42 +223,64 @@ export function resolveWritingKnowledgePin(input: {
     }
   }
 
-  let pin: string | null = null;
-  let pinLibrary: 'private' | 'public' = 'private';
-  if (mentionedFolders.length) {
-    pin = mentionedFolders[0].path;
-    pinLibrary = mentionedFolders[0].library;
-  } else if (mentionedDocuments.length) {
-    const lib = mentionedDocuments[0].library === 'public' ? 'public' : 'private';
-    const sameLib = mentionedDocuments.filter((d) => (d.library || 'private') === lib);
-    pin = longestCommonParent(sameLib.map((d) => d.path));
-    pinLibrary = lib;
-  } else if (input.selectedFolder) {
-    const parsed = parseKnowledgePin(input.selectedFolder);
-    if (parsed?.path && isSafeRelativePath(parsed.path)) {
-      const treeForLib = parsed.library === 'public' ? publicTree : privateTree;
-      const node = treeForLib ? nodeAtPath(treeForLib, parsed.path) : null;
-      if (parsed.library === 'public' || node?.type === 'dir') {
-        pin = parsed.path;
-        pinLibrary = parsed.library;
-      }
+  const selected: WritingPinScope[] = [];
+  for (const parsed of parseKnowledgePins(input.selectedFolder)) {
+    if (!parsed.path || !isSafeRelativePath(parsed.path)) continue;
+    const treeForLib = parsed.library === 'public' ? publicTree : privateTree;
+    const node = treeForLib ? nodeAtPath(treeForLib, parsed.path) : null;
+    if (parsed.library === 'public' || node?.type === 'dir') {
+      selected.push({ path: parsed.path, library: parsed.library });
     }
-  } else if (input.documentId) {
+  }
+
+  const pins: WritingPinScope[] = [];
+  const seenPins = new Set<string>();
+  const addPin = (scope: WritingPinScope) => {
+    if (!scope.path || pins.length >= MAX_KNOWLEDGE_PINS) return;
+    const key = `${scope.library}:${scope.path}`;
+    if (seenPins.has(key)) return;
+    seenPins.add(key);
+    pins.push({ path: scope.path, library: scope.library });
+  };
+
+  for (const scope of selected) addPin(scope);
+  for (const folder of mentionedFolders) {
+    addPin({ path: folder.path, library: folder.library });
+  }
+
+  if (mentionedDocuments.length) {
+    const byLibrary = new Map<'private' | 'public', string[]>();
+    for (const doc of mentionedDocuments) {
+      const library = doc.library === 'public' ? 'public' : 'private';
+      const list = byLibrary.get(library) || [];
+      list.push(doc.path);
+      byLibrary.set(library, list);
+    }
+    for (const [library, paths] of byLibrary) {
+      const parent = longestCommonParent(paths);
+      if (parent) addPin({ path: parent, library });
+    }
+  }
+
+  if (pins.length === 0 && input.documentId) {
     const raw = input.documentId.trim();
     const parsed = parseKnowledgePin(raw);
     const path = parsed?.path || raw;
     if (path && isSafeRelativePath(path)) {
-      pin = path;
-      pinLibrary =
-        raw.includes(':') || raw.startsWith('public/')
-          ? parsed?.library || 'public'
-          : 'public';
+      addPin({
+        path,
+        library:
+          raw.includes(':') || raw.startsWith('public/')
+            ? parsed?.library || 'public'
+            : 'public',
+      });
     }
   }
 
   return {
-    pin,
-    pinLibrary,
+    pin: pins[0]?.path ?? null,
+    pinLibrary: pins[0]?.library ?? 'private',
+    pins,
     mentionedFolders: mentionedFolders.map((f) => f.path),
     mentionedDocuments,
   };

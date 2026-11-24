@@ -72,16 +72,30 @@ function isMentioned(
   );
 }
 
+function pinList(pin: string | string[] | null | undefined): string[] {
+  if (Array.isArray(pin)) return pin.filter((item) => typeof item === 'string' && item.length > 0);
+  return typeof pin === 'string' && pin ? [pin] : [];
+}
+
 function allowedPath(
   path: string | undefined,
   opts: {
-    pin: string | null;
+    pin: string | string[] | null;
     mentionedDocuments: WritingMentionedDocument[];
     id?: string;
     inbox?: string;
   },
 ): boolean {
-  if (pathInsidePin(path, opts.pin) || pathInsidePin(opts.inbox, opts.pin)) {
+  const pins = pinList(opts.pin);
+  if (pins.length === 0) {
+    if (opts.pin == null) {
+      return pathInsidePin(path || '', null) || pathInsidePin(opts.inbox || '', null);
+    }
+  } else if (
+    pins.some(
+      (pin) => pathInsidePin(path || '', pin) || pathInsidePin(opts.inbox || '', pin),
+    )
+  ) {
     return true;
   }
   return isMentioned(
@@ -122,7 +136,7 @@ function formatDocumentText(doc: DochubDocument, fromLine: number): string {
 export async function getDochubMarkdown(opts: {
   userId: string;
   tree: KnowledgeTreeNode | null;
-  pin: string | null;
+  pin: string | string[] | null;
   mentionedDocuments: WritingMentionedDocument[];
   file: string;
   fromLine?: unknown;

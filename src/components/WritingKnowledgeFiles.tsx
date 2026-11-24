@@ -14,6 +14,7 @@ import { useChat } from '@/lib/hooks/useChat';
 import {
   formatKnowledgePin,
   parseKnowledgePin,
+  parseKnowledgePins,
   type KnowledgeLibrary,
 } from '@/lib/knowledge/library';
 import { readLibraryTab, writeLibraryTab } from '@/lib/knowledge/libraryTab';
@@ -38,7 +39,7 @@ function dirPaths(node: KnowledgeTreeNode, library: KnowledgeLibrary): string[] 
 function TreeRows({
   node,
   library,
-  activePin,
+  activePins,
   collapsed,
   onToggle,
   onSelectFolder,
@@ -46,7 +47,7 @@ function TreeRows({
 }: {
   node: KnowledgeTreeNode;
   library: KnowledgeLibrary;
-  activePin: string;
+  activePins: Set<string>;
   collapsed: Record<string, boolean>;
   onToggle: (key: string) => void;
   onSelectFolder: (library: KnowledgeLibrary, path: string) => void;
@@ -80,7 +81,7 @@ function TreeRows({
                 )}
                 <button
                   type="button"
-                  className={`writing-knowledge-item${pin === activePin ? ' is-active' : ''}`}
+                  className={`writing-knowledge-item${activePins.has(pin) ? ' is-active' : ''}`}
                   onClick={() => onSelectFolder(library, child.path)}
                   onDoubleClick={() => {
                     if (hasChildren) onToggle(pin);
@@ -108,7 +109,7 @@ function TreeRows({
                 <TreeRows
                   node={child}
                   library={library}
-                  activePin={activePin}
+                  activePins={activePins}
                   collapsed={collapsed}
                   onToggle={onToggle}
                   onSelectFolder={onSelectFolder}
@@ -152,12 +153,16 @@ function TreeRows({
 
 export default function WritingKnowledgeFiles() {
   const { privateTree, publicTree, error, loading } = useKnowledgeTree();
-  const { knowledgeFolder, setKnowledgeFolder } = useChat();
+  const { knowledgeFolder, setKnowledgeFolder, toggleKnowledgePin } = useChat();
   const { openKnowledgeFile } = useRightPanel();
   const [library, setLibrary] = useState<KnowledgeLibrary>(() => readLibraryTab());
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const lastPinRef = useRef(knowledgeFolder);
-  const activePin = knowledgeFolder || '';
+  const activePins = new Set(
+    parseKnowledgePins(knowledgeFolder).map((pin) =>
+      formatKnowledgePin(pin),
+    ),
+  );
   const activeTree = library === 'public' ? publicTree : privateTree;
   const empty =
     library === 'public'
@@ -167,7 +172,8 @@ export default function WritingKnowledgeFiles() {
   useEffect(() => {
     if (lastPinRef.current === knowledgeFolder) return;
     lastPinRef.current = knowledgeFolder;
-    const pin = parseKnowledgePin(knowledgeFolder);
+    const pins = parseKnowledgePins(knowledgeFolder);
+    const pin = pins[pins.length - 1] || parseKnowledgePin(knowledgeFolder);
     if (pin?.path) {
       setLibrary(pin.library);
       writeLibraryTab(pin.library);
@@ -184,13 +190,8 @@ export default function WritingKnowledgeFiles() {
   };
 
   const onSelectFolder = (nextLibrary: KnowledgeLibrary, path: string) => {
-    const current = parseKnowledgePin(knowledgeFolder);
     const next = formatKnowledgePin({ library: nextLibrary, path });
-    if (current?.library === nextLibrary && current.path === path) {
-      setKnowledgeFolder('');
-      return;
-    }
-    setKnowledgeFolder(next);
+    toggleKnowledgePin(next);
   };
 
   const visibleDirKeys = dirPaths(activeTree, library);
@@ -238,7 +239,7 @@ export default function WritingKnowledgeFiles() {
         <TreeRows
           node={activeTree}
           library={library}
-          activePin={activePin}
+          activePins={activePins}
           collapsed={collapsed}
           onToggle={onToggle}
           onSelectFolder={onSelectFolder}

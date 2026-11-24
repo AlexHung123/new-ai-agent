@@ -1492,12 +1492,28 @@
   flex: 0 0 auto;
 }
 
+.knowledge-scope-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.knowledge-scope-cap {
+  margin: 0;
+  width: 100%;
+  font-size: 0.72rem;
+  color: var(--wiki-muted, #64748b);
+}
+
 .knowledge-scope-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
   max-width: 100%;
-  margin: 0 0 0.45rem;
+  margin: 0;
   padding: 0.2rem 0.3rem 0.2rem 0.5rem;
   border: 1px solid var(--wiki-border, #e5e7eb);
   border-radius: 999px;

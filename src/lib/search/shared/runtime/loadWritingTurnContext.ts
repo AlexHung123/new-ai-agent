@@ -34,7 +34,7 @@ function localWikiSlot(path: string | null) {
 export async function loadWritingTurnContext(opts: {
   userId: string;
   text: string;
-  selectedFolder?: string;
+  selectedFolder?: string | string[];
   documentId?: string | null;
   loadTree?: typeof getTree;
   loadStatus?: typeof getStatus;
@@ -81,25 +81,63 @@ export async function loadWritingTurnContext(opts: {
     documentId: opts.documentId,
   });
 
-  const pinLibrary = pin.pinLibrary || 'private';
-  const treeForPin = pinLibrary === 'public' ? publicTree : privateTree;
-  const pinnedNode = pin.pin && treeForPin ? nodeAtPath(treeForPin, pin.pin) : null;
-  const local = pinLibrary === 'public' ? localWikiSlot(pin.pin) : null;
-  const isWiki = isStructuredKnowledgeNode(pinnedNode) || Boolean(local && !local.scoped);
-  const retrievalMode: WritingTurnContext['retrievalMode'] = isWiki ? 'wiki' : 'search';
+  const scopes: WritingTurnContext['scopes'] = [];
+  for (const scope of pin.pins) {
+    const treeForPin = scope.library === 'public' ? publicTree : privateTree;
+    const pinnedNode =
+      treeForPin ? nodeAtPath(treeForPin, scope.path) : null;
+    const local = scope.library === 'public' ? localWikiSlot(scope.path) : null;
+    const isWiki =
+      isStructuredKnowledgeNode(pinnedNode) || Boolean(local && !local.scoped);
+    scopes.push({
+      path: scope.path,
+      library: scope.library,
+      retrievalMode: isWiki ? 'wiki' : 'search',
+      ...(isWiki && (local?.slot.title || pinnedNode?.name)
+        ? { wikiTitle: local?.slot.title || pinnedNode?.name }
+        : {}),
+      ...(local && !local.scoped ? { wikiRootAbs: local.root } : {}),
+    });
+  }
+
+  const first = scopes[0];
+  const pinLibrary = first?.library || pin.pinLibrary || 'private';
+  const allWiki = scopes.length > 0 && scopes.every((scope) => scope.retrievalMode === 'wiki');
+  const retrievalMode: WritingTurnContext['retrievalMode'] = allWiki ? 'wiki' : 'search';
+  const localWiki = scopes.find((scope) => scope.wikiRootAbs);
 
   let contexts: WritingTurnContext['contexts'];
   let index: WritingTurnContext['index'];
   if (libraryAvailable) {
+    const libraries: Array<'private' | 'public'> = scopes.length
+      ? [...new Set(scopes.map((scope) => scope.library))]
+      : ['private'];
     try {
-      const status = await (opts.loadStatus ?? getStatus)(opts.userId, {
-        library: pinLibrary,
-      });
-      contexts = status.contexts ?? status.index?.contexts;
+      const statuses = await Promise.all(
+        libraries.map((library) =>
+          (opts.loadStatus ?? getStatus)(opts.userId, { library }),
+        ),
+      );
+      const mergedContexts: NonNullable<WritingTurnContext['contexts']> = [];
+      let keywordReady = true;
+      let semanticReady = true;
+      let hint: string | null | undefined;
+      for (const status of statuses) {
+        const items = status.contexts ?? status.index?.contexts;
+        if (items?.length) mergedContexts.push(...items);
+        if ((status.keyword_search_ready ?? status.index?.keyword_search_ready) === false) {
+          keywordReady = false;
+        }
+        if ((status.semantic_search_ready ?? status.index?.semantic_search_ready) === false) {
+          semanticReady = false;
+        }
+        hint = hint || status.hint || status.index?.hint;
+      }
+      if (mergedContexts.length) contexts = mergedContexts;
       index = {
-        keyword_search_ready: status.keyword_search_ready ?? status.index?.keyword_search_ready,
-        semantic_search_ready: status.semantic_search_ready ?? status.index?.semantic_search_ready,
-        hint: status.hint ?? status.index?.hint,
+        keyword_search_ready: keywordReady,
+        semantic_search_ready: semanticReady,
+        hint,
       };
     } catch {
       /* status is optional once a tree loaded */
@@ -108,11 +146,12 @@ export async function loadWritingTurnContext(opts: {
 
   return {
     userId: opts.userId,
-    pin: pin.pin,
+    pin: first?.path ?? pin.pin,
     pinLibrary,
     retrievalMode,
-    wikiTitle: local?.slot.title || pinnedNode?.name || undefined,
-    wikiRootAbs: local && !local.scoped ? local.root : undefined,
+    wikiTitle: localWiki?.wikiTitle || first?.wikiTitle,
+    wikiRootAbs: localWiki?.wikiRootAbs,
+    scopes,
     mentionedDocuments: pin.mentionedDocuments,
     tree: privateTree,
     publicTree,

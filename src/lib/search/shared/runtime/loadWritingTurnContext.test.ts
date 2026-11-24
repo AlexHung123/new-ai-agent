@@ -199,4 +199,70 @@ describe('loadWritingTurnContext', () => {
     expect(ctx.pinLibrary).toBe('private');
     expect(ctx.publicTree?.children?.map((child) => child.name)).toEqual(['spr']);
   });
+
+  it('routes mixed private, public, and structured scopes separately', async () => {
+    const privateTree: KnowledgeTreeNode = {
+      type: 'dir',
+      name: '',
+      path: '',
+      children: [
+        { type: 'dir', name: 'writing', path: 'writing', children: [] },
+      ],
+    };
+    const publicTree: KnowledgeTreeNode = {
+      type: 'dir',
+      name: '',
+      path: '',
+      children: [
+        {
+          type: 'dir',
+          name: 'testing1',
+          path: 'testing1',
+          children: [],
+        },
+        {
+          type: 'dir',
+          name: 'spr',
+          path: 'spr',
+          wiki: true,
+          children: [],
+        },
+      ],
+    };
+    const ctx = await loadWritingTurnContext({
+      userId: '1',
+      text: 'hello',
+      selectedFolder: 'private:writing,public:testing1,public:spr',
+      loadTree: async (_userId, deps) => ({
+        user_id: '1',
+        tree: deps?.library === 'public' ? publicTree : privateTree,
+      }),
+      loadStatus: async () => ({ ok: true }),
+    });
+    expect(ctx.pin).toBe('writing');
+    expect(ctx.pinLibrary).toBe('private');
+    expect(ctx.retrievalMode).toBe('search');
+    expect(ctx.scopes).toEqual([
+      { path: 'writing', library: 'private', retrievalMode: 'search' },
+      { path: 'testing1', library: 'public', retrievalMode: 'search' },
+      expect.objectContaining({
+        path: 'spr',
+        library: 'public',
+        retrievalMode: 'wiki',
+      }),
+    ]);
+    expect(ctx.scopes?.[2]?.wikiTitle).toBeTruthy();
+  });
+
+  it('keeps knowledge unbound when there is no pin and no @', async () => {
+    const ctx = await loadWritingTurnContext({
+      userId: '1',
+      text: 'hello',
+      loadTree: async () => ({ user_id: '1', tree }),
+      loadStatus: async () => ({ ok: true }),
+    });
+    expect(ctx.pin).toBeNull();
+    expect(ctx.scopes).toEqual([]);
+    expect(ctx.mentionedDocuments).toEqual([]);
+  });
 });

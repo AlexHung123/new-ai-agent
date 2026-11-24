@@ -161,6 +161,17 @@ describe('knowledge UI contracts', () => {
     expect(chip).toMatch(/Pinned folder/);
     expect(chip).toMatch(/Structured/);
     expect(chip).toMatch(/Unpin folder/);
+    const scope = readSrc('../../components/KnowledgeComposerScope.tsx');
+    expect(scope).toMatch(/parseKnowledgePins/);
+    expect(scope).toMatch(/knowledge-scope-chips/);
+    expect(scope).toMatch(/pinCapMessage/);
+    expect(scope).toMatch(/removeKnowledgePin/);
+    const files = readSrc('../../components/WritingKnowledgeFiles.tsx');
+    expect(files).toMatch(/toggleKnowledgePin/);
+    expect(files).toMatch(/activePins/);
+    const chat = readSrc('../hooks/useChat.tsx');
+    expect(chat).toMatch(/toggleKnowledgePin/);
+    expect(chat).toMatch(/knowledgeFolder:/);
   });
 
   it('hides visibility choices when creating a folder inside a parent', () => {

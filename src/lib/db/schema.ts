@@ -35,6 +35,7 @@ export const chats = pgTable('chats', {
   createdAt: text('createdAt').notNull(),
   focusMode: text('focusMode').notNull(),
   documentId: text('documentId'),
+  knowledgeFolder: text('knowledgeFolder'),
   wcmsContentId: integer('wcmsContentId'),
   wcmsPageIndex: integer('wcmsPageIndex'),
   wcmsLang: text('wcmsLang'),

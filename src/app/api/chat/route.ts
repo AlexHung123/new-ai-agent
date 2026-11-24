@@ -27,6 +27,7 @@ import {
   type DocumentTurnContext,
 } from '@/lib/search/shared/runtime/documentTurnContext';
 import { runWithWritingTurn } from '@/lib/search/shared/runtime/writingTurnContext';
+import { formatKnowledgePins, parseKnowledgePins } from '@/lib/knowledge/library';
 import { isKnowledgeFocusMode } from '@/lib/agents';
 import { loadWritingTurnContext } from '@/lib/search/shared/runtime/loadWritingTurnContext';
 import {
@@ -83,6 +84,7 @@ const handleHistorySave = async (
   wcmsContentId?: number | null,
   wcmsPageIndex?: number | null,
   wcmsLang?: string | null,
+  knowledgeFolder?: string | string[] | null,
 ) => {
   const chat = await db.query.chats.findFirst({
     where: eq(chats.id, message.chatId),
@@ -101,6 +103,9 @@ const handleHistorySave = async (
         wcmsContentId: wcmsContentId ?? null,
         wcmsPageIndex: wcmsPageIndex ?? null,
         wcmsLang: wcmsLang ?? null,
+        knowledgeFolder: isKnowledgeFocusMode(focusMode)
+          ? formatKnowledgePins(parseKnowledgePins(knowledgeFolder)) || null
+          : null,
         files: [],
       })
       .execute();
@@ -110,14 +115,24 @@ const handleHistorySave = async (
       wcmsPageIndex: wcmsPageIndex ?? null,
       wcmsLang: wcmsLang ?? null,
     });
-    if (patch) {
+    const nextKnowledgeFolder = isKnowledgeFocusMode(focusMode)
+      ? formatKnowledgePins(parseKnowledgePins(knowledgeFolder)) || null
+      : undefined;
+    if (patch || nextKnowledgeFolder !== undefined) {
       await db
         .update(chats)
         .set({
-          wcmsContentId: patch.wcmsContentId,
-          wcmsPageIndex: patch.wcmsPageIndex,
-          wcmsLang: patch.wcmsLang,
-          focusMode,
+          ...(patch
+            ? {
+                wcmsContentId: patch.wcmsContentId,
+                wcmsPageIndex: patch.wcmsPageIndex,
+                wcmsLang: patch.wcmsLang,
+                focusMode,
+              }
+            : {}),
+          ...(nextKnowledgeFolder !== undefined
+            ? { knowledgeFolder: nextKnowledgeFolder }
+            : {}),
         })
         .where(eq(chats.id, message.chatId));
     }
@@ -393,6 +408,7 @@ export const POST = async (req: Request) => {
       wcmsBound.status === 'ok' ? wcmsBound.wcmsContentId : null,
       wcmsBound.status === 'ok' ? wcmsBound.pageIndex : null,
       wcmsBound.status === 'ok' ? wcmsBound.lang : null,
+      body.knowledgeFolder,
     );
 
     return new Response(responseStream.readable, {

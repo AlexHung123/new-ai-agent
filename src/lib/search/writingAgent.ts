@@ -18,7 +18,12 @@ import { bindTurnDochubTools } from './shared/runtime/bindTurnDochubTools';
 import { bindTurnFsTools } from './shared/runtime/bindTurnFsTools';
 import { stripHtmlTurnPrefixesFromMessages } from '@/lib/html/htmlSkill';
 import { WRITING_AGENT_EMPTY_REPLY } from './shared/prompts/writingAgentSystemPrompt';
-import { getWritingTurnContext } from './shared/runtime/writingTurnContext';
+import {
+  getWritingTurnContext,
+  writingSearchScopes,
+  writingTurnScopes,
+  writingWikiScopes,
+} from './shared/runtime/writingTurnContext';
 import { safeJson } from './shared/utils/safeJson';
 
 export default class WritingAgent implements MetaSearchAgentType {
@@ -84,17 +89,49 @@ export default class WritingAgent implements MetaSearchAgentType {
         agent.state.messages = stripHtmlTurnPrefixesFromMessages(
           agent.state.messages ?? [],
         );
-        const restoreTools = writingCtx
-          ? writingCtx.retrievalMode === 'wiki' && writingCtx.wikiRootAbs
+        const localWikis = writingWikiScopes(writingCtx).filter(
+          (scope) => scope.wikiRootAbs,
+        );
+        const onlyLocalWiki =
+          Boolean(writingCtx) &&
+          ((writingCtx?.retrievalMode === 'wiki' &&
+            Boolean(writingCtx.wikiRootAbs) &&
+            writingTurnScopes(writingCtx).length <= 1) ||
+            (localWikis.length === 1 &&
+              writingSearchScopes(writingCtx).length === 0 &&
+              writingWikiScopes(writingCtx).every((scope) => scope.wikiRootAbs) &&
+              writingCtx!.mentionedDocuments.length === 0));
+        const restoreFs =
+          writingCtx && localWikis.length === 1 && localWikis[0].wikiRootAbs
             ? bindTurnFsTools(agent, {
                 document: {
-                  id: writingCtx.pin || 'folder',
-                  title: writingCtx.wikiTitle || writingCtx.pin || 'bound folder',
-                  rootAbs: writingCtx.wikiRootAbs,
+                  id: localWikis[0].path || writingCtx.pin || 'folder',
+                  title:
+                    localWikis[0].wikiTitle ||
+                    localWikis[0].path ||
+                    writingCtx.wikiTitle ||
+                    writingCtx.pin ||
+                    'bound folder',
+                  rootAbs: localWikis[0].wikiRootAbs,
                 },
               })
-            : bindTurnDochubTools(agent, writingCtx)
-          : () => undefined;
+            : writingCtx?.retrievalMode === 'wiki' && writingCtx.wikiRootAbs
+              ? bindTurnFsTools(agent, {
+                  document: {
+                    id: writingCtx.pin || 'folder',
+                    title: writingCtx.wikiTitle || writingCtx.pin || 'bound folder',
+                    rootAbs: writingCtx.wikiRootAbs,
+                  },
+                })
+              : () => undefined;
+        const restoreDochub =
+          writingCtx && !onlyLocalWiki
+            ? bindTurnDochubTools(agent, writingCtx)
+            : () => undefined;
+        const restoreTools = () => {
+          restoreDochub();
+          restoreFs();
+        };
         try {
           const subscriptionPromise = streamAgentProgressToEmitter({
             agent,

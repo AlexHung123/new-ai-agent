@@ -52,6 +52,7 @@ import {
   imagesForFocus,
   type ChatImageAttachment,
 } from '../chat/attachedImages';
+import { formatKnowledgePins, parseKnowledgePins, toggleKnowledgePin as toggleKnowledgePinValue } from '@/lib/knowledge/library';
 
 export type Section = {
   userMessage: UserMessage;
@@ -113,6 +114,8 @@ type ChatContext = {
   wcmsFileBaseHref: string | null;
   knowledgeFolder: string;
   setKnowledgeFolder: (path: string) => void;
+  toggleKnowledgePin: (key: string) => void;
+  pinCapMessage: string;
   sendMessage: (
     message: string,
     messageId?: string,
@@ -162,6 +165,8 @@ export const chatContext = createContext<ChatContext>({
   wcmsFileBaseHref: null,
   knowledgeFolder: '',
   setKnowledgeFolder: () => {},
+  toggleKnowledgePin: () => {},
+  pinCapMessage: '',
   stop: () => {},
 });
 
@@ -225,6 +230,7 @@ const loadMessages = async (args: {
   setWcmsContentId: (id: number | null) => void;
   setWcmsPageIndex: (index: number) => void;
   setWcmsLang: (lang: 'en' | 'tc' | 'sc') => void;
+  setKnowledgeFolder: (path: string) => void;
 }) => {
   const {
     chatId,
@@ -237,6 +243,7 @@ const loadMessages = async (args: {
     setWcmsContentId,
     setWcmsPageIndex,
     setWcmsLang,
+    setKnowledgeFolder,
   } = args;
 
   try {
@@ -276,7 +283,11 @@ const loadMessages = async (args: {
           ? SFC_DOCUMENT_ID
           : null,
     );
-    if (
+    if (typeof data.chat.knowledgeFolder === 'string' && data.chat.knowledgeFolder) {
+      setKnowledgeFolder(
+        formatKnowledgePins(parseKnowledgePins(data.chat.knowledgeFolder)),
+      );
+    } else if (
       isKnowledgeFocusMode(resolvedFocus) &&
       typeof data.chat.documentId === 'string' &&
       data.chat.documentId &&
@@ -419,7 +430,8 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   const [wcmsHtml, setWcmsHtmlState] = useState('');
   const [wcmsTitle, setWcmsTitle] = useState<string | null>(null);
   const [wcmsFileBaseHref, setWcmsFileBaseHref] = useState<string | null>(null);
-  const [knowledgeFolder, setKnowledgeFolder] = useState('');
+  const [knowledgeFolder, setKnowledgeFolderState] = useState('');
+  const [pinCapMessage, setPinCapMessage] = useState('');
   const [isMessagesLoaded, setIsMessagesLoaded] = useState(false);
   const [notFound, setNotFound] = useState(false);
 
@@ -445,6 +457,38 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
   const wcmsHtmlReadyRef = useRef(false);
   const knowledgeFolderRef = useRef(knowledgeFolder);
   knowledgeFolderRef.current = knowledgeFolder;
+
+  const persistKnowledgeFolder = useCallback((chat: string | undefined, value: string) => {
+    if (!chat) return;
+    if (value) safeLocalStorageSet(`knowledgeFolder:${chat}`, value);
+    else {
+      try {
+        if (typeof window !== 'undefined') localStorage.removeItem(`knowledgeFolder:${chat}`);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, []);
+
+  const setKnowledgeFolder = useCallback(
+    (path: string) => {
+      const normalized = formatKnowledgePins(parseKnowledgePins(path));
+      setKnowledgeFolderState(normalized);
+      setPinCapMessage('');
+      persistKnowledgeFolder(chatId, normalized);
+    },
+    [chatId, persistKnowledgeFolder],
+  );
+
+  const toggleKnowledgePin = useCallback(
+    (key: string) => {
+      const result = toggleKnowledgePinValue(knowledgeFolderRef.current, key);
+      setKnowledgeFolderState(result.value);
+      setPinCapMessage(result.reason ?? '');
+      persistKnowledgeFolder(chatId, result.value);
+    },
+    [chatId, persistKnowledgeFolder],
+  );
   const setWcmsHtml = useCallback((html: string) => {
     wcmsEditedDuringLoad.current = true;
     wcmsHtmlReadyRef.current = true;
@@ -686,6 +730,13 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       setNotFound(false);
       setNewChatCreated(false);
       setDocumentId(null);
+      const stored = params.chatId
+        ? safeLocalStorageGet(`knowledgeFolder:${params.chatId}`)
+        : '';
+      setKnowledgeFolderState(
+        stored ? formatKnowledgePins(parseKnowledgePins(stored)) : '',
+      );
+      setPinCapMessage('');
     }
   }, [params.chatId, chatId]);
 
@@ -716,6 +767,7 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
         setWcmsContentId,
         setWcmsPageIndex,
         setWcmsLang,
+        setKnowledgeFolder,
       });
       return;
     }
@@ -1185,6 +1237,8 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       wcmsFileBaseHref,
       knowledgeFolder,
       setKnowledgeFolder,
+      toggleKnowledgePin,
+      pinCapMessage,
       rewrite,
       sendMessage,
       stop,
@@ -1218,6 +1272,9 @@ export const ChatProvider = ({ children }: { children: React.ReactNode }) => {
       wcmsTitle,
       wcmsFileBaseHref,
       knowledgeFolder,
+      pinCapMessage,
+      setKnowledgeFolder,
+      toggleKnowledgePin,
       handleSetFocusMode,
       rewrite,
       sendMessage,
