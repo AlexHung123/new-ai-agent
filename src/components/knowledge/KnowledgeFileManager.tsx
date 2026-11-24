@@ -14,10 +14,10 @@ import {
   enclosingStructuredNode,
   fileCountInNode,
   fileTaskIds,
-  findFileForSearchHit,
   isStructuredKnowledgeNode,
   nodeAtPath,
   parentKnowledgePath,
+  resolveSearchHitDisplay,
   structuredIndexFile,
 } from '@/lib/knowledge/tree';
 import {
@@ -391,9 +391,9 @@ export default function KnowledgeFileManager() {
   };
 
   const onOpenHit = (hit: KnowledgeSearchHit) => {
-    const meta = findFileForSearchHit(tree, hit);
-    if (meta) {
-      void onOpenFile(meta.id, hit.title || meta.original_filename);
+    const resolved = resolveSearchHitDisplay(tree, hit);
+    if (resolved.file) {
+      void onOpenFile(resolved.file.id, resolved.title);
       return;
     }
     clearPreview();
@@ -519,6 +519,7 @@ export default function KnowledgeFileManager() {
       items={listingItems}
       hits={hits}
       searching={hits !== null}
+      tree={tree}
       tasks={tasks}
       onOpenDir={selectFolder}
       onOpenStructured={openStructured}

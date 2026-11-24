@@ -95,7 +95,11 @@ describe('knowledge UI contracts', () => {
     expect(manager).toMatch(/limit: 10/);
     expect(manager).toMatch(/vsearch/);
     expect(manager).toMatch(/content\?tree=markdown/);
-    expect(manager).toMatch(/findFileForSearchHit/);
+    expect(manager).toMatch(/resolveSearchHitDisplay/);
+    expect(listing).toMatch(/resolveSearchHitDisplay/);
+    expect(listing).toMatch(/resolved\.title/);
+    expect(listing).toMatch(/hit\.snippet/);
+    expect(listing).not.toMatch(/hit\.title \|\| hit\.file/);
     expect(listing).toMatch(/onOpenHit/);
     expect(preview).toMatch(/markdown-to-jsx/);
     expect(preview).toMatch(/File not found/);

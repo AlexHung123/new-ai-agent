@@ -14,6 +14,8 @@ import {
   latestCreatedAt,
   nodeAtPath,
   parentKnowledgePath,
+  resolveSearchHitDisplay,
+  searchHitDisplayTitle,
   structuredIndexFile,
   usedBytesFromTree,
 } from './tree';
@@ -113,6 +115,42 @@ describe('tree walk', () => {
     );
     expect(findFileByDochubPath(tree, 'contracts/2024/report.pdf')?.id).toBe('file-1');
     expect(findFileByDochubPath(tree, 'missing.md')).toBeNull();
+  });
+
+  it('uses the original filename as the search hit title instead of the qmd title', () => {
+    const hit = {
+      file: 'qmd://markdown/contracts/2024/report.md',
+      title: 'From planning to AI-Native',
+      snippet: '(13 before, 216 after) From planning to AI-Native',
+    };
+    const resolved = resolveSearchHitDisplay(tree, hit);
+    expect(resolved.file?.id).toBe('file-1');
+    expect(resolved.title).toBe('report.pdf');
+    expect(searchHitDisplayTitle(hit, resolved.file)).toBe('report.pdf');
+  });
+
+  it('falls back to the current title when no original filename is available', () => {
+    const hit = {
+      file: 'qmd://markdown/missing.md',
+      title: 'planning heading',
+      snippet: 'planning',
+    };
+    expect(resolveSearchHitDisplay(tree, hit)).toEqual({
+      title: 'planning heading',
+      file: null,
+    });
+    expect(
+      searchHitDisplayTitle(hit, {
+        id: 'x',
+        original_filename: '   ',
+        inbox_relpath: 'x',
+        markdown_relpath: 'x.md',
+        size_bytes: 1,
+      }),
+    ).toBe('planning heading');
+    expect(
+      searchHitDisplayTitle({ file: 'qmd://markdown/missing.md' }),
+    ).toBe('qmd://markdown/missing.md');
   });
 });
 
@@ -221,5 +259,23 @@ describe('structured knowledge nodes', () => {
     expect(flattenKnowledgeNodes(structuredTree).map((n) => n.path)).toContain(
       'acqn/wiki/chapters/00-introduction.md',
     );
+  });
+
+  it('titles structured search hits with the document name, not wiki paths', () => {
+    const chapter = resolveSearchHitDisplay(structuredTree, {
+      file: 'qmd://markdown/acqn/wiki/chapters/00-introduction.md',
+      title: 'Introduction',
+      snippet: 'overview of the policy',
+    });
+    expect(chapter.title).toBe('acqn');
+    expect(chapter.file).toBeNull();
+
+    const index = resolveSearchHitDisplay(structuredTree, {
+      file: 'acqn/wiki/index.md',
+      title: 'Index',
+      snippet: 'contents',
+    });
+    expect(index.file?.id).toBe('idx-1');
+    expect(index.title).toBe('acqn');
   });
 });

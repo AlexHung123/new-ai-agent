@@ -211,16 +211,38 @@ export function findFileForSearchHit(
   root: KnowledgeTreeNode,
   hit: KnowledgeSearchHit,
 ): KnowledgeFileMeta | null {
+  return findFileByDochubPath(root, hit.file || '');
+}
+
+function nonEmpty(value: unknown): value is string {
+  return typeof value === 'string' && value.trim() !== '';
+}
+
+/** User-facing title for a Knowledge search hit. Prefers the uploaded filename. */
+export function searchHitDisplayTitle(
+  hit: KnowledgeSearchHit,
+  file?: KnowledgeFileMeta | null,
+  structuredName?: string | null,
+): string {
+  if (nonEmpty(structuredName)) return structuredName.trim();
+  if (nonEmpty(file?.original_filename)) return file.original_filename.trim();
+  if (nonEmpty(hit.title)) return hit.title.trim();
+  if (nonEmpty(hit.file)) return hit.file;
+  return '';
+}
+
+/** Resolve a search hit to its tree file and the title shown in the files list. */
+export function resolveSearchHitDisplay(
+  root: KnowledgeTreeNode,
+  hit: KnowledgeSearchHit,
+): { title: string; file: KnowledgeFileMeta | null } {
+  const file = findFileForSearchHit(root, hit);
   const rel = stripQmdMarkdownPath(hit.file || '');
-  if (!rel) return null;
-  let found: KnowledgeFileMeta | null = null;
-  walkFiles(root, (file) => {
-    if (found) return;
-    if (file.markdown_relpath === rel || file.inbox_relpath === rel) {
-      found = file;
-    }
-  });
-  return found;
+  const structured = rel ? enclosingStructuredNode(root, rel) : null;
+  return {
+    title: searchHitDisplayTitle(hit, file, structured?.name),
+    file,
+  };
 }
 
 export function stampLibrary(

@@ -5,7 +5,10 @@ import {
   formatStorageBytes,
 } from '@/lib/knowledge/storage';
 import { parseLabel } from '@/lib/knowledge/taskStatus';
-import { isStructuredKnowledgeNode } from '@/lib/knowledge/tree';
+import {
+  isStructuredKnowledgeNode,
+  resolveSearchHitDisplay,
+} from '@/lib/knowledge/tree';
 import type {
   KnowledgeFileMeta,
   KnowledgeSearchHit,
@@ -23,6 +26,7 @@ export default function KnowledgeListing({
   items,
   hits,
   searching,
+  tree,
   tasks,
   onOpenDir,
   onOpenStructured,
@@ -34,6 +38,7 @@ export default function KnowledgeListing({
   items: KnowledgeTreeNode[];
   hits: KnowledgeSearchHit[] | null;
   searching: boolean;
+  tree: KnowledgeTreeNode;
   tasks: Record<string, KnowledgeTask>;
   onOpenDir: (path: string) => void;
   onOpenStructured: (path: string) => void;
@@ -66,32 +71,62 @@ export default function KnowledgeListing({
                 </tr>
               </thead>
               <tbody>
-                {hits.map((hit, index) => (
-                  <tr key={`${hit.file}-${index}`}>
-                    <td>
-                      <button
-                        type="button"
-                        className="knowledge-hit"
-                        data-hit-file={hit.file}
-                        onClick={() => onOpenHit(hit)}
-                      >
-                        <strong>{hit.title || hit.file}</strong>
-                        <span>{hit.snippet}</span>
-                      </button>
-                    </td>
-                    <td>—</td>
-                    <td />
-                    <td>
-                      <button
-                        type="button"
-                        className="knowledge-action"
-                        onClick={() => onOpenHit(hit)}
-                      >
-                        Preview
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {hits.map((hit, index) => {
+                  const resolved = resolveSearchHitDisplay(tree, hit);
+                  const meta = resolved.file;
+                  const taskId = meta?.task_id;
+                  const label = meta
+                    ? parseLabel(taskId ? tasks[taskId] : null)
+                    : null;
+                  return (
+                    <tr key={`${hit.file}-${index}`}>
+                      <td>
+                        <button
+                          type="button"
+                          className="knowledge-hit"
+                          data-hit-file={hit.file}
+                          onClick={() => onOpenHit(hit)}
+                        >
+                          <strong>{resolved.title}</strong>
+                          {meta ? (
+                            <span className="knowledge-file-sub">
+                              {formatStorageBytes(meta.size_bytes)}
+                            </span>
+                          ) : null}
+                          {hit.snippet ? <span>{hit.snippet}</span> : null}
+                        </button>
+                      </td>
+                      <td>
+                        {meta
+                          ? formatKnowledgeDateTime(meta.created_at)
+                          : '—'}
+                      </td>
+                      <td>
+                        {label ? (
+                          <span
+                            className={parseClass(label)}
+                            title={
+                              label === 'Failed'
+                                ? tasks[taskId || '']?.last_error || undefined
+                                : undefined
+                            }
+                          >
+                            {label}
+                          </span>
+                        ) : null}
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className="knowledge-action"
+                          onClick={() => onOpenHit(hit)}
+                        >
+                          Preview
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
