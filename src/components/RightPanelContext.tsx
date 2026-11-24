@@ -17,6 +17,7 @@ import {
   usesRightPanel,
 } from '@/lib/chat/rightPanel';
 import { isKnowledgeFocusMode } from '@/lib/agents';
+import { useChat } from '@/lib/hooks/useChat';
 import {
   activeTabAfterClose,
   closePreviewTab as removePreviewTab,

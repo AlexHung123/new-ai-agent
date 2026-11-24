@@ -145,6 +145,25 @@ describe('right panel layout contract', () => {
     expect(context).toMatch(/setOpenState\(true\)/);
   });
 
+  it('imports useChat and nests RightPanelProvider inside ChatProvider', () => {
+    const context = readSrc('../../components/RightPanelContext.tsx');
+    const layout = readSrc('../../app/layout.tsx');
+    expect(context).toMatch(
+      /import \{ useChat \} from '@\/lib\/hooks\/useChat'/,
+    );
+    expect(context).toMatch(/const \{ focusMode \} = useChat\(\)/);
+    expect(layout).toMatch(/ChatProvider/);
+    expect(layout).toMatch(/RightPanelProvider/);
+    const chatOpen = layout.indexOf('<ChatProvider>');
+    const panelOpen = layout.indexOf('<RightPanelProvider>');
+    const panelClose = layout.indexOf('</RightPanelProvider>');
+    const chatClose = layout.indexOf('</ChatProvider>');
+    expect(chatOpen).toBeGreaterThanOrEqual(0);
+    expect(panelOpen).toBeGreaterThan(chatOpen);
+    expect(panelClose).toBeGreaterThan(panelOpen);
+    expect(chatClose).toBeGreaterThan(panelClose);
+  });
+
   it('keeps the writing left rail when the right panel is open', () => {
     const css = readSrc('../../app/globals.css');
     expect(css).not.toMatch(
