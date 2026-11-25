@@ -66,7 +66,7 @@ describe('loadWritingTurnContext', () => {
     });
   });
 
-  it('detects a structured public folder from wiki/index.md', async () => {
+  it('pins a structured public folder as ordinary Dochub search', async () => {
     const publicTree: KnowledgeTreeNode = {
       type: 'dir',
       name: '',
@@ -76,6 +76,7 @@ describe('loadWritingTurnContext', () => {
           type: 'dir',
           name: 'spr',
           path: 'spr',
+          wiki: true,
           children: [
             {
               type: 'dir',
@@ -106,7 +107,11 @@ describe('loadWritingTurnContext', () => {
     });
     expect(ctx.pin).toBe('spr');
     expect(ctx.pinLibrary).toBe('public');
-    expect(ctx.retrievalMode).toBe('wiki');
+    expect(ctx.retrievalMode).toBe('search');
+    expect(ctx.wikiRootAbs).toBeUndefined();
+    expect(ctx.scopes).toEqual([
+      { path: 'spr', library: 'public', retrievalMode: 'search' },
+    ]);
   });
 
   it('keeps ordinary private folders on search retrieval', async () => {
@@ -200,6 +205,46 @@ describe('loadWritingTurnContext', () => {
     expect(ctx.publicTree?.children?.map((child) => child.name)).toEqual(['spr']);
   });
 
+  it('does not bind hidden public sfc from a legacy documentId', async () => {
+    const publicTree: KnowledgeTreeNode = {
+      type: 'dir',
+      name: '',
+      path: '',
+      children: [
+        {
+          type: 'dir',
+          name: 'sfc',
+          path: 'sfc',
+          children: [],
+        },
+        {
+          type: 'dir',
+          name: 'spr',
+          path: 'spr',
+          wiki: true,
+          children: [],
+        },
+      ],
+    };
+    const ctx = await loadWritingTurnContext({
+      userId: '1',
+      text: 'hello',
+      documentId: 'sfc',
+      loadTree: async (_userId, deps) => ({
+        user_id: '1',
+        tree:
+          deps?.library === 'public'
+            ? publicTree
+            : { type: 'dir', name: '', path: '', children: [] },
+      }),
+      loadStatus: async () => ({ ok: true }),
+    });
+    expect(ctx.pin).toBeNull();
+    expect(ctx.scopes).toEqual([]);
+    expect(ctx.wikiRootAbs).toBeUndefined();
+    expect(ctx.publicTree?.children?.map((child) => child.name)).toEqual(['spr']);
+  });
+
   it('routes mixed private, public, and structured scopes separately', async () => {
     const privateTree: KnowledgeTreeNode = {
       type: 'dir',
@@ -245,13 +290,9 @@ describe('loadWritingTurnContext', () => {
     expect(ctx.scopes).toEqual([
       { path: 'writing', library: 'private', retrievalMode: 'search' },
       { path: 'testing1', library: 'public', retrievalMode: 'search' },
-      expect.objectContaining({
-        path: 'spr',
-        library: 'public',
-        retrievalMode: 'wiki',
-      }),
+      { path: 'spr', library: 'public', retrievalMode: 'search' },
     ]);
-    expect(ctx.scopes?.[2]?.wikiTitle).toBeTruthy();
+    expect(ctx.wikiRootAbs).toBeUndefined();
   });
 
   it('keeps knowledge unbound when there is no pin and no @', async () => {

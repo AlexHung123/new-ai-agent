@@ -2,6 +2,7 @@ const SECRET_CONFIG_KEYS = [
   'adminUserIds',
   'bypassPermissionCheck',
   'dochub',
+  'knowledge',
 ] as const;
 
 export function publicConfigValues<T extends Record<string, unknown>>(

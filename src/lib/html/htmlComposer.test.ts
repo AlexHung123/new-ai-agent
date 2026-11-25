@@ -55,7 +55,7 @@ describe('HTML explainer feature removed', () => {
     expect(ctx).toMatch(
       /tools: \['search', 'read'\]/,
     );
-    expect(ctx).toMatch(/SHARED_AGENT_CONTEXT_REV = 18/);
+    expect(ctx).toMatch(/SHARED_AGENT_CONTEXT_REV = 19/);
     expect(ctx).toMatch(/'html-agent-template'/);
     expect(ctx).toMatch(/tools: \['html_get', 'html_set'\]/);
   });
@@ -76,6 +76,13 @@ describe('HTML explainer feature removed', () => {
       expect(docker, name).not.toMatch(/COPY skills \.\/skills/);
       expect(docker, name).not.toMatch(/COPY vendor \.\/vendor/);
       expect(docker, name).not.toMatch(/answer-me-with-html/);
+    }
+  });
+
+  it('copies data/prompts into both Docker images', () => {
+    for (const name of ['Dockerfile', 'Dockerfile.slim']) {
+      const docker = readFileSync(path.join(process.cwd(), name), 'utf8');
+      expect(docker, name).toMatch(/COPY data\/prompts \.\/data\/prompts/);
     }
   });
 

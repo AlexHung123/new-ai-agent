@@ -4,6 +4,7 @@ import {
   DEFAULT_RESPONSE_FORMAT,
   DEFAULT_TTS_BASE_URL,
   DEFAULT_TTS_MAX_TOKENS,
+  DEFAULT_TTS_MODEL,
   buildVoxcpmSpeechBody,
   encodeAudioDataUri,
   parseSpeechFields,
@@ -35,7 +36,7 @@ describe('resolveTtsConfig', () => {
 
     expect(resolveTtsConfig(undefined, {})).toEqual({
       baseUrl: DEFAULT_TTS_BASE_URL,
-      model: 'mlx-community/VoxCPM2-4bit',
+      model: DEFAULT_TTS_MODEL,
       maxTokens: DEFAULT_TTS_MAX_TOKENS,
       responseFormat: DEFAULT_RESPONSE_FORMAT,
       maxRefAudioBytes: DEFAULT_MAX_REF_AUDIO_BYTES,
@@ -59,7 +60,7 @@ describe('resolveTtsConfig', () => {
       ),
     ).toEqual({
       baseUrl: 'http://tts.local:9000',
-      model: 'mlx-community/VoxCPM2-4bit',
+      model: DEFAULT_TTS_MODEL,
       maxTokens: 512,
       responseFormat: 'mp3',
       maxRefAudioBytes: 2048,
@@ -119,12 +120,12 @@ describe('parseSpeechFields', () => {
   it('accepts an allowlisted TTS model', () => {
     const result = parseSpeechFields({
       input: '你好',
-      model: 'OpenMOSS-Team/MOSS-TTS-v1.5',
+      model: DEFAULT_TTS_MODEL,
       file: { bytes: wavBytes, mimeType: 'audio/wav', name: 'ref.wav' },
     });
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.data.model).toBe('OpenMOSS-Team/MOSS-TTS-v1.5');
+      expect(result.data.model).toBe(DEFAULT_TTS_MODEL);
     }
   });
 
@@ -178,7 +179,7 @@ describe('parseSpeechFormData', () => {
   it('reads the selected TTS model from multipart fields', async () => {
     const form = new FormData();
     form.set('input', '你好');
-    form.set('model', 'OpenMOSS-Team/MOSS-TTS-v1.5');
+    form.set('model', DEFAULT_TTS_MODEL);
     form.set(
       'ref_audio',
       new File([wavBytes], 'ref.wav', { type: 'audio/wav' }),
@@ -187,7 +188,7 @@ describe('parseSpeechFormData', () => {
     const result = await parseSpeechFormData(form);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.data.model).toBe('OpenMOSS-Team/MOSS-TTS-v1.5');
+    expect(result.data.model).toBe(DEFAULT_TTS_MODEL);
   });
 });
 
@@ -205,13 +206,13 @@ describe('buildVoxcpmSpeechBody', () => {
     expect(
       buildVoxcpmSpeechBody(parsed.data, {
         baseUrl: 'http://192.168.1.56:8020/voice',
-        model: 'mlx-community/VoxCPM2-4bit',
+        model: DEFAULT_TTS_MODEL,
         maxTokens: 2000,
         responseFormat: 'wav',
         maxRefAudioBytes: 10 * 1024 * 1024,
       }),
     ).toEqual({
-      model: 'mlx-community/VoxCPM2-4bit',
+      model: DEFAULT_TTS_MODEL,
       input: '你好，歡迎使用粵語語音合成。',
       ref_audio: encodeAudioDataUri(wavBytes, 'audio/wav'),
       ref_text:
@@ -232,13 +233,13 @@ describe('buildVoxcpmSpeechBody', () => {
     expect(
       buildVoxcpmSpeechBody(parsed.data, {
         baseUrl: 'http://192.168.1.56:8020/voice',
-        model: 'mlx-community/VoxCPM2-4bit',
+        model: DEFAULT_TTS_MODEL,
         maxTokens: 2000,
         responseFormat: 'mp3',
         maxRefAudioBytes: 10 * 1024 * 1024,
       }),
     ).toEqual({
-      model: 'mlx-community/VoxCPM2-4bit',
+      model: DEFAULT_TTS_MODEL,
       input: '你好，歡迎使用粵語語音合成。',
       ref_audio: encodeAudioDataUri(wavBytes, 'audio/wav'),
       response_format: 'mp3',
@@ -284,7 +285,7 @@ describe('synthesizeSpeech', () => {
       'Content-Type': 'application/json',
     });
     expect(JSON.parse(String(calls[0].init.body))).toMatchObject({
-      model: 'mlx-community/VoxCPM2-4bit',
+      model: DEFAULT_TTS_MODEL,
       input: '你好',
       ref_text: '參考文本',
       response_format: 'wav',
@@ -300,14 +301,14 @@ describe('synthesizeSpeech', () => {
         refText: '',
         refAudioBytes: wavBytes,
         refAudioMimeType: 'audio/wav',
-        model: 'OpenMOSS-Team/MOSS-TTS-v1.5',
+        model: DEFAULT_TTS_MODEL,
       },
       {
         tts: {
           baseUrl: 'http://192.168.1.56:8020/voice',
         },
         env: {
-          TTS_MODEL: 'mlx-community/VoxCPM2-4bit',
+          TTS_MODEL: 'ignored-env-model',
         },
         fetchImpl: async (url, init) => {
           calls.push({ url: String(url), init: init ?? {} });
@@ -320,9 +321,7 @@ describe('synthesizeSpeech', () => {
     );
 
     expect(result.ok).toBe(true);
-    expect(JSON.parse(String(calls[0].init.body)).model).toBe(
-      'OpenMOSS-Team/MOSS-TTS-v1.5',
-    );
+    expect(JSON.parse(String(calls[0].init.body)).model).toBe(DEFAULT_TTS_MODEL);
   });
 
   it('surfaces FastAPI detail from a failed TTS response', async () => {

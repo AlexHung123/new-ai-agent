@@ -16,6 +16,7 @@ COPY drizzle ./drizzle
 
 RUN mkdir -p /home/aiagent/data
 COPY data/documents ./data/documents
+COPY data/prompts ./data/prompts
 RUN npm run build
 
 FROM node:24.5.0-slim

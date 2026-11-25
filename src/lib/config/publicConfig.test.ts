@@ -38,6 +38,17 @@ describe('publicConfigValues', () => {
     expect(published).not.toHaveProperty('dochub');
     expect(input.dochub.baseUrl).toBe('http://192.168.1.56:8787');
   });
+
+  it('omits knowledge including publicCurators without mutating the input', () => {
+    const input = {
+      version: 1,
+      knowledge: { publicCurators: ['1', '42'] },
+      preferences: { theme: 'dark' },
+    };
+    const published = publicConfigValues(input);
+    expect(published).not.toHaveProperty('knowledge');
+    expect(input.knowledge.publicCurators).toEqual(['1', '42']);
+  });
 });
 
 describe('isForbiddenConfigKey', () => {
@@ -56,5 +67,10 @@ describe('isForbiddenConfigKey', () => {
   it('blocks dochub and nested paths', () => {
     expect(isForbiddenConfigKey('dochub')).toBe(true);
     expect(isForbiddenConfigKey('dochub.baseUrl')).toBe(true);
+  });
+
+  it('blocks knowledge and nested paths', () => {
+    expect(isForbiddenConfigKey('knowledge')).toBe(true);
+    expect(isForbiddenConfigKey('knowledge.publicCurators')).toBe(true);
   });
 });

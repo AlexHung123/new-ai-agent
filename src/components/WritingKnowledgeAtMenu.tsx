@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { FileText, Folder, Globe, Lock } from 'lucide-react';
 import {
+  knowledgeMentionMatches,
   knowledgeMentionToken,
   type KnowledgeLibrary,
 } from '@/lib/knowledge/library';
@@ -37,15 +38,14 @@ function listedNodes(
       library,
       token: knowledgeMentionToken({ library, path: node.path }),
     }))
-    .filter((node) => {
-      if (!query) return true;
-      return (
-        node.name.toLowerCase().includes(query) ||
-        node.path.toLowerCase().includes(query) ||
-        node.token.toLowerCase().includes(query) ||
-        library.includes(query)
-      );
-    });
+    .filter((node) =>
+      knowledgeMentionMatches({
+        name: node.name,
+        path: node.path,
+        library,
+        query,
+      }),
+    );
 }
 
 export default function WritingKnowledgeAtMenu({

@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
 import { search } from '@/lib/knowledge/dochubClient';
 import { jsonFromUnknownError, unauthorized, userIdFrom } from '@/lib/knowledge/http';
-import { parseKnowledgeLibrary, parseKnowledgeLibraryStrict } from '@/lib/knowledge/library';
+import {
+  filterHiddenPublicHits,
+  isHiddenPublicFolder,
+  parseKnowledgeLibrary,
+  parseKnowledgeLibraryStrict,
+} from '@/lib/knowledge/library';
 import { isSafeRelativePath } from '@/lib/knowledge/paths';
 import { normalizeSearchRequest } from '@/lib/knowledge/search';
 import type { KnowledgeLibraryName } from '@/lib/knowledge/types';
@@ -10,13 +15,13 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 function tagResults(result: Record<string, unknown>, library: KnowledgeLibraryName) {
-  const results = Array.isArray(result.results)
-    ? result.results.map((item) =>
-        item && typeof item === 'object'
-          ? { ...(item as Record<string, unknown>), library }
-          : item,
-      )
-    : [];
+  const raw = Array.isArray(result.results) ? result.results : [];
+  const visible = library === 'public' ? filterHiddenPublicHits(raw) : raw;
+  const results = visible.map((item) =>
+    item && typeof item === 'object'
+      ? { ...(item as Record<string, unknown>), library }
+      : item,
+  );
   return { ...result, library, results };
 }
 
@@ -48,6 +53,9 @@ export async function POST(req: Request) {
     typeof rec.path === 'string' && rec.path.trim() && isSafeRelativePath(rec.path.trim())
       ? rec.path.trim()
       : undefined;
+  if (!searchBoth && library === 'public' && path && isHiddenPublicFolder(path)) {
+    return NextResponse.json({ message: 'Invalid path' }, { status: 400 });
+  }
   const input = {
     query: parsed.query,
     mode: parsed.mode,
@@ -61,7 +69,9 @@ export async function POST(req: Request) {
     }
     const [privateResult, publicResult] = await Promise.allSettled([
       search(userId, input, { library: 'private' }),
-      search(userId, input, { library: 'public' }),
+      path && isHiddenPublicFolder(path)
+        ? Promise.resolve({ results: [] })
+        : search(userId, input, { library: 'public' }),
     ]);
     const privateBody =
       privateResult.status === 'fulfilled'

@@ -4,7 +4,11 @@ import { getTree } from '@/lib/knowledge/dochubClient';
 import { jsonFromUnknownError, unauthorized, userIdFrom } from '@/lib/knowledge/http';
 import { isHiddenPublicFolder } from '@/lib/knowledge/library';
 import { canWritePublicLibrary } from '@/lib/knowledge/publicAccess';
-import { quotaForUser, storageForTree } from '@/lib/knowledge/storage';
+import {
+  quotaForLibrary,
+  quotaForUser,
+  storageForTree,
+} from '@/lib/knowledge/storage';
 import { filterTree, stampLibrary } from '@/lib/knowledge/tree';
 import type { KnowledgeTreeNode } from '@/lib/knowledge/types';
 
@@ -44,15 +48,21 @@ export async function GET(req: Request) {
         : emptyTree('public');
     publicTree = filterTree(publicTree, (node) => !isHiddenPublicFolder(node.path));
     const config = getDochubConfig();
-    const storage = storageForTree(
-      privateTree,
-      quotaForUser(userId, config.maxUserBytes, config.userQuotaBytes),
+    const privateQuota = quotaForUser(
+      userId,
+      config.maxUserBytes,
+      config.userQuotaBytes,
+    );
+    const storage = storageForTree(privateTree, privateQuota);
+    const publicStorage = storageForTree(
+      publicTree,
+      quotaForLibrary('public', userId, config.maxUserBytes, config.userQuotaBytes),
     );
     return NextResponse.json({
       user_id: userId,
       tree: privateTree,
       private: { tree: privateTree, storage },
-      public: { tree: publicTree },
+      public: { tree: publicTree, storage: publicStorage },
       canWritePublic,
       storage,
     });

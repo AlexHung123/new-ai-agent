@@ -128,6 +128,19 @@ function longestCommonParent(filePaths: string[]): string | null {
   return first.slice(0, i).join('/');
 }
 
+function isPinableFolder(
+  library: 'private' | 'public',
+  path: string,
+  privateTree: KnowledgeTreeNode | null,
+  publicTree: KnowledgeTreeNode | null,
+): boolean {
+  if (!path || !isSafeRelativePath(path)) return false;
+  if (library === 'public' && isHiddenPublicFolder(path)) return false;
+  const tree = library === 'public' ? publicTree : privateTree;
+  const node = tree ? nodeAtPath(tree, path) : null;
+  return node?.type === 'dir';
+}
+
 export function resolveWritingKnowledgePin(input: {
   text: string;
   tree: KnowledgeTreeNode | null;
@@ -225,10 +238,9 @@ export function resolveWritingKnowledgePin(input: {
 
   const selected: WritingPinScope[] = [];
   for (const parsed of parseKnowledgePins(input.selectedFolder)) {
-    if (!parsed.path || !isSafeRelativePath(parsed.path)) continue;
-    const treeForLib = parsed.library === 'public' ? publicTree : privateTree;
-    const node = treeForLib ? nodeAtPath(treeForLib, parsed.path) : null;
-    if (parsed.library === 'public' || node?.type === 'dir') {
+    if (
+      isPinableFolder(parsed.library, parsed.path, privateTree, publicTree)
+    ) {
       selected.push({ path: parsed.path, library: parsed.library });
     }
   }
@@ -237,6 +249,7 @@ export function resolveWritingKnowledgePin(input: {
   const seenPins = new Set<string>();
   const addPin = (scope: WritingPinScope) => {
     if (!scope.path || pins.length >= MAX_KNOWLEDGE_PINS) return;
+    if (scope.library === 'public' && isHiddenPublicFolder(scope.path)) return;
     const key = `${scope.library}:${scope.path}`;
     if (seenPins.has(key)) return;
     seenPins.add(key);
@@ -266,14 +279,12 @@ export function resolveWritingKnowledgePin(input: {
     const raw = input.documentId.trim();
     const parsed = parseKnowledgePin(raw);
     const path = parsed?.path || raw;
-    if (path && isSafeRelativePath(path)) {
-      addPin({
-        path,
-        library:
-          raw.includes(':') || raw.startsWith('public/')
-            ? parsed?.library || 'public'
-            : 'public',
-      });
+    const library =
+      raw.includes(':') || raw.startsWith('public/') || raw.startsWith('shared/')
+        ? parsed?.library || 'public'
+        : 'public';
+    if (isPinableFolder(library, path, privateTree, publicTree)) {
+      addPin({ path, library });
     }
   }
 

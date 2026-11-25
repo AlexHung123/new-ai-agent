@@ -106,10 +106,22 @@ export function fileTaskIds(root: KnowledgeTreeNode): string[] {
   return ids;
 }
 
+export function storedBytesFromFile(file: {
+  size_bytes?: number;
+  inbox_relpath?: string | null;
+  markdown_relpath?: string | null;
+}): number {
+  const size = Math.max(0, Number(file.size_bytes) || 0);
+  const inbox = (file.inbox_relpath || '').trim();
+  const markdown = (file.markdown_relpath || '').trim();
+  if (inbox && markdown) return size * 2;
+  return size;
+}
+
 export function usedBytesFromTree(root: KnowledgeTreeNode): number {
   let sum = 0;
   walkFiles(root, (file) => {
-    sum += Number(file.size_bytes) || 0;
+    sum += storedBytesFromFile(file);
   });
   return sum;
 }

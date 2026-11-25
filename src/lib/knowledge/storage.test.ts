@@ -3,8 +3,10 @@ import {
   DEFAULT_MAX_USER_BYTES,
   formatStorageBytes,
   quotaExceededMessage,
+  quotaForLibrary,
   quotaForUser,
   storageUsage,
+  storedUploadBytes,
   wouldExceedQuota,
 } from './storage';
 
@@ -24,6 +26,28 @@ describe('quotaForUser', () => {
     expect(
       quotaForUser('1', DEFAULT_MAX_USER_BYTES, { '1': 10 * 1024 * 1024 }),
     ).toBe(10 * 1024 * 1024);
+  });
+});
+
+describe('quotaForLibrary', () => {
+  it('uses the shared max for public and the per-user cap for private', () => {
+    expect(
+      quotaForLibrary('public', '1', DEFAULT_MAX_USER_BYTES, {
+        '1': 10 * 1024 * 1024,
+      }),
+    ).toBe(DEFAULT_MAX_USER_BYTES);
+    expect(
+      quotaForLibrary('private', '1', DEFAULT_MAX_USER_BYTES, {
+        '1': 10 * 1024 * 1024,
+      }),
+    ).toBe(10 * 1024 * 1024);
+  });
+});
+
+describe('storedUploadBytes', () => {
+  it('counts original bytes plus the converted markdown', () => {
+    expect(storedUploadBytes(8, '# Hello\n')).toBe(8 + Buffer.byteLength('# Hello\n', 'utf8'));
+    expect(storedUploadBytes(100, '')).toBe(100);
   });
 });
 

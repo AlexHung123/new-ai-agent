@@ -1,7 +1,6 @@
 import {
   getWritingTurnContext,
   writingTurnScopes,
-  writingWikiScopes,
   writingScopeLabel,
   type WritingTurnContext,
 } from '../runtime/writingTurnContext';
@@ -17,10 +16,6 @@ export function writingToolsForTurn(
     return [];
   }
   return [...WRITING_KNOWLEDGE_TOOLS];
-}
-
-function kindLabel(mode: string | undefined): string {
-  return mode === 'wiki' ? 'structured' : 'ordinary';
 }
 
 const KNOWLEDGE_TOOL_GUIDE =
@@ -41,34 +36,19 @@ export function buildWritingUserPrompt(
   }
   if (scopes.length === 1) {
     const scope = scopes[0];
-    blocks.push(
-      `[Pinned folder]\n${writingScopeLabel(scope)} (${kindLabel(scope.retrievalMode)})\n`,
-    );
+    blocks.push(`[Pinned folder]\n${writingScopeLabel(scope)} (ordinary)\n`);
   } else if (scopes.length > 1) {
     const lines = scopes
-      .map(
-        (scope) =>
-          `- ${writingScopeLabel(scope)} (${kindLabel(scope.retrievalMode)})`,
-      )
+      .map((scope) => `- ${writingScopeLabel(scope)} (ordinary)`)
       .join('\n');
     blocks.push(
-      `[Pinned folders]\n${lines}\n${KNOWLEDGE_TOOL_GUIDE} Ordinary folders are searched with semantic or keyword query; structured folders with keyword search. Each hit is labeled with its source folder.\n`,
+      `[Pinned folders]\n${lines}\n${KNOWLEDGE_TOOL_GUIDE} Each hit is labeled with its source folder.\n`,
     );
   }
   if (scopes.length > 0 || ctx.mentionedDocuments.length > 0) {
     if (scopes.length <= 1) {
       blocks.push(`[Knowledge tools]\n${KNOWLEDGE_TOOL_GUIDE}\n`);
     }
-  }
-  const wikiScopes = writingWikiScopes(ctx);
-  for (const scope of wikiScopes) {
-    const title = scope.wikiTitle || scope.path || 'bound folder';
-    const source = writingScopeLabel(scope);
-    const sourceLine =
-      wikiScopes.length > 1 || scopes.length > 1 ? `Source: ${source}\n` : '';
-    blocks.push(
-      `[Structured folder]\nTitle: ${title}\n${sourceLine}This is a structured policy folder. Use search for keywords, then read the cited pages. You may read wiki/index.md first when you need the table of contents. Prefer reading several paths in one read. Do not repeat the same keyword search. Never use the word "wiki" or 「維基」 in the user-visible answer; call this the bound document.\n`,
-    );
   }
   if (ctx.contexts?.length) {
     const lines = ctx.contexts

@@ -38,3 +38,59 @@ export function stripQmdMarkdownPath(file: string): string {
   if (file.startsWith(prefix)) return file.slice(prefix.length);
   return file;
 }
+
+export type KnowledgeToolHit = {
+  source: string;
+  path: string;
+  line?: number;
+  snippet: string;
+};
+
+const SNIPPET_CHARS = 200;
+
+export function clipSnippet(text: string, max = SNIPPET_CHARS): string {
+  const trimmed = text.replace(/\s+/g, ' ').trim();
+  if (trimmed.length <= max) return trimmed;
+  return `${trimmed.slice(0, Math.max(0, max - 1))}…`;
+}
+
+function hitPath(raw: unknown): string | undefined {
+  if (typeof raw !== 'string' || !raw.trim()) return undefined;
+  return stripQmdMarkdownPath(raw.trim());
+}
+
+export function hitsFromSearchResults(
+  results: unknown[],
+  source: string,
+  limit: number,
+): KnowledgeToolHit[] {
+  const hits: KnowledgeToolHit[] = [];
+  for (const item of results) {
+    if (hits.length >= limit) break;
+    if (!item || typeof item !== 'object') continue;
+    const rec = item as Record<string, unknown>;
+    const path =
+      hitPath(rec.dochub_path) ||
+      hitPath(rec.path) ||
+      hitPath(rec.file) ||
+      hitPath(rec.filepath);
+    if (!path) continue;
+    const snippetRaw =
+      (typeof rec.snippet === 'string' && rec.snippet) ||
+      (typeof rec.text === 'string' && rec.text) ||
+      (typeof rec.content === 'string' && rec.content) ||
+      (typeof rec.preview === 'string' && rec.preview) ||
+      '';
+    const line =
+      typeof rec.line === 'number' && Number.isFinite(rec.line)
+        ? Math.max(1, Math.floor(rec.line))
+        : undefined;
+    hits.push({
+      source,
+      path,
+      ...(line ? { line } : {}),
+      snippet: clipSnippet(snippetRaw),
+    });
+  }
+  return hits;
+}

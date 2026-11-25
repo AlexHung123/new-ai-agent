@@ -73,6 +73,8 @@ describe('writing Knowledge FILES rail', () => {
     expect(menu).toMatch(/knowledgeMentionToken/);
     expect(menu).toMatch(/listedNodes\(publicTree, 'public'/);
     expect(menu).toMatch(/listedNodes\(privateTree, 'private'/);
+    expect(menu).toMatch(/knowledgeMentionMatches/);
+    expect(menu).not.toMatch(/library\.includes\(query\)/);
     const chat = readSrc('../hooks/useChat.tsx');
     expect(chat).toMatch(/knowledgeFolder:/);
     for (const src of [

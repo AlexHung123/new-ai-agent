@@ -42,6 +42,26 @@ export function quotaForUser(
   return maxUserBytes;
 }
 
+export function quotaForLibrary(
+  library: 'private' | 'public',
+  userId: string,
+  maxUserBytes: number,
+  userQuotaBytes?: Record<string, number>,
+): number {
+  if (library === 'public') return Math.max(0, Math.floor(maxUserBytes) || 0);
+  return quotaForUser(userId, maxUserBytes, userQuotaBytes);
+}
+
+export function storedUploadBytes(
+  originalBytes: number,
+  markdown: string,
+): number {
+  const original = Math.max(0, originalBytes);
+  const converted =
+    typeof markdown === 'string' ? Buffer.byteLength(markdown, 'utf8') : 0;
+  return original + converted;
+}
+
 export function storageUsage(
   usedBytes: number,
   quotaBytes: number,

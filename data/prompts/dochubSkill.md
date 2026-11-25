@@ -41,11 +41,11 @@ Retrieved:
 
 ## Pick the search mode
 
-One `search` call covers every pinned folder. Ordinary folders can use structured `searches`; structured (bound) folders always use keyword search and ignore `vec` / `hyde` / `mode: query`.
+One `search` call covers every pinned folder. Pins can use structured `searches` (lex / vec / hyde) or a bare `query`.
 
-**Exact words, titles, names, rare phrases** — `search` with `searches: [{ "type": "lex", "query": "..." }]` or a bare `query` (keyword search on structured folders; BM25 on ordinary folders).
+**Exact words, titles, names, rare phrases** — `search` with `searches: [{ "type": "lex", "query": "..." }]` or a bare `query` (BM25 keyword search).
 
-**Idea / paraphrase / conceptual recall** (ordinary folders only):
+**Idea / paraphrase / conceptual recall**:
 
 ```json
 {
@@ -61,16 +61,16 @@ One `search` call covers every pinned folder. Ordinary folders can use structure
 }
 ```
 
-These fields are sent through to ordinary-folder search. `lex` / `vec` / `hyde` stay on separate channels and are fused with RRF. Rerank is off by default; set `rerank: true` to enable the slower cross-encoder. Do not collapse them into one string. Structured folders still use the keyword string only.
+These fields are sent through to search. `lex` / `vec` / `hyde` stay on separate channels and are fused with RRF. Rerank is off by default; set `rerank: true` to enable the slower cross-encoder. Do not collapse them into one string.
 
 - `intent` — what to find and what to avoid.
 - `lex` — exact terms, aliases, titles you expect in the source.
 - `vec` — the idea in source-like wording.
 - `hyde` — a short passage that would satisfy the request.
 
-A bare `query: "<the user's sentence>"` throws away context only you have. Prefer structured `searches` for ordinary folders. If the user gave a single rare token, lex-only or a bare keyword is enough.
+A bare `query: "<the user's sentence>"` throws away context only you have. Prefer structured `searches`. If the user gave a single rare token, lex-only or a bare keyword is enough.
 
-A bare `query` with `mode: query` is expanded by the server into `lex:` + `vec:` for ordinary folders. If hybrid search times out, is busy, fails, or embeddings are not ready, the host retries keyword search automatically and may return `fallback.reason`. You usually do not need to retry. Do not repeat the same keyword search.
+A bare `query` with `mode: query` is expanded by the server into `lex:` + `vec:`. If hybrid search times out, is busy, fails, or embeddings are not ready, the host retries keyword search automatically and may return `fallback.reason`. You usually do not need to retry. Do not repeat the same keyword search.
 
 ## Folder scope
 

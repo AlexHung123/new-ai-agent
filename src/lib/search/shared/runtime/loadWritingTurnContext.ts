@@ -1,35 +1,12 @@
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
-import {
-  DOCUMENT_SLOTS,
-  documentRootAbs,
-} from '@/lib/documents/catalog';
 import { getStatus, getTree } from '@/lib/knowledge/dochubClient';
 import { isHiddenPublicFolder } from '@/lib/knowledge/library';
 import type { KnowledgeTreeNode } from '@/lib/knowledge/types';
-import {
-  filterTree,
-  isStructuredKnowledgeNode,
-  nodeAtPath,
-} from '@/lib/knowledge/tree';
+import { filterTree } from '@/lib/knowledge/tree';
 import { resolveWritingKnowledgePin } from '@/lib/knowledge/writingPin';
 import type { WritingTurnContext } from './writingTurnContext';
 
 const LIBRARY_UNAVAILABLE =
   'Knowledge service is unavailable. Knowledge tools will fail; do not retry search or read. Tell the user the knowledge library is unreachable.';
-
-function localWikiSlot(path: string | null) {
-  if (!path) return null;
-  const id = path.split('/').filter(Boolean)[0];
-  if (!id) return null;
-  const slot = DOCUMENT_SLOTS.find((item) => item.id === id || item.dirName === id);
-  if (!slot) return null;
-  const root = documentRootAbs(slot);
-  if (!existsSync(join(root, 'wiki', 'index.md'))) return null;
-  // Only treat the slot root as a wiki bind, not an arbitrary subfolder.
-  if (path !== slot.id && path !== slot.dirName) return { slot, root, scoped: true };
-  return { slot, root, scoped: false };
-}
 
 export async function loadWritingTurnContext(opts: {
   userId: string;
@@ -83,28 +60,16 @@ export async function loadWritingTurnContext(opts: {
 
   const scopes: WritingTurnContext['scopes'] = [];
   for (const scope of pin.pins) {
-    const treeForPin = scope.library === 'public' ? publicTree : privateTree;
-    const pinnedNode =
-      treeForPin ? nodeAtPath(treeForPin, scope.path) : null;
-    const local = scope.library === 'public' ? localWikiSlot(scope.path) : null;
-    const isWiki =
-      isStructuredKnowledgeNode(pinnedNode) || Boolean(local && !local.scoped);
+    if (scope.library === 'public' && isHiddenPublicFolder(scope.path)) continue;
     scopes.push({
       path: scope.path,
       library: scope.library,
-      retrievalMode: isWiki ? 'wiki' : 'search',
-      ...(isWiki && (local?.slot.title || pinnedNode?.name)
-        ? { wikiTitle: local?.slot.title || pinnedNode?.name }
-        : {}),
-      ...(local && !local.scoped ? { wikiRootAbs: local.root } : {}),
+      retrievalMode: 'search',
     });
   }
 
   const first = scopes[0];
   const pinLibrary = first?.library || pin.pinLibrary || 'private';
-  const allWiki = scopes.length > 0 && scopes.every((scope) => scope.retrievalMode === 'wiki');
-  const retrievalMode: WritingTurnContext['retrievalMode'] = allWiki ? 'wiki' : 'search';
-  const localWiki = scopes.find((scope) => scope.wikiRootAbs);
 
   let contexts: WritingTurnContext['contexts'];
   let index: WritingTurnContext['index'];
@@ -148,9 +113,7 @@ export async function loadWritingTurnContext(opts: {
     userId: opts.userId,
     pin: first?.path ?? pin.pin,
     pinLibrary,
-    retrievalMode,
-    wikiTitle: localWiki?.wikiTitle || first?.wikiTitle,
-    wikiRootAbs: localWiki?.wikiRootAbs,
+    retrievalMode: 'search',
     scopes,
     mentionedDocuments: pin.mentionedDocuments,
     tree: privateTree,

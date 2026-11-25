@@ -1,3 +1,5 @@
+import { isSafeRelativePath } from './paths';
+
 export const KNOWLEDGE_LIBRARIES = ['private', 'public'] as const;
 
 export type KnowledgeLibrary = (typeof KNOWLEDGE_LIBRARIES)[number];
@@ -76,9 +78,71 @@ export function knowledgeMentionToken(pin: {
   return path ? `${pin.library}/${path}` : pin.library;
 }
 
+export function knowledgeMentionMatches(input: {
+  name: string;
+  path: string;
+  library: KnowledgeLibrary;
+  query: string;
+}): boolean {
+  const query = input.query.trim().toLowerCase();
+  if (!query) return true;
+  const name = (input.name || '').toLowerCase();
+  const path = (input.path || '').toLowerCase();
+  if (name.includes(query) || path.includes(query)) return true;
+  if (query.includes('/')) {
+    return knowledgeMentionToken({
+      library: input.library,
+      path: input.path,
+    })
+      .toLowerCase()
+      .includes(query);
+  }
+  return query === input.library;
+}
+
 export function isHiddenPublicFolder(path: string): boolean {
   const head = path.split('/').filter(Boolean)[0] || '';
   return HIDDEN_PUBLIC_FOLDERS.has(head);
+}
+
+function knowledgeHitRelPath(hit: unknown): string {
+  if (!hit || typeof hit !== 'object') return '';
+  const rec = hit as Record<string, unknown>;
+  for (const key of ['path', 'file', 'dochub_path', 'filepath'] as const) {
+    const value = rec[key];
+    if (typeof value !== 'string' || !value.trim()) continue;
+    let path = value.trim();
+    const prefix = 'qmd://markdown/';
+    if (path.startsWith(prefix)) path = path.slice(prefix.length);
+    return path.replace(/^\/+/, '').replace(/^markdown\//, '');
+  }
+  return '';
+}
+
+/** Drop search hits whose path is under a hidden public folder such as sfc. */
+export function filterHiddenPublicHits<T>(results: T[]): T[] {
+  return results.filter((hit) => {
+    const path = knowledgeHitRelPath(hit);
+    return !path || !isHiddenPublicFolder(path);
+  });
+}
+
+/**
+ * Old Agent Document chats stored a slot id (spr, sfc, …).
+ * Only visible public folders become Knowledge pins.
+ */
+export function knowledgeFolderFromLegacyDocumentId(
+  documentId: string | null | undefined,
+): string | null {
+  if (typeof documentId !== 'string') return null;
+  const raw = documentId.trim();
+  if (!raw) return null;
+  const parsed = parseKnowledgePin(raw);
+  const path = parsed?.path || raw;
+  if (!path || !isSafeRelativePath(path) || isHiddenPublicFolder(path)) {
+    return null;
+  }
+  return formatKnowledgePin({ library: 'public', path });
 }
 
 export function pinTitle(pin: KnowledgePin): string {

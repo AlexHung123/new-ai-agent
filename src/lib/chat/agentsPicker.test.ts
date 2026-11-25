@@ -8,9 +8,12 @@ function readSrc(...parts: string[]): string {
 
 function cssRule(css: string, selector: string): string {
   const normalized = css.replace(/\r\n/g, '\n');
-  const start = normalized.indexOf(`${selector} {`);
-  expect(start).toBeGreaterThanOrEqual(0);
-  const open = normalized.indexOf('{', start);
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = new RegExp(`${escaped}\\s*(?:,[\\s\\S]*?)?\\{`).exec(
+    normalized,
+  );
+  expect(match, `missing ${selector}`).toBeTruthy();
+  const open = normalized.indexOf('{', match!.index);
   const close = normalized.indexOf('}', open);
   return normalized.slice(open + 1, close);
 }

@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  filterHiddenPublicHits,
   formatKnowledgePin,
   formatKnowledgePins,
   isHiddenPublicFolder,
+  knowledgeFolderFromLegacyDocumentId,
+  knowledgeMentionMatches,
   knowledgeMentionToken,
   KNOWLEDGE_PIN_CAP_REASON,
   MAX_KNOWLEDGE_PINS,
@@ -46,11 +49,54 @@ describe('knowledge library pins', () => {
     );
   });
 
+  it('matches @ queries on name and path, not a library-name substring', () => {
+    const writing = {
+      name: 'writing',
+      path: 'writing',
+      library: 'private' as const,
+    };
+    const spr = { name: 'spr', path: 'spr', library: 'public' as const };
+    const plan = {
+      name: 'plan.md',
+      path: 'writing/plan.md',
+      library: 'private' as const,
+    };
+    expect(knowledgeMentionMatches({ ...writing, query: '' })).toBe(true);
+    expect(knowledgeMentionMatches({ ...writing, query: 'writ' })).toBe(true);
+    expect(knowledgeMentionMatches({ ...plan, query: 'plan' })).toBe(true);
+    expect(knowledgeMentionMatches({ ...writing, query: 'p' })).toBe(false);
+    expect(knowledgeMentionMatches({ ...writing, query: 'pri' })).toBe(false);
+    expect(knowledgeMentionMatches({ ...spr, query: 'pu' })).toBe(false);
+    expect(knowledgeMentionMatches({ ...writing, query: 'private' })).toBe(true);
+    expect(knowledgeMentionMatches({ ...spr, query: 'public' })).toBe(true);
+    expect(knowledgeMentionMatches({ ...spr, query: 'public/spr' })).toBe(true);
+    expect(knowledgeMentionMatches({ ...writing, query: 'public/spr' })).toBe(
+      false,
+    );
+  });
+
   it('hides the reserved sfc public folder and titles pins from the last segment', () => {
     expect(isHiddenPublicFolder('sfc')).toBe(true);
     expect(isHiddenPublicFolder('sfc/wiki')).toBe(true);
     expect(isHiddenPublicFolder('spr')).toBe(false);
     expect(pinTitle({ library: 'public', path: 'spr' })).toBe('spr');
+  });
+
+  it('does not map a hidden sfc document id onto a Knowledge pin', () => {
+    expect(knowledgeFolderFromLegacyDocumentId('sfc')).toBeNull();
+    expect(knowledgeFolderFromLegacyDocumentId('public:sfc')).toBeNull();
+    expect(knowledgeFolderFromLegacyDocumentId('spr')).toBe('public:spr');
+    expect(knowledgeFolderFromLegacyDocumentId('')).toBeNull();
+  });
+
+  it('drops hidden public sfc hits from search results', () => {
+    expect(
+      filterHiddenPublicHits([
+        { file: 'qmd://markdown/spr/wiki/index.md', snippet: 'spr' },
+        { file: 'qmd://markdown/sfc/wiki/index.md', snippet: 'sfc' },
+        { path: 'sfc/testing2/a.md', text: 'x' },
+      ]),
+    ).toEqual([{ file: 'qmd://markdown/spr/wiki/index.md', snippet: 'spr' }]);
   });
 
   it('loads a legacy single pin as a one-item list', () => {

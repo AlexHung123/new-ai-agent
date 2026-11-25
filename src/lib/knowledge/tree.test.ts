@@ -89,8 +89,8 @@ describe('tree walk', () => {
     ).toEqual([]);
   });
 
-  it('sums size_bytes and counts files under a folder', () => {
-    expect(usedBytesFromTree(tree)).toBe(16);
+  it('sums original plus markdown blobs when both paths exist', () => {
+    expect(usedBytesFromTree(tree)).toBe(32);
     expect(listKnowledgeFiles(tree)).toEqual([
       { path: 'contracts/2024/report.md', name: 'report.pdf' },
     ]);

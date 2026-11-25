@@ -95,7 +95,7 @@ describe('buildWritingUserPrompt', () => {
     expect(prompt).toContain('Use keyword search');
   });
 
-  it('tells the model to search then read and never say wiki to the user', () => {
+  it('treats a structured public pin as an ordinary Dochub folder', () => {
     const prompt = buildWritingUserPrompt('What is the threshold?', {
       ...ctx,
       pin: 'spr',
@@ -112,12 +112,11 @@ describe('buildWritingUserPrompt', () => {
         },
       ],
     });
-    expect(prompt).toContain('[Pinned folder]\npublic:spr (structured)');
-    expect(prompt).toContain('[Structured folder]');
-    expect(prompt).toContain('Use search for keywords');
-    expect(prompt).toContain('Do not repeat the same keyword search');
-    expect(prompt).toContain('Never use the word "wiki"');
-    expect(prompt).not.toMatch(/fs_read|fs_grep|\bquery\b|\bgrep\b|\bmulti_get\b/);
+    expect(prompt).toContain('[Pinned folder]\npublic:spr (ordinary)');
+    expect(prompt).toContain('Use search then read');
+    expect(prompt).not.toContain('[Structured folder]');
+    expect(prompt).not.toContain('Never use the word "wiki"');
+    expect(prompt).not.toMatch(/fs_read|fs_grep|\bgrep\b|\bmulti_get\b/);
   });
 
   it('lists mixed scopes and binds only search and read', () => {
@@ -141,8 +140,9 @@ describe('buildWritingUserPrompt', () => {
     expect(prompt).toContain('[Pinned folders]');
     expect(prompt).toContain('private:writing (ordinary)');
     expect(prompt).toContain('public:testing1 (ordinary)');
-    expect(prompt).toContain('public:spr (structured)');
-    expect(prompt).toContain('[Structured folder]');
+    expect(prompt).toContain('public:spr (ordinary)');
+    expect(prompt).not.toContain('[Structured folder]');
+    expect(prompt).not.toContain('structured folders with keyword search');
     expect(prompt).toContain('One search covers all pinned folders');
     expect(prompt).not.toContain('Never mix those modes in one query');
     expect(writingToolsForTurn(mixed)).toEqual(['search', 'read']);

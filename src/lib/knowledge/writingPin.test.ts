@@ -378,6 +378,66 @@ describe('resolveWritingKnowledgePin', () => {
     expect(result.mentionedFolders).toEqual([]);
     expect(result.mentionedDocuments).toEqual([]);
   });
+
+  const publicTreeWithHidden: KnowledgeTreeNode = {
+    type: 'dir',
+    name: '',
+    path: '',
+    children: [
+      { type: 'dir', name: 'spr', path: 'spr', wiki: true, children: [] },
+      {
+        type: 'dir',
+        name: 'sfc',
+        path: 'sfc',
+        children: [
+          fileNode('sfc/hidden.md', 'h1', 'hidden.md', 'sfc/hidden.md'),
+        ],
+      },
+    ],
+  };
+
+  it('rejects a selected public sfc folder even when it exists on the unfiltered tree', () => {
+    const result = resolveWritingKnowledgePin({
+      text: 'hello',
+      tree,
+      publicTree: publicTreeWithHidden,
+      selectedFolder: 'public:sfc',
+    });
+    expect(result.pins).toEqual([]);
+    expect(result.pin).toBeNull();
+  });
+
+  it('rejects a public pin that is not a directory on the public tree', () => {
+    const result = resolveWritingKnowledgePin({
+      text: 'hello',
+      tree,
+      publicTree: publicTreeWithHidden,
+      selectedFolder: 'public:missing',
+    });
+    expect(result.pins).toEqual([]);
+  });
+
+  it('does not pin hidden sfc from a legacy documentId', () => {
+    const hidden = resolveWritingKnowledgePin({
+      text: 'hello',
+      tree,
+      publicTree: publicTreeWithHidden,
+      documentId: 'sfc',
+    });
+    expect(hidden.pins).toEqual([]);
+    expect(hidden.pin).toBeNull();
+  });
+
+  it('pins a visible public document slot from a legacy documentId', () => {
+    const visible = resolveWritingKnowledgePin({
+      text: 'hello',
+      tree,
+      publicTree: publicTreeWithHidden,
+      documentId: 'spr',
+    });
+    expect(visible.pins).toEqual([{ path: 'spr', library: 'public' }]);
+    expect(visible.pinLibrary).toBe('public');
+  });
 });
 
 describe('pathInsidePins and retrieval budget', () => {

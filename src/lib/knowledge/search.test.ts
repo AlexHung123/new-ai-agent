@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeSearchRequest, stripQmdMarkdownPath } from './search';
+import {
+  clipSnippet,
+  hitsFromSearchResults,
+  normalizeSearchRequest,
+  stripQmdMarkdownPath,
+} from './search';
 
 describe('normalizeSearchRequest', () => {
   it('defaults mode to search and limit to 10', () => {
@@ -42,5 +47,31 @@ describe('stripQmdMarkdownPath', () => {
     expect(stripQmdMarkdownPath('contracts/2024/report.md')).toBe(
       'contracts/2024/report.md',
     );
+  });
+});
+
+describe('hitsFromSearchResults', () => {
+  it('normalizes search hits and prefixes library paths', () => {
+    const hits = hitsFromSearchResults(
+      [
+        {
+          file: 'qmd://markdown/g3/wiki/index.md',
+          line: 4,
+          snippet: '  Access control  ',
+        },
+        { path: 's17/wiki/chapters/02.md', text: 'A long '.repeat(80) },
+      ],
+      'public:g3',
+      5,
+    );
+    expect(hits[0]).toEqual({
+      source: 'public:g3',
+      path: 'g3/wiki/index.md',
+      line: 4,
+      snippet: 'Access control',
+    });
+    expect(hits[1]?.path).toBe('s17/wiki/chapters/02.md');
+    expect(hits[1]?.snippet.endsWith('…')).toBe(true);
+    expect(clipSnippet('x'.repeat(201)).length).toBe(200);
   });
 });

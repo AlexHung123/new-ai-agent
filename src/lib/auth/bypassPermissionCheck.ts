@@ -4,9 +4,10 @@ import configManager from '@/lib/config';
 export function allAgentPermissionCodes(): string[] {
   return [
     ...new Set(
-      focusModes
-        .map((mode) => mode.permissionCode)
-        .filter((code): code is string => Boolean(code)),
+      focusModes.flatMap((mode) => {
+        if (mode.permissionCodes?.length) return mode.permissionCodes;
+        return mode.permissionCode ? [mode.permissionCode] : [];
+      }),
     ),
   ];
 }

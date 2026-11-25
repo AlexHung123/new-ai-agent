@@ -6,8 +6,9 @@ import { jsonFromUnknownError, unauthorized, userIdFrom } from '@/lib/knowledge/
 import { isSafeRelativePath } from '@/lib/knowledge/paths';
 import {
   quotaExceededMessage,
-  quotaForUser,
+  quotaForLibrary,
   storageForTree,
+  storedUploadBytes,
   wouldExceedQuota,
 } from '@/lib/knowledge/storage';
 import { parseKnowledgeLibrary, parseKnowledgeLibraryStrict } from '@/lib/knowledge/library';
@@ -60,28 +61,32 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: 'This file is too large.' }, { status: 413 });
   }
   const filename = displayFilename(relativePath);
-  try {
-    if (library === 'private') {
-      const treeBody = await getTree(userId, { library: 'private' });
-      const usage = storageForTree(
-        treeBody.tree || { type: 'dir', name: '', path: '', children: [] },
-        quotaForUser(userId, config.maxUserBytes, config.userQuotaBytes),
-      );
-      if (wouldExceedQuota(usage, bytes.byteLength)) {
-        return NextResponse.json(
-          { message: quotaExceededMessage(usage, bytes.byteLength) },
-          { status: 400 },
-        );
-      }
-    }
-  } catch (error) {
-    return jsonFromUnknownError(error);
-  }
   const converted = await convertKnowledgeAttachment(bytes, filename, {
     maxBytes: config.maxUploadBytes,
   });
   if (!converted.ok) {
     return NextResponse.json({ message: converted.error }, { status: 400 });
+  }
+  try {
+    const treeBody = await getTree(userId, { library });
+    const usage = storageForTree(
+      treeBody.tree || { type: 'dir', name: '', path: '', children: [] },
+      quotaForLibrary(
+        library,
+        userId,
+        config.maxUserBytes,
+        config.userQuotaBytes,
+      ),
+    );
+    const need = storedUploadBytes(bytes.byteLength, converted.markdown);
+    if (wouldExceedQuota(usage, need)) {
+      return NextResponse.json(
+        { message: quotaExceededMessage(usage, need) },
+        { status: 400 },
+      );
+    }
+  } catch (error) {
+    return jsonFromUnknownError(error);
   }
   try {
     const result = await uploadFile(

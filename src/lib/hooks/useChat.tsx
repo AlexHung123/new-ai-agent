@@ -52,7 +52,12 @@ import {
   imagesForFocus,
   type ChatImageAttachment,
 } from '../chat/attachedImages';
-import { formatKnowledgePins, parseKnowledgePins, toggleKnowledgePin as toggleKnowledgePinValue } from '@/lib/knowledge/library';
+import {
+  formatKnowledgePins,
+  knowledgeFolderFromLegacyDocumentId,
+  parseKnowledgePins,
+  toggleKnowledgePin as toggleKnowledgePinValue,
+} from '@/lib/knowledge/library';
 
 export type Section = {
   userMessage: UserMessage;
@@ -289,11 +294,12 @@ const loadMessages = async (args: {
       );
     } else if (
       isKnowledgeFocusMode(resolvedFocus) &&
-      typeof data.chat.documentId === 'string' &&
-      data.chat.documentId &&
       data.chat.focusMode === 'agentDocument'
     ) {
-      setKnowledgeFolder(`public:${data.chat.documentId}`);
+      const migrated = knowledgeFolderFromLegacyDocumentId(
+        typeof data.chat.documentId === 'string' ? data.chat.documentId : null,
+      );
+      if (migrated) setKnowledgeFolder(migrated);
     }
     const loadedWcms = parseWcmsBind({
       wcmsContentId: data.chat.wcmsContentId,

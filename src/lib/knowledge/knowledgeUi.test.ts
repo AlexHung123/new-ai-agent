@@ -172,6 +172,8 @@ describe('knowledge UI contracts', () => {
     const chat = readSrc('../hooks/useChat.tsx');
     expect(chat).toMatch(/toggleKnowledgePin/);
     expect(chat).toMatch(/knowledgeFolder:/);
+    expect(chat).toMatch(/knowledgeFolderFromLegacyDocumentId/);
+    expect(chat).not.toMatch(/setKnowledgeFolder\(`public:\$\{data\.chat\.documentId\}`\)/);
   });
 
   it('hides visibility choices when creating a folder inside a parent', () => {

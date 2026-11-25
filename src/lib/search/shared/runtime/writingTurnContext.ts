@@ -57,18 +57,6 @@ export function writingTurnScopes(
   ];
 }
 
-export function writingSearchScopes(
-  ctx: WritingTurnContext | undefined,
-): WritingKnowledgeScope[] {
-  return writingTurnScopes(ctx).filter((scope) => scope.retrievalMode !== 'wiki');
-}
-
-export function writingWikiScopes(
-  ctx: WritingTurnContext | undefined,
-): WritingKnowledgeScope[] {
-  return writingTurnScopes(ctx).filter((scope) => scope.retrievalMode === 'wiki');
-}
-
 export function writingScopeLabel(scope: {
   library: 'private' | 'public';
   path: string;

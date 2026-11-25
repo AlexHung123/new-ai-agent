@@ -20,7 +20,11 @@ describe('writing Dochub skill', () => {
     expect(skill).not.toMatch(/python -m dochub mcp/);
     const writing = readRepo('data/prompts/agentWriting.md');
     expect(writing).not.toMatch(/fs_/);
+    expect(writing).not.toMatch(/\[Structured folder\]/);
     expect(writing).toMatch(/Use search then read only/);
     expect(writing).toMatch(/Never finish with an empty reply/);
+    expect(WRITING_AGENT_SYSTEM_PROMPT).not.toMatch(/\[Structured folder\]/);
+    expect(skill).not.toMatch(/Structured folders still use the keyword/);
+    expect(skill).not.toMatch(/structured \(bound\) folders/i);
   });
 });

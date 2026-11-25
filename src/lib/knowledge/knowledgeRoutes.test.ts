@@ -88,6 +88,11 @@ describe('knowledge routes', () => {
       quotaBytes: expect.any(Number),
       remainingBytes: expect.any(Number),
     });
+    expect(body.public.storage).toMatchObject({
+      usedBytes: 0,
+      quotaBytes: expect.any(Number),
+      remainingBytes: expect.any(Number),
+    });
   });
 
   it('POST folders uses x-user-id and ignores body.userId', async () => {
@@ -338,6 +343,109 @@ describe('knowledge routes', () => {
     expect(uploadFile).not.toHaveBeenCalled();
   });
 
+  it('POST files counts original plus markdown against the quota', async () => {
+    const { DEFAULT_MAX_USER_BYTES } = await import('@/lib/knowledge/storage');
+    uploadFile.mockResolvedValue({
+      file: { id: 'f1' },
+      task: { id: 't1', status: 'pending' },
+    });
+    getTree.mockResolvedValue({
+      user_id: '1',
+      tree: {
+        type: 'dir',
+        name: '',
+        path: '',
+        children: [
+          {
+            type: 'file',
+            name: 'kept.md',
+            path: 'kept.md',
+            file: {
+              id: 'kept',
+              original_filename: 'kept.md',
+              inbox_relpath: 'kept.md',
+              markdown_relpath: '',
+              size_bytes: DEFAULT_MAX_USER_BYTES - 10,
+            },
+          },
+        ],
+      },
+    });
+    const form = new FormData();
+    form.set(
+      'file',
+      new Blob(['# Hello\n'], { type: 'text/markdown' }),
+      'notes.md',
+    );
+    form.set('relative_path', 'notes.md');
+    const res = await POST_FILE(
+      req('http://localhost/itms/ai/api/knowledge/files', {
+        method: 'POST',
+        userId: '1',
+        body: form,
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({
+      message: expect.stringMatching(/Storage quota exceeded/),
+    });
+    expect(uploadFile).not.toHaveBeenCalled();
+  });
+
+  it('POST files applies the public library quota for curator uploads', async () => {
+    canWritePublicLibrary.mockReturnValue(true);
+    uploadFile.mockResolvedValue({
+      file: { id: 'f1' },
+      task: { id: 't1', status: 'pending' },
+    });
+    getTree.mockImplementation(async (_userId: string, deps?: { library?: string }) => ({
+      user_id: 'admin',
+      tree: {
+        type: 'dir',
+        name: '',
+        path: '',
+        children:
+          deps?.library === 'public'
+            ? [
+                {
+                  type: 'file',
+                  name: 'big.md',
+                  path: 'big.md',
+                  file: {
+                    id: 'big',
+                    original_filename: 'big.md',
+                    inbox_relpath: 'big.md',
+                    markdown_relpath: 'big.md',
+                    size_bytes: 6 * 1024 * 1024 * 1024,
+                  },
+                },
+              ]
+            : [],
+      },
+    }));
+    const form = new FormData();
+    form.set(
+      'file',
+      new Blob(['# Hello\n'], { type: 'text/markdown' }),
+      'notes.md',
+    );
+    form.set('relative_path', 'notes.md');
+    form.set('library', 'public');
+    const res = await POST_FILE(
+      req('http://localhost/itms/ai/api/knowledge/files', {
+        method: 'POST',
+        userId: 'admin',
+        body: form,
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({
+      message: expect.stringMatching(/Storage quota exceeded/),
+    });
+    expect(getTree).toHaveBeenCalledWith('admin', { library: 'public' });
+    expect(uploadFile).not.toHaveBeenCalled();
+  });
+
   it('POST files rejects unsafe relative_path before Dochub', async () => {
     const form = new FormData();
     form.set('file', new Blob(['# Hello\n']), 'notes.md');
@@ -410,6 +518,43 @@ describe('knowledge routes', () => {
     const body = await res.json();
     expect(body.library).toBe('public');
     expect(body.results[0].library).toBe('public');
+  });
+
+  it('POST search drops hidden public sfc hits', async () => {
+    search.mockResolvedValue({
+      user_id: '1',
+      mode: 'search',
+      query: 'q',
+      results: [
+        { file: 'qmd://markdown/spr/wiki/index.md', snippet: 'SPR' },
+        { file: 'qmd://markdown/sfc/wiki/index.md', snippet: 'SFC' },
+      ],
+    });
+    const res = await POST_SEARCH(
+      req('http://localhost/itms/ai/api/knowledge/search', {
+        method: 'POST',
+        userId: '1',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ query: 'q', library: 'public' }),
+      }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.results).toHaveLength(1);
+    expect(body.results[0].file).toBe('qmd://markdown/spr/wiki/index.md');
+  });
+
+  it('POST search rejects a hidden public sfc path', async () => {
+    const res = await POST_SEARCH(
+      req('http://localhost/itms/ai/api/knowledge/search', {
+        method: 'POST',
+        userId: '1',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ query: 'q', library: 'public', path: 'sfc' }),
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(search).not.toHaveBeenCalled();
   });
 
   it('GET content defaults to markdown', async () => {
