@@ -2,6 +2,22 @@
 const nextConfig = {
   basePath: '/itms/ai',
   output: 'standalone',
+  transpilePackages: [
+    '@file-viewer/react',
+    '@file-viewer/core',
+    '@file-viewer/preset-office',
+    '@file-viewer/renderer-image',
+    '@file-viewer/renderer-pdf',
+    '@file-viewer/renderer-word',
+    '@file-viewer/renderer-spreadsheet',
+    '@file-viewer/renderer-presentation',
+    '@file-viewer/renderer-pptx',
+    '@file-viewer/renderer-ppt',
+    '@file-viewer/renderer-ofd',
+    '@file-viewer/docx',
+    '@file-viewer/ppt',
+    '@file-viewer/pptx',
+  ],
   devIndicators: false,
   allowedDevOrigins: ['192.168.56.1'],
   images: {

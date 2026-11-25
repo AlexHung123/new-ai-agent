@@ -98,6 +98,12 @@ describe('right panel layout contract', () => {
     expect(readSrc('../../components/WritingPreviewPanel.tsx')).toMatch(
       /\/api\/knowledge\/files\//,
     );
+    expect(preview).toMatch(/usesNativeDocumentPreview/);
+    expect(preview).toMatch(/content\?tree=inbox/);
+    expect(preview).toMatch(/content\?tree=markdown/);
+    expect(preview).toMatch(/\/original/);
+    expect(preview).toMatch(/DocumentNativePreview/);
+    expect(preview).toMatch(/markdown-to-jsx/);
   });
 
   it('styles Close and panel expand as header-bar icons', () => {

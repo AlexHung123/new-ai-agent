@@ -16,7 +16,9 @@ describe('knowledge UI contracts', () => {
 
   it('shows a loading state before the tree arrives', () => {
     const page = readSrc('../../app/knowledge/page.tsx');
-    const manager = readSrc('../../components/knowledge/KnowledgeFileManager.tsx');
+    const manager = readSrc(
+      '../../components/knowledge/KnowledgeFileManager.tsx',
+    );
     const loading = readSrc('../../components/knowledge/KnowledgeLoading.tsx');
     const routeLoading = readSrc('../../app/knowledge/loading.tsx');
     expect(page).toMatch(/KnowledgeLoading/);
@@ -32,9 +34,7 @@ describe('knowledge UI contracts', () => {
     const sidebar = readSrc('../../components/Sidebar.tsx');
     const layout = readSrc('../../components/Layout.tsx');
     const css = readSrc('../../app/globals.css');
-    expect(sidebar).toMatch(
-      /flush=\{[^}]*segments\.includes\('knowledge'\)/,
-    );
+    expect(sidebar).toMatch(/flush=\{[^}]*segments\.includes\('knowledge'\)/);
     expect(sidebar).not.toMatch(
       /wide=\{segments\.includes\('agents'\) \|\| segments\.includes\('knowledge'\)\}/,
     );
@@ -51,7 +51,9 @@ describe('knowledge UI contracts', () => {
   });
 
   it('uses a folder tree and files table, not a card-grid home', () => {
-    const manager = readSrc('../../components/knowledge/KnowledgeFileManager.tsx');
+    const manager = readSrc(
+      '../../components/knowledge/KnowledgeFileManager.tsx',
+    );
     const tree = readSrc('../../components/knowledge/KnowledgeTree.tsx');
     const listing = readSrc('../../components/knowledge/KnowledgeListing.tsx');
     expect(manager).toMatch(/knowledge-detail-layout/);
@@ -88,13 +90,18 @@ describe('knowledge UI contracts', () => {
   });
 
   it('searches through the app API and previews markdown', () => {
-    const manager = readSrc('../../components/knowledge/KnowledgeFileManager.tsx');
+    const manager = readSrc(
+      '../../components/knowledge/KnowledgeFileManager.tsx',
+    );
     const listing = readSrc('../../components/knowledge/KnowledgeListing.tsx');
     const preview = readSrc('../../components/knowledge/KnowledgePreview.tsx');
     expect(manager).toMatch(/\/itms\/ai\/api\/knowledge\/search/);
     expect(manager).toMatch(/limit: 10/);
     expect(manager).toMatch(/vsearch/);
     expect(manager).toMatch(/content\?tree=markdown/);
+    expect(manager).toMatch(/content\?tree=inbox/);
+    expect(manager).toMatch(/usesNativeDocumentPreview/);
+    expect(manager).toMatch(/getAuthBearerHeaders/);
     expect(manager).toMatch(/resolveSearchHitDisplay/);
     expect(listing).toMatch(/resolveSearchHitDisplay/);
     expect(listing).toMatch(/resolved\.title/);
@@ -102,6 +109,8 @@ describe('knowledge UI contracts', () => {
     expect(listing).not.toMatch(/hit\.title \|\| hit\.file/);
     expect(listing).toMatch(/onOpenHit/);
     expect(preview).toMatch(/markdown-to-jsx/);
+    expect(preview).toMatch(/DocumentNativePreview/);
+    expect(preview).toMatch(/usesNativeDocumentPreview/);
     expect(preview).toMatch(/File not found/);
     expect(preview).toMatch(/knowledge-preview-dialog/);
     expect(preview).toMatch(/aria-label="Close preview"/);
@@ -110,7 +119,9 @@ describe('knowledge UI contracts', () => {
   });
 
   it('does not call Dochub or QMD from the browser', () => {
-    const manager = readSrc('../../components/knowledge/KnowledgeFileManager.tsx');
+    const manager = readSrc(
+      '../../components/knowledge/KnowledgeFileManager.tsx',
+    );
     expect(manager).not.toMatch(/\/v1\/search/);
     expect(manager).not.toMatch(/qmd mcp/i);
   });
@@ -131,7 +142,9 @@ describe('knowledge UI contracts', () => {
       expect(src).not.toMatch(/192\.168\.1\.56/);
       expect(src).not.toMatch(/\/v1\//);
     }
-    const manager = readSrc('../../components/knowledge/KnowledgeFileManager.tsx');
+    const manager = readSrc(
+      '../../components/knowledge/KnowledgeFileManager.tsx',
+    );
     expect(manager).toMatch(/@\/lib\/knowledge\/filenames/);
     const filenames = readSrc('./filenames.ts');
     expect(filenames).not.toMatch(/from ['"]\.\/config['"]/);
@@ -140,7 +153,9 @@ describe('knowledge UI contracts', () => {
   });
 
   it('seeds ingest polling from tree task ids, times out, and shows last_error', () => {
-    const manager = readSrc('../../components/knowledge/KnowledgeFileManager.tsx');
+    const manager = readSrc(
+      '../../components/knowledge/KnowledgeFileManager.tsx',
+    );
     const listing = readSrc('../../components/knowledge/KnowledgeListing.tsx');
     expect(manager).toMatch(/fileTaskIds/);
     expect(manager).toMatch(/timed_out/);
@@ -173,12 +188,16 @@ describe('knowledge UI contracts', () => {
     expect(chat).toMatch(/toggleKnowledgePin/);
     expect(chat).toMatch(/knowledgeFolder:/);
     expect(chat).toMatch(/knowledgeFolderFromLegacyDocumentId/);
-    expect(chat).not.toMatch(/setKnowledgeFolder\(`public:\$\{data\.chat\.documentId\}`\)/);
+    expect(chat).not.toMatch(
+      /setKnowledgeFolder\(`public:\$\{data\.chat\.documentId\}`\)/,
+    );
   });
 
   it('hides visibility choices when creating a folder inside a parent', () => {
     const dialog = readSrc('../../components/KnowledgeCreateFolderDialog.tsx');
-    const manager = readSrc('../../components/knowledge/KnowledgeFileManager.tsx');
+    const manager = readSrc(
+      '../../components/knowledge/KnowledgeFileManager.tsx',
+    );
     expect(dialog).toMatch(/inheritedFolderSubtitle/);
     expect(dialog).toMatch(/!currentPath \? \(/);
     expect(dialog).toMatch(/knowledge-visibility/);
@@ -192,7 +211,9 @@ describe('knowledge UI contracts', () => {
   it('renders structured folders as document rows, not expandable trees', () => {
     const tree = readSrc('../../components/knowledge/KnowledgeTree.tsx');
     const listing = readSrc('../../components/knowledge/KnowledgeListing.tsx');
-    const manager = readSrc('../../components/knowledge/KnowledgeFileManager.tsx');
+    const manager = readSrc(
+      '../../components/knowledge/KnowledgeFileManager.tsx',
+    );
     expect(tree).toMatch(/isStructuredKnowledgeNode/);
     expect(tree).toMatch(/knowledge-structured-badge/);
     expect(tree).toMatch(/Structured/);
@@ -209,5 +230,4 @@ describe('knowledge UI contracts', () => {
     expect(listing).not.toMatch(/維基/);
     expect(tree).not.toMatch(/維基/);
   });
-
 });

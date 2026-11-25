@@ -25,6 +25,7 @@ export function fileKind(name: string): FileKind {
       'txt',
       'md',
       'markdown',
+      'qmd',
       'csv',
       'json',
       'log',
@@ -57,4 +58,17 @@ export function fileKindGlyph(kind: FileKind): string {
     default:
       return 'FILE';
   }
+}
+
+export function usesNativeDocumentPreview(name: string): boolean {
+  const ext = fileExtension(name);
+  if (ext === 'csv') return true;
+  const kind = fileKind(name);
+  return (
+    kind === 'pdf' ||
+    kind === 'image' ||
+    kind === 'excel' ||
+    kind === 'ppt' ||
+    kind === 'docx'
+  );
 }

@@ -6,12 +6,14 @@ WORKDIR /home/aiagent
 
 COPY package.json package-lock.json ./
 COPY scripts/copy-tinymce.js ./scripts/copy-tinymce.js
+COPY scripts/copy-file-viewer.js ./scripts/copy-file-viewer.js
 RUN npm ci
 
 COPY tsconfig.json next.config.mjs next-env.d.ts postcss.config.js drizzle.config.ts tailwind.config.ts ./
 COPY src ./src
 COPY public ./public
 RUN node scripts/copy-tinymce.js
+RUN node scripts/copy-file-viewer.js
 COPY drizzle ./drizzle
 
 RUN mkdir -p /home/aiagent/data

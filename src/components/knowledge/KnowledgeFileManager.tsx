@@ -31,6 +31,7 @@ import {
   joinKnowledgePath,
   sanitizePathSegment,
 } from '@/lib/knowledge/paths';
+import { usesNativeDocumentPreview } from '@/lib/writing/fileKind';
 import type {
   KnowledgeFileMeta,
   KnowledgeSearchHit,
@@ -105,7 +106,9 @@ export default function KnowledgeFileManager() {
   const [privateTree, setPrivateTree] = useState<KnowledgeTreeNode>(EMPTY_TREE);
   const [publicTree, setPublicTree] = useState<KnowledgeTreeNode>(EMPTY_TREE);
   const [canWritePublic, setCanWritePublic] = useState(false);
-  const [currentLibrary, setCurrentLibrary] = useState<KnowledgeLibrary>(() => readLibraryTab());
+  const [currentLibrary, setCurrentLibrary] = useState<KnowledgeLibrary>(() =>
+    readLibraryTab(),
+  );
   const [initialLoading, setInitialLoading] = useState(true);
   const [storage, setStorage] = useState<KnowledgeStorageUsage | null>(null);
   const [currentPath, setCurrentPath] = useState('');
@@ -116,8 +119,11 @@ export default function KnowledgeFileManager() {
   const [searchMode, setSearchMode] = useState<KnowledgeSearchMode>('search');
   const [hits, setHits] = useState<KnowledgeSearchHit[] | null>(null);
   const [previewMarkdown, setPreviewMarkdown] = useState<string | null>(null);
+  const [previewFile, setPreviewFile] = useState<Blob | null>(null);
+  const [previewFilename, setPreviewFilename] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewTitle, setPreviewTitle] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const startedAt = useRef<Record<string, number>>({});
   const pathByLibraryRef = useRef<Record<KnowledgeLibrary, string>>({
@@ -254,11 +260,17 @@ export default function KnowledgeFileManager() {
 
   const clearPreview = () => {
     setPreviewMarkdown(null);
+    setPreviewFile(null);
+    setPreviewFilename(null);
     setPreviewError(null);
     setPreviewTitle(null);
+    setPreviewLoading(false);
   };
 
-  const selectFolder = (path: string, library: KnowledgeLibrary = currentLibrary) => {
+  const selectFolder = (
+    path: string,
+    library: KnowledgeLibrary = currentLibrary,
+  ) => {
     const nextTree = library === 'public' ? publicTree : privateTree;
     const enclosed = path ? enclosingStructuredNode(nextTree, path) : null;
     const nextPath = enclosed ? enclosed.path : path;
@@ -270,7 +282,10 @@ export default function KnowledgeFileManager() {
     clearPreview();
   };
 
-  const openStructured = (path: string, library: KnowledgeLibrary = currentLibrary) => {
+  const openStructured = (
+    path: string,
+    library: KnowledgeLibrary = currentLibrary,
+  ) => {
     const nextTree = library === 'public' ? publicTree : privateTree;
     const enclosed =
       enclosingStructuredNode(nextTree, path) || nodeAtPath(nextTree, path);
@@ -290,7 +305,10 @@ export default function KnowledgeFileManager() {
     selectFolder(path, library);
   };
 
-  const createFolder = async (input: { name: string; library: KnowledgeLibrary }) => {
+  const createFolder = async (input: {
+    name: string;
+    library: KnowledgeLibrary;
+  }) => {
     const segment = sanitizePathSegment(input.name);
     if (!segment) throw new Error('Enter a folder name.');
     const library = listingPath ? currentLibrary : input.library;
@@ -305,7 +323,9 @@ export default function KnowledgeFileManager() {
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       throw new Error(
-        typeof body.message === 'string' ? body.message : 'Could not create folder',
+        typeof body.message === 'string'
+          ? body.message
+          : 'Could not create folder',
       );
     }
     await loadTree();
@@ -322,7 +342,9 @@ export default function KnowledgeFileManager() {
       return;
     }
     if (library === 'private' && storage && storage.remainingBytes <= 0) {
-      toast.error('Storage full — delete files or ask an admin to raise your quota');
+      toast.error(
+        'Storage full — delete files or ask an admin to raise your quota',
+      );
       return;
     }
     const files = Array.from(list);
@@ -358,18 +380,40 @@ export default function KnowledgeFileManager() {
   };
 
   const onOpenFile = async (id: string, name?: string) => {
-    setPreviewTitle(name || 'Preview');
-    const res = await fetch(
-      `/itms/ai/api/knowledge/files/${encodeURIComponent(id)}/content?tree=markdown`,
-      { headers: getAuthHeaders() },
-    );
-    if (res.status === 404 || !res.ok) {
-      setPreviewMarkdown(null);
-      setPreviewError('File not found.');
-      return;
-    }
+    const filename = name || 'Preview';
+    setPreviewTitle(filename);
+    setPreviewFilename(filename);
+    setPreviewMarkdown(null);
+    setPreviewFile(null);
     setPreviewError(null);
-    setPreviewMarkdown(await res.text());
+    setPreviewLoading(true);
+    try {
+      if (usesNativeDocumentPreview(filename)) {
+        const res = await fetch(
+          `/itms/ai/api/knowledge/files/${encodeURIComponent(id)}/content?tree=inbox`,
+          { headers: getAuthBearerHeaders() },
+        );
+        if (res.status === 404 || !res.ok) {
+          setPreviewError('File not found.');
+          return;
+        }
+        setPreviewFile(await res.blob());
+        return;
+      }
+      const res = await fetch(
+        `/itms/ai/api/knowledge/files/${encodeURIComponent(id)}/content?tree=markdown`,
+        { headers: getAuthHeaders() },
+      );
+      if (res.status === 404 || !res.ok) {
+        setPreviewError('File not found.');
+        return;
+      }
+      setPreviewMarkdown(await res.text());
+    } catch {
+      setPreviewError('File not found.');
+    } finally {
+      setPreviewLoading(false);
+    }
   };
 
   const onDownload = async (file: KnowledgeFileMeta) => {
@@ -461,7 +505,11 @@ export default function KnowledgeFileManager() {
             <option value="vsearch">Semantic</option>
             <option value="query">Hybrid</option>
           </select>
-          <ChevronDown className="knowledge-search-mode-caret" size={14} aria-hidden />
+          <ChevronDown
+            className="knowledge-search-mode-caret"
+            size={14}
+            aria-hidden
+          />
         </div>
       </div>
     </form>
@@ -488,8 +536,8 @@ export default function KnowledgeFileManager() {
           publicWriteBlocked
             ? 'Public folders are read-only for this account.'
             : storageFull
-            ? 'Storage full — delete files or ask an admin to raise your quota'
-            : 'Upload files'
+              ? 'Storage full — delete files or ask an admin to raise your quota'
+              : 'Upload files'
         }
         onClick={() => fileInputRef.current?.click()}
       >
@@ -503,7 +551,8 @@ export default function KnowledgeFileManager() {
         accept={KNOWLEDGE_ACCEPT}
         className="knowledge-upload hidden"
         onChange={(event) => {
-          if (event.target.files) void uploadFiles(listingPath, event.target.files);
+          if (event.target.files)
+            void uploadFiles(listingPath, event.target.files);
           event.target.value = '';
         }}
       />
@@ -551,7 +600,9 @@ export default function KnowledgeFileManager() {
                 </div>
                 <div className="knowledge-detail-folder-meta">
                   {structuredCurrent ? (
-                    <span className="knowledge-structured-badge">Structured</span>
+                    <span className="knowledge-structured-badge">
+                      Structured
+                    </span>
                   ) : (
                     `${fileCountInNode(currentNode)} files`
                   )}
@@ -576,7 +627,11 @@ export default function KnowledgeFileManager() {
               onDrop={(event) => {
                 event.preventDefault();
                 if (event.dataTransfer.files?.length) {
-                  void uploadFiles('', event.dataTransfer.files, currentLibrary);
+                  void uploadFiles(
+                    '',
+                    event.dataTransfer.files,
+                    currentLibrary,
+                  );
                 }
               }}
             >
@@ -604,7 +659,8 @@ export default function KnowledgeFileManager() {
             <div>
               <h2 className="knowledge-files-title">Files</h2>
               <p className="knowledge-files-subtitle">
-                Private folders are just yours. Public folders are shared with signed-in users.
+                Private folders are just yours. Public folders are shared with
+                signed-in users.
               </p>
             </div>
             <div className="knowledge-files-header-actions">
@@ -622,14 +678,15 @@ export default function KnowledgeFileManager() {
             </div>
           </div>
           <StorageBar storage={storage} />
-          <div className="knowledge-detail-main">
-            {listing}
-          </div>
+          <div className="knowledge-detail-main">{listing}</div>
         </section>
       </div>
       <KnowledgePreview
         markdown={previewMarkdown}
+        file={previewFile}
+        filename={previewFilename}
         error={previewError}
+        loading={previewLoading}
         title={previewTitle}
         onClose={clearPreview}
       />
