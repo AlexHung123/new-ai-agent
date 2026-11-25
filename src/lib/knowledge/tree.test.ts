@@ -99,6 +99,35 @@ describe('tree walk', () => {
     expect(latestCreatedAt(tree)).toBe('2026-11-08T11:38:01Z');
   });
 
+  it('uses the actual markdown size when Dochub provides it', () => {
+    const withSizes = {
+      ...tree,
+      children: [
+        {
+          type: 'dir' as const,
+          name: 'contracts',
+          path: 'contracts',
+          children: [
+            {
+              type: 'file' as const,
+              name: 'report.pdf',
+              path: 'contracts/report.pdf',
+              file: {
+                id: 'file-1',
+                original_filename: 'report.pdf',
+                inbox_relpath: 'contracts/report.pdf',
+                markdown_relpath: 'contracts/report.md',
+                size_bytes: 16,
+                markdown_size_bytes: 5,
+              },
+            },
+          ],
+        },
+      ],
+    };
+    expect(usedBytesFromTree(withSizes)).toBe(21);
+  });
+
   it('flattens dirs and files', () => {
     expect(flattenKnowledgeNodes(tree).map((n) => n.path)).toEqual([
       '',

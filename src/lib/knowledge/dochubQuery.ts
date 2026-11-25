@@ -16,6 +16,7 @@ export type MappedDochubQuery =
       limit: number;
       path?: string;
       query?: string;
+      queries?: string[];
       searches?: MappedDochubSearch[];
       intent?: string;
       rerank?: boolean;
@@ -28,9 +29,12 @@ function asRecord(args: unknown): Record<string, unknown> {
   return args && typeof args === 'object' ? (args as Record<string, unknown>) : {};
 }
 
+const DEFAULT_SEARCH_LIMIT = 20;
+const MAX_SEARCH_LIMIT = 50;
+
 function clampLimit(value: unknown): number {
-  const n = typeof value === 'number' && Number.isInteger(value) ? value : 5;
-  return Math.min(10, Math.max(1, n));
+  const n = typeof value === 'number' && Number.isInteger(value) ? value : DEFAULT_SEARCH_LIMIT;
+  return Math.min(MAX_SEARCH_LIMIT, Math.max(1, n));
 }
 
 function asFiniteNumber(value: unknown): number | undefined {
@@ -51,16 +55,28 @@ function parseSearches(raw: unknown): MappedDochubSearch[] {
   return out;
 }
 
+function parseQueryList(raw: unknown): string[] {
+  if (Array.isArray(raw)) {
+    return raw
+      .filter((item): item is string => typeof item === 'string')
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  if (typeof raw === 'string' && raw.trim()) return [raw.trim()];
+  return [];
+}
+
 export function mapDochubQueryArgs(args: unknown): MappedDochubQuery {
   const rec = asRecord(args);
   const searches = parseSearches(rec.searches);
+  const queries = parseQueryList(rec.query);
   const intent = typeof rec.intent === 'string' ? rec.intent.trim() : '';
   const explicitMode =
     typeof rec.mode === 'string' && MODES.has(rec.mode as KnowledgeSearchMode)
       ? (rec.mode as KnowledgeSearchMode)
       : undefined;
 
-  let mode: KnowledgeSearchMode = explicitMode ?? 'query';
+  let mode: KnowledgeSearchMode = explicitMode ?? 'search';
   let query: string | undefined;
 
   if (searches.length > 0) {
@@ -70,12 +86,12 @@ export function mapDochubQueryArgs(args: unknown): MappedDochubQuery {
     } else if (!explicitMode) {
       mode = 'query';
     }
-  } else if (typeof rec.query === 'string' && rec.query.trim()) {
-    query = rec.query.trim();
-    mode = explicitMode ?? 'query';
+  } else if (queries.length) {
+    query = queries[0];
+    mode = explicitMode ?? 'search';
   }
 
-  if (!searches.length && !query) return { ok: false, error: 'query is required' };
+  if (!searches.length && !queries.length) return { ok: false, error: 'query is required' };
 
   const mapped: MappedDochubQuery = {
     ok: true,
@@ -83,6 +99,7 @@ export function mapDochubQueryArgs(args: unknown): MappedDochubQuery {
     limit: clampLimit(rec.limit),
   };
   if (query) mapped.query = query;
+  if (queries.length > 1) mapped.queries = queries;
   if (searches.length) mapped.searches = searches;
   if (intent) mapped.intent = intent;
   if (typeof rec.path === 'string' && isSafeRelativePath(rec.path)) {
@@ -97,3 +114,55 @@ export function mapDochubQueryArgs(args: unknown): MappedDochubQuery {
   }
   return mapped;
 }
+
+export type MappedDochubSearchRequest = {
+  mode: KnowledgeSearchMode;
+  query?: string;
+  searches?: MappedDochubSearch[];
+  intent?: string;
+  rerank?: boolean;
+  minScore?: number;
+  candidateLimit?: number;
+};
+
+export function usesSemanticSearch(
+  mapped: Extract<MappedDochubQuery, { ok: true }>,
+): boolean {
+  if (mapped.mode === 'query' || mapped.mode === 'vsearch') return true;
+  return Boolean(
+    mapped.searches?.some((row) => row.type === 'vec' || row.type === 'hyde'),
+  );
+}
+
+export function keywordFallbackArgs(
+  mapped: Extract<MappedDochubQuery, { ok: true }>,
+): MappedDochubSearchRequest {
+  const lex = (mapped.searches || []).filter((row) => row.type === 'lex');
+  if (lex.length) {
+    return {
+      mode: 'search',
+      query: lex.map((row) => row.query).join(' '),
+      searches: lex,
+    };
+  }
+  if (mapped.query) return { mode: 'search', query: mapped.query };
+  const queries = (mapped.searches || []).map((row) => row.query).filter(Boolean);
+  if (queries.length) return { mode: 'search', query: queries.join(' ') };
+  return { mode: 'search' };
+}
+
+export function semanticSearchFallbackReason(error: unknown): string | null {
+  const message = error instanceof Error ? error.message : String(error);
+  const code =
+    error && typeof error === 'object' && 'code' in error
+      ? String((error as { code?: unknown }).code || '')
+      : '';
+  const text = `${code} ${message}`.toLowerCase();
+  if (/not ready|semantic_not_ready|embeddings/.test(text)) {
+    return 'semantic_not_ready';
+  }
+  if (/timed? out|timeout/.test(text)) return 'timeout';
+  if (/\bbusy\b/.test(text)) return 'busy';
+  return null;
+}
+

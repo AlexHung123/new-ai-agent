@@ -13,23 +13,15 @@ export type WritingIndexStatus = {
   hint?: string | null;
 };
 
-export type KnowledgeRetrievalMode = 'search' | 'wiki';
-
 export type WritingKnowledgeScope = {
   path: string;
   library: 'private' | 'public';
-  retrievalMode: KnowledgeRetrievalMode;
-  wikiTitle?: string;
-  wikiRootAbs?: string;
 };
 
 export type WritingTurnContext = {
   userId: string;
   pin: string | null;
   pinLibrary?: 'private' | 'public';
-  retrievalMode?: KnowledgeRetrievalMode;
-  wikiTitle?: string;
-  wikiRootAbs?: string;
   scopes?: WritingKnowledgeScope[];
   mentionedDocuments: WritingMentionedDocument[];
   tree: KnowledgeTreeNode | null;
@@ -50,9 +42,6 @@ export function writingTurnScopes(
     {
       path: ctx.pin,
       library: ctx.pinLibrary === 'public' ? 'public' : 'private',
-      retrievalMode: ctx.retrievalMode === 'wiki' ? 'wiki' : 'search',
-      ...(ctx.wikiTitle ? { wikiTitle: ctx.wikiTitle } : {}),
-      ...(ctx.wikiRootAbs ? { wikiRootAbs: ctx.wikiRootAbs } : {}),
     },
   ];
 }

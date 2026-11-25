@@ -19,31 +19,27 @@ const ctx: WritingTurnContext = {
   tree: { type: 'dir', name: '', path: '', children: [] },
 };
 
+const KNOWLEDGE_TOOLS = ['search', 'read', 'list'];
+
 describe('writingToolsForTurn', () => {
   it('binds no knowledge tools without a turn context', () => {
     expect(writingToolsForTurn()).toEqual([]);
   });
 
-  it('exposes only search and read for a local structured folder', () => {
+  it('exposes search, read, and list for a structured folder', () => {
     expect(
       writingToolsForTurn({
         ...ctx,
-        retrievalMode: 'wiki',
-        wikiRootAbs: '/tmp/spr',
-        wikiTitle: 'SPR',
         pinLibrary: 'public',
         mentionedDocuments: [],
         scopes: [
           {
             path: 'spr',
             library: 'public',
-            retrievalMode: 'wiki',
-            wikiRootAbs: '/tmp/spr',
-            wikiTitle: 'SPR',
           },
         ],
       }),
-    ).toEqual(['search', 'read']);
+    ).toEqual(KNOWLEDGE_TOOLS);
   });
 });
 
@@ -56,8 +52,10 @@ describe('buildWritingUserPrompt', () => {
 
   it('adds pin and mention notes and does not inject file bodies', () => {
     const prompt = buildWritingUserPrompt('季度規劃喺邊份合約', ctx);
-    expect(prompt).toContain('[Pinned folder]\nprivate:contracts/2024 (ordinary)');
+    expect(prompt).toContain('[Pinned folder]\nprivate:contracts/2024\n');
+    expect(prompt).not.toContain('(ordinary)');
     expect(prompt).toContain('[Knowledge tools]');
+    expect(prompt).toContain('Use list to see files');
     expect(prompt).toContain('Use search then read');
     expect(prompt).toContain('[Mentioned documents]');
     expect(prompt).toContain('contracts/2024/plan.md');
@@ -95,57 +93,52 @@ describe('buildWritingUserPrompt', () => {
     expect(prompt).toContain('Use keyword search');
   });
 
-  it('treats a structured public pin as an ordinary Dochub folder', () => {
+  it('treats a structured public pin as a Dochub folder', () => {
     const prompt = buildWritingUserPrompt('What is the threshold?', {
       ...ctx,
       pin: 'spr',
       pinLibrary: 'public',
-      retrievalMode: 'wiki',
-      wikiTitle: 'Stores and Procurement Regulations (SPR)',
       mentionedDocuments: [],
       scopes: [
         {
           path: 'spr',
           library: 'public',
-          retrievalMode: 'wiki',
-          wikiTitle: 'Stores and Procurement Regulations (SPR)',
         },
       ],
     });
-    expect(prompt).toContain('[Pinned folder]\npublic:spr (ordinary)');
+    expect(prompt).toContain('[Pinned folder]\npublic:spr\n');
+    expect(prompt).not.toContain('(ordinary)');
     expect(prompt).toContain('Use search then read');
     expect(prompt).not.toContain('[Structured folder]');
     expect(prompt).not.toContain('Never use the word "wiki"');
     expect(prompt).not.toMatch(/fs_read|fs_grep|\bgrep\b|\bmulti_get\b/);
   });
 
-  it('lists mixed scopes and binds only search and read', () => {
+  it('lists mixed scopes and binds search, read, and list', () => {
     const mixed = {
       ...ctx,
       pin: 'writing',
       pinLibrary: 'private' as const,
-      retrievalMode: 'search' as const,
       scopes: [
-        { path: 'writing', library: 'private' as const, retrievalMode: 'search' as const },
-        { path: 'testing1', library: 'public' as const, retrievalMode: 'search' as const },
+        { path: 'writing', library: 'private' as const },
+        { path: 'testing1', library: 'public' as const },
         {
           path: 'spr',
           library: 'public' as const,
-          retrievalMode: 'wiki' as const,
-          wikiTitle: 'SPR',
         },
       ],
     };
     const prompt = buildWritingUserPrompt('Compare the policy', mixed);
     expect(prompt).toContain('[Pinned folders]');
-    expect(prompt).toContain('private:writing (ordinary)');
-    expect(prompt).toContain('public:testing1 (ordinary)');
-    expect(prompt).toContain('public:spr (ordinary)');
+    expect(prompt).toContain('- private:writing');
+    expect(prompt).toContain('- public:testing1');
+    expect(prompt).toContain('- public:spr');
+    expect(prompt).not.toContain('(ordinary)');
     expect(prompt).not.toContain('[Structured folder]');
     expect(prompt).not.toContain('structured folders with keyword search');
     expect(prompt).toContain('One search covers all pinned folders');
     expect(prompt).not.toContain('Never mix those modes in one query');
-    expect(writingToolsForTurn(mixed)).toEqual(['search', 'read']);
+    expect(writingToolsForTurn(mixed)).toEqual(KNOWLEDGE_TOOLS);
   });
 
   it('does not bind knowledge tools when nothing is pinned or mentioned', () => {
@@ -160,45 +153,62 @@ describe('buildWritingUserPrompt', () => {
     ).toEqual([]);
   });
 
-  it('binds search and read when only ordinary folders are pinned', () => {
+  it('binds search, read, and list when only folders are pinned', () => {
     expect(
       writingToolsForTurn({
         ...ctx,
         pin: 'writing',
         pinLibrary: 'private',
-        retrievalMode: 'search',
         mentionedDocuments: [],
-        scopes: [
-          { path: 'writing', library: 'private', retrievalMode: 'search' },
-        ],
+        scopes: [{ path: 'writing', library: 'private' }],
       }),
-    ).toEqual(['search', 'read']);
+    ).toEqual(KNOWLEDGE_TOOLS);
   });
 
-  it('binds only search and read for multiple structured folders', () => {
+  it('binds search, read, and list for multiple structured folders', () => {
     const multiWiki = {
       ...ctx,
       pin: 'g3',
       pinLibrary: 'public' as const,
-      retrievalMode: 'wiki' as const,
       scopes: [
         {
           path: 'g3',
           library: 'public' as const,
-          retrievalMode: 'wiki' as const,
-          wikiRootAbs: '/tmp/g3',
         },
         {
           path: 's17',
           library: 'public' as const,
-          retrievalMode: 'wiki' as const,
-          wikiRootAbs: '/tmp/s17',
         },
       ],
     };
-    expect(writingToolsForTurn(multiWiki)).toEqual(['search', 'read']);
+    expect(writingToolsForTurn(multiWiki)).toEqual(KNOWLEDGE_TOOLS);
     expect(writingToolsForTurn(multiWiki)).not.toContain('fs_grep');
     expect(writingToolsForTurn(multiWiki)).not.toContain('grep');
     expect(writingToolsForTurn(multiWiki)).not.toContain('query');
+  });
+
+  it('warns when pinned folders changed from the previous turn', () => {
+    const prompt = buildWritingUserPrompt(
+      'Summarize the policy',
+      {
+        ...ctx,
+        mentionedDocuments: [],
+        pin: 'spr',
+        pinLibrary: 'public',
+        scopes: [{ path: 'spr', library: 'public' }],
+      },
+      { previousPins: ['private:contracts/2024'] },
+    );
+    expect(prompt).toContain('[Pinned folders changed]');
+    expect(prompt).toContain('Previously pinned: private:contracts/2024');
+    expect(prompt).toContain('Currently pinned: public:spr');
+    expect(prompt).toContain('out of scope');
+  });
+
+  it('does not warn when pins are unchanged', () => {
+    const prompt = buildWritingUserPrompt('Continue', ctx, {
+      previousPins: ['private:contracts/2024'],
+    });
+    expect(prompt).not.toContain('[Pinned folders changed]');
   });
 });

@@ -72,3 +72,13 @@ export function usesNativeDocumentPreview(name: string): boolean {
     kind === 'docx'
   );
 }
+
+export function usesHtmlDocumentPreview(name: string): boolean {
+  return fileKind(name) === 'html';
+}
+
+/** Original bytes needed: office/PDF/images via file-viewer, or HTML in a sandboxed iframe. */
+export function usesInboxDocumentPreview(name: string): boolean {
+  return usesNativeDocumentPreview(name) || usesHtmlDocumentPreview(name);
+}
+

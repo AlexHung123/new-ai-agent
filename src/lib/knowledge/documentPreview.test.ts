@@ -18,12 +18,17 @@ describe('native document preview wiring', () => {
     const wrapper = readSrc('../../components/DocumentNativePreview.tsx');
 
     expect(helper).toMatch(/usesNativeDocumentPreview/);
-    expect(knowledge).toMatch(/usesNativeDocumentPreview/);
+    expect(helper).toMatch(/usesHtmlDocumentPreview/);
+    expect(helper).toMatch(/usesInboxDocumentPreview/);
+    expect(knowledge).toMatch(/usesInboxDocumentPreview/);
     expect(knowledge).toMatch(/content\?tree=inbox/);
     expect(knowledge).toMatch(/content\?tree=markdown/);
     expect(preview).toMatch(/DocumentNativePreview/);
+    expect(preview).toMatch(/HtmlDocumentPreview/);
     expect(preview).toMatch(/markdown-to-jsx/);
     expect(writing).toMatch(/usesNativeDocumentPreview/);
+    expect(writing).toMatch(/usesInboxDocumentPreview/);
+    expect(writing).toMatch(/HtmlDocumentPreview/);
     expect(writing).toMatch(/content\?tree=inbox/);
     expect(writing).toMatch(/content\?tree=markdown/);
     expect(writing).toMatch(/\/original/);

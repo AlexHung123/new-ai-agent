@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { fileKind, fileKindGlyph, usesNativeDocumentPreview } from './fileKind';
+import {
+  fileKind,
+  fileKindGlyph,
+  usesHtmlDocumentPreview,
+  usesInboxDocumentPreview,
+  usesNativeDocumentPreview,
+} from './fileKind';
 
 describe('fileKind', () => {
   it('maps common writing attachments to FILES glyphs', () => {
@@ -24,5 +30,17 @@ describe('fileKind', () => {
     expect(usesNativeDocumentPreview('notes.md')).toBe(false);
     expect(usesNativeDocumentPreview('chapter.qmd')).toBe(false);
     expect(usesNativeDocumentPreview('readme.txt')).toBe(false);
+  });
+
+  it('previews HTML in a sandboxed iframe and leaves EPUB as converted markdown', () => {
+    expect(fileKind('page.html')).toBe('html');
+    expect(fileKind('index.htm')).toBe('html');
+    expect(usesHtmlDocumentPreview('page.html')).toBe(true);
+    expect(usesInboxDocumentPreview('page.html')).toBe(true);
+    expect(usesNativeDocumentPreview('page.html')).toBe(false);
+    expect(fileKind('book.epub')).toBe('other');
+    expect(usesHtmlDocumentPreview('book.epub')).toBe(false);
+    expect(usesNativeDocumentPreview('book.epub')).toBe(false);
+    expect(usesInboxDocumentPreview('book.epub')).toBe(false);
   });
 });

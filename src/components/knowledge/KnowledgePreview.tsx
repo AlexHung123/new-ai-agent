@@ -4,7 +4,11 @@ import Markdown from 'markdown-to-jsx';
 import { X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import DocumentNativePreview from '@/components/DocumentNativePreview';
-import { usesNativeDocumentPreview } from '@/lib/writing/fileKind';
+import HtmlDocumentPreview from '@/components/HtmlDocumentPreview';
+import {
+  usesHtmlDocumentPreview,
+  usesNativeDocumentPreview,
+} from '@/lib/writing/fileKind';
 
 export default function KnowledgePreview({
   markdown,
@@ -27,6 +31,9 @@ export default function KnowledgePreview({
   const native = Boolean(
     file && filename && usesNativeDocumentPreview(filename),
   );
+  const htmlPreview = Boolean(
+    file && filename && usesHtmlDocumentPreview(filename),
+  );
   const open = Boolean(markdown || file || error || loading);
 
   useEffect(() => {
@@ -39,7 +46,7 @@ export default function KnowledgePreview({
   return (
     <dialog
       ref={dialogRef}
-      className={`knowledge-preview-dialog${native ? ' is-native' : ''}`}
+      className={`knowledge-preview-dialog${native || htmlPreview ? ' is-native' : ''}${htmlPreview ? ' is-html' : ''}`}
       onClose={onClose}
       onClick={(event) => {
         if (event.target === dialogRef.current) onClose();
@@ -68,6 +75,10 @@ export default function KnowledgePreview({
         ) : native && file && filename ? (
           <div className="knowledge-preview-native">
             <DocumentNativePreview file={file} name={filename} />
+          </div>
+        ) : htmlPreview && file && filename ? (
+          <div className="knowledge-preview-native knowledge-preview-html">
+            <HtmlDocumentPreview file={file} title={filename} />
           </div>
         ) : (
           <div className="knowledge-preview-markdown content markdown">

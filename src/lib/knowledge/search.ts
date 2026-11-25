@@ -44,6 +44,7 @@ export type KnowledgeToolHit = {
   path: string;
   line?: number;
   snippet: string;
+  query?: string;
 };
 
 const SNIPPET_CHARS = 200;
@@ -93,4 +94,36 @@ export function hitsFromSearchResults(
     });
   }
   return hits;
+}
+
+export function mergeSearchHits<T extends KnowledgeToolHit>(
+  groups: T[][],
+  opts: { limit: number; limitPerSource: number },
+): T[] {
+  const cap = Math.max(1, Math.floor(opts.limit) || 1);
+  const perSource = Math.max(1, Math.floor(opts.limitPerSource) || 1);
+  const seen = new Set<string>();
+  const sourceCount = new Map<string, number>();
+  const cursors = groups.map(() => 0);
+  const out: T[] = [];
+  let progressed = true;
+  while (out.length < cap && progressed) {
+    progressed = false;
+    for (let i = 0; i < groups.length && out.length < cap; i += 1) {
+      const group = groups[i]!;
+      while (cursors[i]! < group.length) {
+        const hit = group[cursors[i]++]!;
+        const key = `${hit.path}\t${hit.line ?? ''}`;
+        if (seen.has(key)) continue;
+        const used = sourceCount.get(hit.source) || 0;
+        if (used >= perSource) continue;
+        seen.add(key);
+        sourceCount.set(hit.source, used + 1);
+        out.push(hit);
+        progressed = true;
+        break;
+      }
+    }
+  }
+  return out;
 }

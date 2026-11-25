@@ -1,10 +1,11 @@
 import type { NamedTool, PooledAgent } from '../agent/piAgentSessionManager';
+import { DOCHUB_TOOL_NAMES as DOCHUB_TOOL_NAME_LIST } from '../tools/dochubTools';
 import {
   runWithWritingTurn,
   type WritingTurnContext,
 } from './writingTurnContext';
 
-const DOCHUB_TOOL_NAMES = new Set(['search', 'read']);
+const DOCHUB_TOOL_NAMES = new Set<string>(DOCHUB_TOOL_NAME_LIST);
 
 type ExecutableTool = NamedTool & {
   execute?: (...args: unknown[]) => unknown;

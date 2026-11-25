@@ -4,8 +4,9 @@ import {
   writingScopeLabel,
   type WritingTurnContext,
 } from '../runtime/writingTurnContext';
+import { currentPinnedLabels, pinChangeWarning } from './writingPinChange';
 
-export const WRITING_KNOWLEDGE_TOOLS = ['search', 'read'] as const;
+export const WRITING_KNOWLEDGE_TOOLS = ['search', 'read', 'list'] as const;
 
 export function writingToolsForTurn(
   ctx: WritingTurnContext | undefined = getWritingTurnContext(),
@@ -19,11 +20,12 @@ export function writingToolsForTurn(
 }
 
 const KNOWLEDGE_TOOL_GUIDE =
-  'Use search then read. One search covers all pinned folders. Prefer reading several paths in one read. Do not repeat the same keyword search.';
+  'Use list to see files in a pinned or @-mentioned folder. Use search then read for document contents. One search covers all pinned folders. Prefer reading several paths in one read. A bare query uses keyword search; pass query as an array for independent keywords, or searches / mode query/vsearch for one hybrid or semantic intent. If embeddings are not ready or hybrid search fails, the host retries keyword search and may return fallback.reason. Do not repeat the same keyword search.';
 
 export function buildWritingUserPrompt(
   userMessage: string,
   ctx: WritingTurnContext | undefined = getWritingTurnContext(),
+  opts?: { previousPins?: string[] | null },
 ): string {
   const question = `[User request]\n${userMessage}`;
   if (!ctx) return question;
@@ -36,14 +38,21 @@ export function buildWritingUserPrompt(
   }
   if (scopes.length === 1) {
     const scope = scopes[0];
-    blocks.push(`[Pinned folder]\n${writingScopeLabel(scope)} (ordinary)\n`);
+    blocks.push(`[Pinned folder]\n${writingScopeLabel(scope)}\n`);
   } else if (scopes.length > 1) {
     const lines = scopes
-      .map((scope) => `- ${writingScopeLabel(scope)} (ordinary)`)
+      .map((scope) => `- ${writingScopeLabel(scope)}`)
       .join('\n');
     blocks.push(
       `[Pinned folders]\n${lines}\n${KNOWLEDGE_TOOL_GUIDE} Each hit is labeled with its source folder.\n`,
     );
+  }
+  const change = pinChangeWarning(
+    opts?.previousPins,
+    currentPinnedLabels(ctx),
+  );
+  if (change) {
+    blocks.push(`${change}\n`);
   }
   if (scopes.length > 0 || ctx.mentionedDocuments.length > 0) {
     if (scopes.length <= 1) {
@@ -60,7 +69,7 @@ export function buildWritingUserPrompt(
   }
   if (ctx.index && ctx.index.semantic_search_ready === false) {
     blocks.push(
-      `[Index status]\n${ctx.index.hint || 'Embeddings are not ready. Use keyword search (lex or mode=search) instead of vsearch, vec, hyde, or mode=query.'}\n`,
+      `[Index status]\n${ctx.index.hint || 'Embeddings are not ready. Use keyword search (lex or mode=search) instead of vsearch, vec, hyde, or mode=query.'} The host will automatically fall back to keyword search if a hybrid or semantic search is requested.\n`,
     );
   }
   if (ctx.mentionedDocuments.length) {

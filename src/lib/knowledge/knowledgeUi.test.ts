@@ -100,7 +100,7 @@ describe('knowledge UI contracts', () => {
     expect(manager).toMatch(/vsearch/);
     expect(manager).toMatch(/content\?tree=markdown/);
     expect(manager).toMatch(/content\?tree=inbox/);
-    expect(manager).toMatch(/usesNativeDocumentPreview/);
+    expect(manager).toMatch(/usesInboxDocumentPreview/);
     expect(manager).toMatch(/getAuthBearerHeaders/);
     expect(manager).toMatch(/resolveSearchHitDisplay/);
     expect(listing).toMatch(/resolveSearchHitDisplay/);
@@ -111,6 +111,7 @@ describe('knowledge UI contracts', () => {
     expect(preview).toMatch(/markdown-to-jsx/);
     expect(preview).toMatch(/DocumentNativePreview/);
     expect(preview).toMatch(/usesNativeDocumentPreview/);
+    expect(preview).toMatch(/HtmlDocumentPreview/);
     expect(preview).toMatch(/File not found/);
     expect(preview).toMatch(/knowledge-preview-dialog/);
     expect(preview).toMatch(/aria-label="Close preview"/);

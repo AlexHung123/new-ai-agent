@@ -108,14 +108,26 @@ export function fileTaskIds(root: KnowledgeTreeNode): string[] {
 
 export function storedBytesFromFile(file: {
   size_bytes?: number;
+  inbox_size_bytes?: number | null;
+  markdown_size_bytes?: number | null;
   inbox_relpath?: string | null;
   markdown_relpath?: string | null;
 }): number {
-  const size = Math.max(0, Number(file.size_bytes) || 0);
+  const original = Math.max(
+    0,
+    Number(file.inbox_size_bytes ?? file.size_bytes) || 0,
+  );
+  const markdownSize = Number(file.markdown_size_bytes);
+  const hasMarkdownSize = Number.isFinite(markdownSize) && markdownSize >= 0;
   const inbox = (file.inbox_relpath || '').trim();
   const markdown = (file.markdown_relpath || '').trim();
-  if (inbox && markdown) return size * 2;
-  return size;
+  if (hasMarkdownSize) {
+    return (inbox ? original : 0) + markdownSize;
+  }
+  // Fallback only when Dochub has not yet returned the converted size:
+  // upload charges original + actual markdown bytes, which this approximates.
+  if (inbox && markdown) return original * 2;
+  return original;
 }
 
 export function usedBytesFromTree(root: KnowledgeTreeNode): number {

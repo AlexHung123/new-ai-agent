@@ -64,7 +64,6 @@ export async function loadWritingTurnContext(opts: {
     scopes.push({
       path: scope.path,
       library: scope.library,
-      retrievalMode: 'search',
     });
   }
 
@@ -113,7 +112,6 @@ export async function loadWritingTurnContext(opts: {
     userId: opts.userId,
     pin: first?.path ?? pin.pin,
     pinLibrary,
-    retrievalMode: 'search',
     scopes,
     mentionedDocuments: pin.mentionedDocuments,
     tree: privateTree,

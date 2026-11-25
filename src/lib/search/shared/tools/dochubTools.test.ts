@@ -24,9 +24,9 @@ const ctx = {
 };
 
 describe('createDochubTools', () => {
-  it('exposes only search and read, with no user_id on schemas', () => {
+  it('exposes search, read, and list, with no user_id on schemas', () => {
     const tools = createDochubTools();
-    expect(tools.map((tool) => tool.name)).toEqual(['search', 'read']);
+    expect(tools.map((tool) => tool.name)).toEqual(['search', 'read', 'list']);
     for (const tool of tools) {
       const params = JSON.stringify(tool.parameters);
       expect(params).not.toMatch(/user_id/);
@@ -39,13 +39,40 @@ describe('createDochubTools', () => {
     expect(JSON.stringify(search.parameters)).not.toMatch(/Structured folders only/);
   });
 
-  it('sends JWT user id and clamped path on ordinary-folder search', async () => {
+  it('sends JWT user id and narrows a path inside the pinned folder', async () => {
     const searchFn = vi.fn(async () => ({
       user_id: '1',
       mode: 'search',
       query: 'plan',
-      results: [{ file: 'qmd://markdown/contracts/2024/plan.md', line: 12, snippet: 'plan text' }],
+      results: [{ file: 'qmd://markdown/contracts/2024/q1/plan.md', line: 12, snippet: 'plan text' }],
     }));
+    const tools = createDochubTools({ search: searchFn });
+    const search = tools.find((t) => t.name === 'search')!;
+    const result = await runWithWritingTurn(ctx, () =>
+      search.execute('id', {
+        searches: [{ type: 'lex', query: 'plan' }],
+        path: 'contracts/2024/q1',
+        user_id: 'alice',
+      }),
+    );
+    expect(searchFn).toHaveBeenCalledWith(
+      '1',
+      expect.objectContaining({
+        searches: [{ type: 'lex', query: 'plan' }],
+        mode: 'search',
+        path: 'contracts/2024/q1',
+      }),
+      { library: 'private' },
+    );
+    const details = result.details as {
+      hits: Array<{ path: string; source: string; snippet: string }>;
+    };
+    expect(details.hits[0].path).toBe('contracts/2024/q1/plan.md');
+    expect(details.hits[0].source).toBe('private:contracts/2024');
+  });
+
+  it('rejects a path outside a single pinned folder and names the pin', async () => {
+    const searchFn = vi.fn(async () => ({ results: [] }));
     const tools = createDochubTools({ search: searchFn });
     const search = tools.find((t) => t.name === 'search')!;
     const result = await runWithWritingTurn(ctx, () =>
@@ -55,20 +82,11 @@ describe('createDochubTools', () => {
         user_id: 'alice',
       }),
     );
-    expect(searchFn).toHaveBeenCalledWith(
-      '1',
-      expect.objectContaining({
-        searches: [{ type: 'lex', query: 'plan' }],
-        mode: 'search',
-        path: 'contracts/2024',
-      }),
-      { library: 'private' },
-    );
-    const details = result.details as {
-      hits: Array<{ path: string; source: string; snippet: string }>;
-    };
-    expect(details.hits[0].path).toBe('contracts/2024/plan.md');
-    expect(details.hits[0].source).toBe('private:contracts/2024');
+    expect(searchFn).not.toHaveBeenCalled();
+    expect(result.details).toMatchObject({
+      ok: false,
+      error: 'path is outside the pinned folders. Currently pinned: private:contracts/2024',
+    });
   });
 
   it('does not return user_id to the model', async () => {
@@ -120,6 +138,56 @@ describe('createDochubTools', () => {
     expect(mode).not.toBeUndefined();
   });
 
+  it('asks Dochub for the advertised default of 20 on a single pin', async () => {
+    const searchFn = vi.fn(async () => ({ results: [] }));
+    const tools = createDochubTools({ search: searchFn });
+    const search = tools.find((t) => t.name === 'search')!;
+    const result = await runWithWritingTurn(ctx, () =>
+      search.execute('id', { query: 'plan' }),
+    );
+    expect(searchFn).toHaveBeenCalledWith(
+      '1',
+      expect.objectContaining({ query: 'plan', limit: 20 }),
+      { library: 'private' },
+    );
+    expect(result.details).toMatchObject({ ok: true, limitPerSource: 20 });
+  });
+
+  it('forwards a limit up to 50 and splits it across pins', async () => {
+    const searchFn = vi.fn(async () => ({ results: [] }));
+    const tools = createDochubTools({ search: searchFn });
+    const search = tools.find((t) => t.name === 'search')!;
+    const oversized = await runWithWritingTurn(ctx, () =>
+      search.execute('id', { query: 'plan', limit: 99 }),
+    );
+    expect(searchFn).toHaveBeenCalledWith(
+      '1',
+      expect.objectContaining({ limit: 50 }),
+      { library: 'private' },
+    );
+    expect(oversized.details).toMatchObject({ ok: true, limitPerSource: 50 });
+
+    searchFn.mockClear();
+    const multi = {
+      ...ctx,
+      pin: 'writing',
+      pinLibrary: 'private' as const,
+      scopes: [
+        { path: 'writing', library: 'private' as const },
+        { path: 'g3', library: 'public' as const },
+        { path: 'spr', library: 'public' as const },
+      ],
+    };
+    const split = await runWithWritingTurn(multi, () =>
+      search.execute('id', { query: 'plan' }),
+    );
+    expect(searchFn).toHaveBeenCalledTimes(3);
+    for (const call of searchFn.mock.calls) {
+      expect(call[1]).toMatchObject({ limit: 7 });
+    }
+    expect(split.details).toMatchObject({ ok: true, limitPerSource: 7 });
+  });
+
   it('expands last-segment *.md against markdown_relpath on read', async () => {
     const globTree = {
       type: 'dir' as const,
@@ -147,21 +215,22 @@ describe('createDochubTools', () => {
         },
       ],
     };
-    const getDochubMarkdown = vi.fn(async (opts: { file: string }) => ({
-      ok: true as const,
-      dochub_path: 'contracts/plan.md',
-      text: '1|hi',
-      fromLine: 1,
-      lineCount: 1,
+    const multiGetDocuments = vi.fn(async () => ({
+      documents: [
+        { path: 'contracts/plan.md', text: '1: hi', from_line: 1, line_count: 1 },
+      ],
+      errors: [],
     }));
-    const tools = createDochubTools({ getDochubMarkdown });
+    const tools = createDochubTools({ multiGetDocuments });
     const read = tools.find((t) => t.name === 'read')!;
     await runWithWritingTurn(
       { ...ctx, pin: 'contracts', tree: globTree },
       () => read.execute('id', { files: 'contracts/*.md' }),
     );
-    expect(getDochubMarkdown).toHaveBeenCalledWith(
-      expect.objectContaining({ file: 'contracts/plan.docx' }),
+    expect(multiGetDocuments).toHaveBeenCalledWith(
+      '1',
+      expect.objectContaining({ files: ['contracts/plan.md'] }),
+      expect.objectContaining({ library: 'private' }),
     );
   });
 
@@ -185,26 +254,28 @@ describe('createDochubTools', () => {
   });
 
   it('accepts get-shaped args on read', async () => {
-    const getDochubMarkdown = vi.fn(async (opts: { file: string }) => ({
-      ok: true as const,
-      dochub_path: opts.file,
-      text: '1|hi',
-      fromLine: 1,
-      lineCount: 1,
+    const multiGetDocuments = vi.fn(async () => ({
+      documents: [
+        { path: 'contracts/2024/spec.md', text: '1: hi', from_line: 1, line_count: 1 },
+      ],
+      errors: [],
     }));
-    const tools = createDochubTools({ getDochubMarkdown });
+    const tools = createDochubTools({ multiGetDocuments });
     const read = tools.find((t) => t.name === 'read')!;
     await runWithWritingTurn(ctx, () =>
       read.execute('id', {
-        file: 'writing/spec.md',
+        file: 'contracts/2024/spec.md',
         maxLines: '40',
       }),
     );
-    expect(getDochubMarkdown).toHaveBeenCalledWith(
+    expect(multiGetDocuments).toHaveBeenCalledWith(
+      '1',
       expect.objectContaining({
-        file: 'writing/spec.md',
-        maxLines: '40',
+        files: ['contracts/2024/spec.md'],
+        maxLines: 40,
+        maxBytes: 200 * 1024,
       }),
+      expect.objectContaining({ library: 'private' }),
     );
   });
 
@@ -231,8 +302,8 @@ describe('createDochubTools', () => {
       pin: 'writing',
       pinLibrary: 'private' as const,
       scopes: [
-        { path: 'writing', library: 'private' as const, retrievalMode: 'search' as const },
-        { path: 'g3', library: 'public' as const, retrievalMode: 'wiki' as const },
+        { path: 'writing', library: 'private' as const },
+        { path: 'g3', library: 'public' as const },
       ],
     };
     const searched = await runWithWritingTurn(multi, () =>
@@ -273,22 +344,25 @@ describe('createDochubTools', () => {
       text: '1|from dochub',
       fromLine: 1,
       lineCount: 1,
+      truncated: false,
     }));
-    const tools = createDochubTools({ search: searchFn, getDochubMarkdown });
+    const multiGetDocuments = vi.fn(async () => ({
+      documents: [
+        { path: 'g3/wiki/index.md', text: '1: from dochub', from_line: 1, line_count: 1 },
+      ],
+      errors: [],
+    }));
+    const tools = createDochubTools({ search: searchFn, getDochubMarkdown, multiGetDocuments });
     const localCtx = {
       userId: '1',
       pin: 'g3',
       pinLibrary: 'public' as const,
-      retrievalMode: 'wiki' as const,
       mentionedDocuments: [],
       tree,
-      wikiRootAbs: root,
       scopes: [
         {
           path: 'g3',
           library: 'public' as const,
-          retrievalMode: 'wiki' as const,
-          wikiRootAbs: root,
         },
       ],
     };
@@ -315,15 +389,17 @@ describe('createDochubTools', () => {
     const readOut = await runWithWritingTurn(localCtx, () =>
       read.execute('id', { path: 'g3/wiki/index.md' }),
     );
-    expect(getDochubMarkdown).toHaveBeenCalled();
+    expect(multiGetDocuments).toHaveBeenCalled();
     const readDetails = readOut.details as {
       dochub_path: string;
       text: string;
       source: string;
+      truncated: boolean;
     };
     expect(readDetails.dochub_path).toBe('g3/wiki/index.md');
     expect(readDetails.source).toBe('public:g3');
     expect(readDetails.text).toBe('1|from dochub');
+    expect(readDetails.truncated).toBe(false);
   });
 
   it('searches mixed ordinary and structured pins and merges labeled hits', async () => {
@@ -345,7 +421,6 @@ describe('createDochubTools', () => {
         userId: '1',
         pin: 'writing',
         pinLibrary: 'private',
-        retrievalMode: 'search',
         mentionedDocuments: [],
         tree,
         publicTree: {
@@ -369,13 +444,11 @@ describe('createDochubTools', () => {
           ],
         },
         scopes: [
-          { path: 'writing', library: 'private', retrievalMode: 'search' },
-          { path: 'testing1', library: 'public', retrievalMode: 'search' },
+          { path: 'writing', library: 'private' },
+          { path: 'testing1', library: 'public' },
           {
             path: 'spr',
             library: 'public',
-            retrievalMode: 'wiki',
-            wikiRootAbs: '/tmp/spr-should-not-be-read',
           },
         ],
       },
@@ -398,7 +471,7 @@ describe('createDochubTools', () => {
       { library: 'public' },
     );
     const modes = searchFn.mock.calls.map((call) => (call[1] as { mode?: string }).mode);
-    expect(modes).not.toContain('search');
+    expect(modes).toEqual(['search', 'search', 'search']);
     const details = result.details as {
       hits: Array<{ file?: string; path: string; source: string }>;
       sources: string[];
@@ -433,12 +506,11 @@ describe('createDochubTools', () => {
         userId: '1',
         pin: 'g3',
         pinLibrary: 'public',
-        retrievalMode: 'search',
         mentionedDocuments: [],
         tree,
         scopes: [
-          { path: 'g3', library: 'public', retrievalMode: 'search' },
-          { path: 's17', library: 'public', retrievalMode: 'search' },
+          { path: 'g3', library: 'public' },
+          { path: 's17', library: 'public' },
         ],
       },
       () => search.execute('id', { query: 'password' }),
@@ -446,12 +518,12 @@ describe('createDochubTools', () => {
     expect(searchFn).toHaveBeenCalledTimes(2);
     expect(searchFn).toHaveBeenCalledWith(
       '1',
-      expect.objectContaining({ mode: 'query', query: 'password', path: 'g3' }),
+      expect.objectContaining({ mode: 'search', query: 'password', path: 'g3' }),
       { library: 'public' },
     );
     expect(searchFn).toHaveBeenCalledWith(
       '1',
-      expect.objectContaining({ mode: 'query', query: 'password', path: 's17' }),
+      expect.objectContaining({ mode: 'search', query: 'password', path: 's17' }),
       { library: 'public' },
     );
     const details = result.details as {
@@ -463,11 +535,13 @@ describe('createDochubTools', () => {
         path: 'g3/wiki/index.md',
         line: 2,
         snippet: 'G3 password',
+        query: 'password',
       },
       {
         source: 'public:s17',
         path: 's17/wiki/chapters/07.md',
         snippet: 'S17 password',
+        query: 'password',
       },
     ]);
   });
@@ -479,31 +553,30 @@ describe('createDochubTools', () => {
     const g3 = mkdtempSync(join(tmpdir(), 'wiki-g3-read-'));
     mkdirSync(join(g3, 'wiki'), { recursive: true });
     writeFileSync(join(g3, 'wiki', 'index.md'), 'local g3 text\n', 'utf8');
-    const getDochubMarkdown = vi.fn(async (opts: { file: string }) => ({
-      ok: true as const,
-      dochub_path: opts.file,
-      text: `1|dochub:${opts.file}`,
-      fromLine: 1,
-      lineCount: 1,
+    const multiGetDocuments = vi.fn(async (_userId: string, body: { files: string[] }) => ({
+      documents: body.files.map((file) => ({
+        path: file,
+        text: `1: dochub:${file}`,
+        from_line: 1,
+        line_count: 1,
+      })),
+      errors: [],
     }));
-    const tools = createDochubTools({ getDochubMarkdown });
+    const tools = createDochubTools({ multiGetDocuments });
     const read = tools.find((t) => t.name === 'read')!;
     const result = await runWithWritingTurn(
       {
         userId: '1',
         pin: 'g3',
         pinLibrary: 'public',
-        retrievalMode: 'wiki',
         mentionedDocuments: [],
         tree,
         scopes: [
           {
             path: 'g3',
             library: 'public',
-            retrievalMode: 'wiki',
-            wikiRootAbs: g3,
           },
-          { path: 's17', library: 'public', retrievalMode: 'wiki' },
+          { path: 's17', library: 'public' },
         ],
       },
       () =>
@@ -511,20 +584,22 @@ describe('createDochubTools', () => {
           files: ['g3/wiki/index.md', 's17/wiki/index.md'],
         }),
     );
-    expect(getDochubMarkdown).toHaveBeenCalledTimes(2);
-    expect(getDochubMarkdown).toHaveBeenCalledWith(
-      expect.objectContaining({ file: 'g3/wiki/index.md' }),
-    );
-    expect(getDochubMarkdown).toHaveBeenCalledWith(
-      expect.objectContaining({ file: 's17/wiki/index.md' }),
+    expect(multiGetDocuments).toHaveBeenCalledTimes(1);
+    expect(multiGetDocuments).toHaveBeenCalledWith(
+      '1',
+      expect.objectContaining({
+        files: ['g3/wiki/index.md', 's17/wiki/index.md'],
+      }),
+      expect.objectContaining({ library: 'public' }),
     );
     const details = result.details as {
-      files: Array<{ dochub_path: string; text: string }>;
+      files: Array<{ dochub_path: string; text: string; truncated: boolean }>;
     };
     expect(details.files.map((file) => file.text)).toEqual([
       '1|dochub:g3/wiki/index.md',
       '1|dochub:s17/wiki/index.md',
     ]);
+    expect(details.files.every((file) => file.truncated === false)).toBe(true);
   });
 
   it('drops ordinary search hits that sit outside the pin', async () => {
@@ -551,7 +626,6 @@ describe('createDochubTools', () => {
           {
             path: 'notes',
             library: 'private' as const,
-            retrievalMode: 'search' as const,
           },
         ],
       },
@@ -606,15 +680,23 @@ describe('createDochubTools', () => {
         },
       ],
     };
-    const getDochubMarkdown = vi.fn(async (opts: { file: string }) => ({
-      ok: true as const,
-      dochub_path: opts.file,
-      text: '1|hi',
-      fromLine: 1,
-      lineCount: 1,
-    }));
-    const multiGetDocuments = vi.fn(async () => ({ documents: [], errors: [] }));
-    const tools = createDochubTools({ getDochubMarkdown, multiGetDocuments });
+    const multiGetDocuments = vi.fn(
+      async (
+        _userId: string,
+        body: { files: string[] },
+        deps?: { library?: string },
+      ) => ({
+        documents: body.files.map((file) => ({
+          path: file,
+          text: '1: hi',
+          from_line: 1,
+          line_count: 1,
+        })),
+        errors: [],
+        library: deps?.library,
+      }),
+    );
+    const tools = createDochubTools({ multiGetDocuments });
     const read = tools.find((t) => t.name === 'read')!;
     await runWithWritingTurn(
       {
@@ -628,24 +710,22 @@ describe('createDochubTools', () => {
           {
             path: 'notes',
             library: 'private' as const,
-            retrievalMode: 'search' as const,
           },
           {
             path: 'spr',
             library: 'public' as const,
-            retrievalMode: 'search' as const,
           },
         ],
       },
       () => read.execute('id', { files: '**/*.md' }),
     );
-    const files = getDochubMarkdown.mock.calls.map(
-      (call) => (call[0] as { file: string }).file,
+    expect(multiGetDocuments).toHaveBeenCalledTimes(2);
+    const files = multiGetDocuments.mock.calls.flatMap(
+      (call) => (call[1] as { files: string[] }).files,
     );
     expect(files.sort()).toEqual(['notes/a.md', 'spr/c.md']);
-    expect(multiGetDocuments).not.toHaveBeenCalled();
-    const libraries = getDochubMarkdown.mock.calls.map(
-      (call) => (call[0] as { deps?: { library?: string } }).deps?.library,
+    const libraries = multiGetDocuments.mock.calls.map(
+      (call) => (call[2] as { library?: string } | undefined)?.library,
     );
     expect(libraries.sort()).toEqual(['private', 'public']);
   });
@@ -684,12 +764,10 @@ describe('createDochubTools', () => {
           {
             path: 'notes',
             library: 'private' as const,
-            retrievalMode: 'search' as const,
           },
           {
             path: 'spr',
             library: 'public' as const,
-            retrievalMode: 'search' as const,
           },
         ],
       },
@@ -714,4 +792,286 @@ describe('createDochubTools', () => {
       .map((file) => file.dochub_path);
     expect(paths.sort()).toEqual(['notes/hit.md', 'spr/hit.md']);
   });
+
+  it('defaults a bare query to keyword search and keeps explicit hybrid mode', async () => {
+    const searchFn = vi.fn(async () => ({ results: [] }));
+    const tools = createDochubTools({ search: searchFn });
+    const search = tools.find((t) => t.name === 'search')!;
+    await runWithWritingTurn(ctx, () => search.execute('id', { query: 'plan' }));
+    expect(searchFn).toHaveBeenCalledWith(
+      '1',
+      expect.objectContaining({ query: 'plan', mode: 'search' }),
+      { library: 'private' },
+    );
+    searchFn.mockClear();
+    await runWithWritingTurn(ctx, () =>
+      search.execute('id', { query: 'plan', mode: 'query' }),
+    );
+    expect(searchFn).toHaveBeenCalledWith(
+      '1',
+      expect.objectContaining({ query: 'plan', mode: 'query' }),
+      { library: 'private' },
+    );
+  });
+
+  it('falls back to keyword search when embeddings are not ready', async () => {
+    const searchFn = vi.fn(async () => ({ results: [] }));
+    const tools = createDochubTools({ search: searchFn });
+    const search = tools.find((t) => t.name === 'search')!;
+    const result = await runWithWritingTurn(
+      {
+        ...ctx,
+        index: { keyword_search_ready: true, semantic_search_ready: false },
+      },
+      () => search.execute('id', { query: 'plan', mode: 'query' }),
+    );
+    expect(searchFn).toHaveBeenCalledTimes(1);
+    expect(searchFn).toHaveBeenCalledWith(
+      '1',
+      expect.objectContaining({ query: 'plan', mode: 'search' }),
+      { library: 'private' },
+    );
+    expect(result.details).toMatchObject({
+      ok: true,
+      fallback: { reason: 'semantic_not_ready', from: 'query' },
+    });
+  });
+
+  it('retries with keyword search when hybrid search times out', async () => {
+    const searchFn = vi.fn(async (_userId: string, body: { mode?: string }) => {
+      if (body.mode === 'query') {
+        throw new Error('hybrid search timed out after 20s');
+      }
+      return { results: [{ file: 'qmd://markdown/contracts/2024/plan.md', snippet: 'plan' }] };
+    });
+    const tools = createDochubTools({ search: searchFn });
+    const search = tools.find((t) => t.name === 'search')!;
+    const result = await runWithWritingTurn(ctx, () =>
+      search.execute('id', { query: 'plan', mode: 'query' }),
+    );
+    expect(searchFn).toHaveBeenCalledTimes(2);
+    expect(searchFn.mock.calls[0][1]).toMatchObject({ mode: 'query' });
+    expect(searchFn.mock.calls[1][1]).toMatchObject({ mode: 'search', query: 'plan' });
+    expect(result.details).toMatchObject({
+      ok: true,
+      fallback: { reason: 'timeout', from: 'query' },
+    });
+  });
+
+  it('searches independent query terms in parallel and round-robins labeled hits', async () => {
+    const searchFn = vi.fn(async (_userId: string, body: { query?: string }) => ({
+      results:
+        body.query === 'OKR'
+          ? [
+              { file: 'qmd://markdown/contracts/2024/okr.md', line: 1, snippet: 'OKR one' },
+              { file: 'qmd://markdown/contracts/2024/okr.md', line: 2, snippet: 'OKR two' },
+              { file: 'qmd://markdown/contracts/2024/extra.md', line: 1, snippet: 'OKR three' },
+            ]
+          : [
+              { file: 'qmd://markdown/contracts/2024/okr.md', line: 1, snippet: 'duplicate' },
+              { file: 'qmd://markdown/contracts/2024/plan.md', line: 4, snippet: 'quarterly' },
+            ],
+    }));
+    const tools = createDochubTools({ search: searchFn });
+    const search = tools.find((t) => t.name === 'search')!;
+    const result = await runWithWritingTurn(ctx, () =>
+      search.execute('id', { query: ['OKR', 'quarterly plan'], limit: 3 }),
+    );
+    expect(searchFn).toHaveBeenCalledTimes(2);
+    expect(searchFn).toHaveBeenCalledWith(
+      '1',
+      expect.objectContaining({ query: 'OKR', limit: 3, mode: 'search' }),
+      { library: 'private' },
+    );
+    expect(searchFn).toHaveBeenCalledWith(
+      '1',
+      expect.objectContaining({ query: 'quarterly plan', limit: 3, mode: 'search' }),
+      { library: 'private' },
+    );
+    const details = result.details as {
+      query: string[];
+      hits: Array<{ query?: string; path: string; line?: number }>;
+    };
+    expect(details.query).toEqual(['OKR', 'quarterly plan']);
+    expect(
+      details.hits.map((hit) => `${hit.query}:${hit.path}:${hit.line}`),
+    ).toEqual([
+      'OKR:contracts/2024/okr.md:1',
+      'quarterly plan:contracts/2024/plan.md:4',
+      'OKR:contracts/2024/okr.md:2',
+    ]);
+  });
+
+  it('keeps searches as one intent and searches pins in parallel', async () => {
+    const searchFn = vi.fn(async () => ({ results: [] }));
+    const tools = createDochubTools({ search: searchFn });
+    const search = tools.find((t) => t.name === 'search')!;
+    const multi = {
+      ...ctx,
+      pin: 'writing',
+      pinLibrary: 'private' as const,
+      scopes: [
+        { path: 'writing', library: 'private' as const },
+        { path: 'g3', library: 'public' as const },
+      ],
+    };
+    await runWithWritingTurn(multi, () =>
+      search.execute('id', {
+        searches: [
+          { type: 'lex', query: 'OKR' },
+          { type: 'vec', query: 'quarterly plan' },
+        ],
+      }),
+    );
+    expect(searchFn).toHaveBeenCalledTimes(2);
+    for (const call of searchFn.mock.calls) {
+      expect(call[1]).toMatchObject({
+        mode: 'query',
+        searches: [
+          { type: 'lex', query: 'OKR' },
+          { type: 'vec', query: 'quarterly plan' },
+        ],
+      });
+      expect(call[1]).not.toHaveProperty('query');
+    }
+  });
+
+  it('lists files in a pinned folder and caps results', async () => {
+    const listingTree = {
+      type: 'dir' as const,
+      name: '',
+      path: '',
+      children: [
+        {
+          type: 'dir' as const,
+          name: 'contracts',
+          path: 'contracts',
+          children: [
+            {
+              type: 'dir' as const,
+              name: '2024',
+              path: 'contracts/2024',
+              children: [
+                {
+                  type: 'file' as const,
+                  name: 'plan.pdf',
+                  path: 'contracts/2024/plan.pdf',
+                  file: {
+                    id: 'f1',
+                    original_filename: 'plan.pdf',
+                    inbox_relpath: 'contracts/2024/plan.pdf',
+                    markdown_relpath: 'contracts/2024/plan.md',
+                    size_bytes: 10,
+                  },
+                },
+                {
+                  type: 'file' as const,
+                  name: 'note.md',
+                  path: 'contracts/2024/note.md',
+                  file: {
+                    id: 'f2',
+                    original_filename: 'note.md',
+                    inbox_relpath: 'contracts/2024/note.md',
+                    markdown_relpath: 'contracts/2024/note.md',
+                    size_bytes: 4,
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const tools = createDochubTools();
+    const list = tools.find((tool) => tool.name === 'list')!;
+    const listed = await runWithWritingTurn(
+      {
+        userId: '1',
+        pin: 'contracts',
+        mentionedDocuments: [],
+        tree: listingTree,
+        scopes: [{ path: 'contracts', library: 'private' }],
+      },
+      () => list.execute('id', {}),
+    );
+    expect(listed.details).toMatchObject({
+      ok: true,
+      truncated: false,
+      limit: 50,
+      totalFiles: 2,
+    });
+    expect(listed.details.files).toEqual([
+      { path: 'contracts/2024/plan.md', name: 'plan.pdf', source: 'private:contracts' },
+      { path: 'contracts/2024/note.md', name: 'note.md', source: 'private:contracts' },
+    ]);
+    expect(listed.details.folders).toEqual([
+      { path: 'contracts/2024', name: '2024', source: 'private:contracts', fileCount: 2 },
+    ]);
+
+    const capped = await runWithWritingTurn(
+      {
+        userId: '1',
+        pin: 'contracts',
+        mentionedDocuments: [],
+        tree: listingTree,
+        scopes: [{ path: 'contracts', library: 'private' }],
+      },
+      () => list.execute('id', { limit: 1 }),
+    );
+    expect(capped.details).toMatchObject({
+      ok: true,
+      truncated: true,
+      limit: 1,
+      totalFiles: 2,
+    });
+    expect(capped.details.files).toHaveLength(1);
+
+    const outside = await runWithWritingTurn(
+      {
+        userId: '1',
+        pin: 'contracts',
+        mentionedDocuments: [],
+        tree: listingTree,
+        scopes: [{ path: 'contracts', library: 'private' }],
+      },
+      () => list.execute('id', { path: 'invoices' }),
+    );
+    expect(outside.details).toMatchObject({
+      ok: false,
+      error: expect.stringMatching(/path is outside the pinned folders/),
+    });
+  });
+
+  it('lists mentioned documents when nothing is pinned', async () => {
+    const tools = createDochubTools();
+    const list = tools.find((tool) => tool.name === 'list')!;
+    const listed = await runWithWritingTurn(
+      {
+        userId: '1',
+        pin: null,
+        mentionedDocuments: [
+          {
+            fileId: 'p1',
+            path: 'contracts/2024/plan.docx',
+            name: 'plan.docx',
+            markdownRelpath: 'contracts/2024/plan.md',
+            library: 'private' as const,
+          },
+        ],
+        tree: { type: 'dir' as const, name: '', path: '', children: [] },
+      },
+      () => list.execute('id', {}),
+    );
+    expect(listed.details).toMatchObject({
+      ok: true,
+      files: [
+        {
+          path: 'contracts/2024/plan.md',
+          name: 'plan.docx',
+          source: 'private:contracts/2024/plan.md',
+        },
+      ],
+    });
+  });
+
 });

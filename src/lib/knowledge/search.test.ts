@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   clipSnippet,
   hitsFromSearchResults,
+  mergeSearchHits,
   normalizeSearchRequest,
   stripQmdMarkdownPath,
 } from './search';
@@ -73,5 +74,29 @@ describe('hitsFromSearchResults', () => {
     expect(hits[1]?.path).toBe('s17/wiki/chapters/02.md');
     expect(hits[1]?.snippet.endsWith('…')).toBe(true);
     expect(clipSnippet('x'.repeat(201)).length).toBe(200);
+  });
+});
+
+describe('mergeSearchHits', () => {
+  it('round-robins queries, dedupes by path and line, and caps the total', () => {
+    const merged = mergeSearchHits(
+      [
+        [
+          { source: 'private:contracts', path: 'a.md', line: 1, snippet: 'okr 1', query: 'OKR' },
+          { source: 'private:contracts', path: 'a.md', line: 2, snippet: 'okr 2', query: 'OKR' },
+          { source: 'private:contracts', path: 'c.md', line: 1, snippet: 'okr 3', query: 'OKR' },
+        ],
+        [
+          { source: 'private:contracts', path: 'a.md', line: 1, snippet: 'dup', query: 'quarterly plan' },
+          { source: 'private:contracts', path: 'b.md', line: 1, snippet: 'plan', query: 'quarterly plan' },
+        ],
+      ],
+      { limit: 3, limitPerSource: 10 },
+    );
+    expect(merged.map((hit) => `${hit.query}:${hit.path}:${hit.line}`)).toEqual([
+      'OKR:a.md:1',
+      'quarterly plan:b.md:1',
+      'OKR:a.md:2',
+    ]);
   });
 });

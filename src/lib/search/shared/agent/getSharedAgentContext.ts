@@ -84,7 +84,7 @@ function initSharedAgentDependencies() {
     'writing-agent-template': {
       id: 'writing-agent-template',
       systemPrompt: WRITING_AGENT_SYSTEM_PROMPT,
-      tools: ['search', 'read'],
+      tools: ['search', 'read', 'list'],
     },
     'document-agent-template': {
       id: 'document-agent-template',
@@ -129,7 +129,7 @@ declare global {
 }
 
 /** Bump when session-manager behavior changes so Next.js HMR rebuilds the pool. */
-const SHARED_AGENT_CONTEXT_REV = 19;
+const SHARED_AGENT_CONTEXT_REV = 20;
 
 export function getSharedAgentContext(): SharedAgentContext {
   if (

@@ -107,10 +107,8 @@ describe('loadWritingTurnContext', () => {
     });
     expect(ctx.pin).toBe('spr');
     expect(ctx.pinLibrary).toBe('public');
-    expect(ctx.retrievalMode).toBe('search');
-    expect(ctx.wikiRootAbs).toBeUndefined();
     expect(ctx.scopes).toEqual([
-      { path: 'spr', library: 'public', retrievalMode: 'search' },
+      { path: 'spr', library: 'public' },
     ]);
   });
 
@@ -127,7 +125,6 @@ describe('loadWritingTurnContext', () => {
     });
     expect(ctx.pin).toBe('writing');
     expect(ctx.pinLibrary).toBe('private');
-    expect(ctx.retrievalMode).toBe('search');
   });
 
   it('omits the hidden public sfc folder and still pins a private folder without @', async () => {
@@ -241,7 +238,6 @@ describe('loadWritingTurnContext', () => {
     });
     expect(ctx.pin).toBeNull();
     expect(ctx.scopes).toEqual([]);
-    expect(ctx.wikiRootAbs).toBeUndefined();
     expect(ctx.publicTree?.children?.map((child) => child.name)).toEqual(['spr']);
   });
 
@@ -286,13 +282,11 @@ describe('loadWritingTurnContext', () => {
     });
     expect(ctx.pin).toBe('writing');
     expect(ctx.pinLibrary).toBe('private');
-    expect(ctx.retrievalMode).toBe('search');
     expect(ctx.scopes).toEqual([
-      { path: 'writing', library: 'private', retrievalMode: 'search' },
-      { path: 'testing1', library: 'public', retrievalMode: 'search' },
-      { path: 'spr', library: 'public', retrievalMode: 'search' },
+      { path: 'writing', library: 'private' },
+      { path: 'testing1', library: 'public' },
+      { path: 'spr', library: 'public' },
     ]);
-    expect(ctx.wikiRootAbs).toBeUndefined();
   });
 
   it('keeps knowledge unbound when there is no pin and no @', async () => {

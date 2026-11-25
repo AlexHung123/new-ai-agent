@@ -14,6 +14,11 @@ import {
   buildWritingUserPrompt,
   writingToolsForTurn,
 } from './shared/prompts/writingTurnPrefix';
+import {
+  currentPinnedLabels,
+  markOutOfScopeKnowledgeToolResults,
+  previousPinnedLabelsFromMessages,
+} from './shared/prompts/writingPinChange';
 import { bindTurnDochubTools } from './shared/runtime/bindTurnDochubTools';
 import { stripHtmlTurnPrefixesFromMessages } from '@/lib/html/htmlSkill';
 import { WRITING_AGENT_EMPTY_REPLY } from './shared/prompts/writingAgentSystemPrompt';
@@ -83,6 +88,16 @@ export default class WritingAgent implements MetaSearchAgentType {
         agent.state.messages = stripHtmlTurnPrefixesFromMessages(
           agent.state.messages ?? [],
         );
+        const previousPins = previousPinnedLabelsFromMessages(
+          agent.state.messages,
+        );
+        if (writingCtx) {
+          agent.state.messages = markOutOfScopeKnowledgeToolResults(
+            agent.state.messages,
+            currentPinnedLabels(writingCtx),
+            writingCtx.mentionedDocuments,
+          );
+        }
         const restoreTools = writingCtx
           ? bindTurnDochubTools(agent, writingCtx)
           : () => undefined;
@@ -103,7 +118,7 @@ export default class WritingAgent implements MetaSearchAgentType {
             }
           } else {
             const prompt = promptWithImages(
-              buildWritingUserPrompt(message, writingCtx),
+              buildWritingUserPrompt(message, writingCtx, { previousPins }),
               turnImages,
               'agentKnowledge',
             );

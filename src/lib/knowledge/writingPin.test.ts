@@ -87,7 +87,7 @@ describe('clampPathToPin', () => {
     expect(clampPathToPin('contracts/2024/q1', 'contracts/2024')).toBe(
       'contracts/2024/q1',
     );
-    expect(clampPathToPin('invoices', 'contracts/2024')).toBe('contracts/2024');
+    expect(clampPathToPin('invoices', 'contracts/2024')).toBeNull();
     expect(clampPathToPin(undefined, 'contracts/2024')).toBe('contracts/2024');
     expect(clampPathToPin('invoices', null)).toBe('invoices');
     expect(clampPathToPin(undefined, null)).toBeNull();
@@ -449,7 +449,7 @@ describe('pathInsidePins and retrieval budget', () => {
       'writing/a.md',
     );
     expect(clampPathToPins('other', ['writing', 'invoices'])).toBeNull();
-    expect(clampPathToPins('invoices', ['contracts/2024'])).toBe('contracts/2024');
+    expect(clampPathToPins('invoices', ['contracts/2024'])).toBeNull();
   });
 
   it('splits a retrieval limit across scopes', () => {

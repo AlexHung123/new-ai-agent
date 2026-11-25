@@ -255,6 +255,7 @@ export type DochubSearchResult = {
   keyword_search_ready?: boolean;
   semantic_search_ready?: boolean;
   hint?: string;
+  fallback?: { reason?: string; mode?: string; from?: string };
 };
 
 export async function search(

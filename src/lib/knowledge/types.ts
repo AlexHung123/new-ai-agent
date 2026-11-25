@@ -6,6 +6,8 @@ export type KnowledgeFileMeta = {
   inbox_relpath: string;
   markdown_relpath: string;
   size_bytes: number;
+  inbox_size_bytes?: number;
+  markdown_size_bytes?: number;
   task_id?: string | null;
   created_at?: string;
   content_type?: string;

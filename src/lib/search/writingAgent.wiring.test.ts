@@ -7,10 +7,10 @@ function readSrc(...parts: string[]) {
 }
 
 describe('writing agent Dochub wiring', () => {
-  it('registers unified search and read tools and does not bind fs tools', () => {
+  it('registers unified search, read, and list tools and does not bind fs tools', () => {
     const ctx = readSrc('shared/agent/getSharedAgentContext.ts');
     expect(ctx).toMatch(/createDochubTools/);
-    expect(ctx).toMatch(/tools: \['search', 'read'\]/);
+    expect(ctx).toMatch(/tools: \['search', 'read', 'list'\]/);
     const agent = readSrc('writingAgent.ts');
     expect(agent).toMatch(/emptyResponseFallback: WRITING_AGENT_EMPTY_REPLY/);
     expect(agent).toMatch(/bindTurnDochubTools/);
@@ -21,6 +21,6 @@ describe('writing agent Dochub wiring', () => {
     );
     expect(route).toMatch(/loadWritingTurnContext/);
     expect(route).not.toMatch(/ensureUserWritingWorkspace/);
-    expect(ctx).toMatch(/SHARED_AGENT_CONTEXT_REV = 19/);
+    expect(ctx).toMatch(/SHARED_AGENT_CONTEXT_REV = 20/);
   });
 });

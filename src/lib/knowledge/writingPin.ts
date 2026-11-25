@@ -75,7 +75,7 @@ export function clampPathToPin(
     typeof path === 'string' && isSafeRelativePath(path) ? path : null;
   if (!pin) return safe;
   if (!safe) return pin;
-  return pathInsidePin(safe, pin) ? safe : pin;
+  return pathInsidePin(safe, pin) ? safe : null;
 }
 
 function mentionBoundaryOk(text: string, end: number): boolean {

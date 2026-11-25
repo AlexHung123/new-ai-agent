@@ -31,7 +31,7 @@ import {
   joinKnowledgePath,
   sanitizePathSegment,
 } from '@/lib/knowledge/paths';
-import { usesNativeDocumentPreview } from '@/lib/writing/fileKind';
+import { usesInboxDocumentPreview } from '@/lib/writing/fileKind';
 import type {
   KnowledgeFileMeta,
   KnowledgeSearchHit,
@@ -388,7 +388,7 @@ export default function KnowledgeFileManager() {
     setPreviewError(null);
     setPreviewLoading(true);
     try {
-      if (usesNativeDocumentPreview(filename)) {
+      if (usesInboxDocumentPreview(filename)) {
         const res = await fetch(
           `/itms/ai/api/knowledge/files/${encodeURIComponent(id)}/content?tree=inbox`,
           { headers: getAuthBearerHeaders() },

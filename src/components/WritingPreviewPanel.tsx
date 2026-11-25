@@ -3,8 +3,13 @@
 import { useEffect, useState } from 'react';
 import Markdown from 'markdown-to-jsx';
 import DocumentNativePreview from '@/components/DocumentNativePreview';
+import HtmlDocumentPreview from '@/components/HtmlDocumentPreview';
 import { getAuthBearerHeaders, getAuthHeaders } from '@/lib/utils/auth';
-import { usesNativeDocumentPreview } from '@/lib/writing/fileKind';
+import {
+  usesHtmlDocumentPreview,
+  usesInboxDocumentPreview,
+  usesNativeDocumentPreview,
+} from '@/lib/writing/fileKind';
 import { formatWritingBytes } from '@/lib/writing/types';
 import { HtmlPageEmbed } from './HtmlPageEmbed';
 import PreviewTabBar from './PreviewTabBar';
@@ -54,6 +59,7 @@ function WritingFileView({
 
   const filename = file?.name || label || fileId;
   const native = usesNativeDocumentPreview(filename);
+  const htmlPreview = usesHtmlDocumentPreview(filename);
 
   useEffect(() => {
     let cancelled = false;
@@ -65,7 +71,7 @@ function WritingFileView({
       try {
         if (source === 'knowledge') {
           const name = label || fileId;
-          if (usesNativeDocumentPreview(name)) {
+          if (usesInboxDocumentPreview(name)) {
             const [inboxRes, markdownRes] = await Promise.all([
               fetch(
                 `/itms/ai/api/knowledge/files/${encodeURIComponent(fileId)}/content?tree=inbox`,
@@ -138,7 +144,7 @@ function WritingFileView({
           language: data.language,
         };
         setFile(payload);
-        if (usesNativeDocumentPreview(data.name || label || '')) {
+        if (usesInboxDocumentPreview(data.name || label || '')) {
           const originalRes = await fetch(
             `/itms/ai/api/writing/files/${encodeURIComponent(fileId)}/original`,
             { headers: getAuthBearerHeaders() },
@@ -251,6 +257,8 @@ function WritingFileView({
           )
         ) : native && original ? (
           <DocumentNativePreview file={original} name={title} />
+        ) : htmlPreview && original ? (
+          <HtmlDocumentPreview file={original} title={title} />
         ) : (
           <div className="document-preview-markdown markdown-file-preview content markdown">
             <Markdown>{file?.content || ''}</Markdown>
