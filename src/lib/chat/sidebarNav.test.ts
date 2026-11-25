@@ -7,18 +7,18 @@ function readSrc(...parts: string[]): string {
 }
 
 describe('sidebar nav', () => {
-  it('shows Knowledge after History and keeps Admin last', () => {
+  it('shows Files after History and keeps Admin last', () => {
     const sidebar = readSrc('../../components/Sidebar.tsx');
     expect(sidebar).toMatch(/FolderOpen/);
     expect(sidebar).toMatch(/href: '\/knowledge'/);
-    expect(sidebar).toMatch(/label: 'Knowledge'/);
+    expect(sidebar).toMatch(/label: 'Files'/);
 
     const historyAt = sidebar.indexOf("label: 'History'");
-    const knowledgeAt = sidebar.indexOf("label: 'Knowledge'");
+    const filesAt = sidebar.indexOf("label: 'Files'");
     const adminAt = sidebar.indexOf("label: 'Admin'");
     expect(historyAt).toBeGreaterThanOrEqual(0);
-    expect(knowledgeAt).toBeGreaterThan(historyAt);
-    expect(adminAt).toBeGreaterThan(knowledgeAt);
+    expect(filesAt).toBeGreaterThan(historyAt);
+    expect(adminAt).toBeGreaterThan(filesAt);
 
     expect(sidebar).toMatch(/wide=\{segments\.includes\('agents'\)\}/);
     expect(sidebar).toMatch(

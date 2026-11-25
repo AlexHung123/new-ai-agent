@@ -61,7 +61,7 @@ const Sidebar = ({ children }: { children: React.ReactNode }) => {
       icon: FolderOpen,
       href: '/knowledge',
       active: segments.includes('knowledge'),
-      label: 'Knowledge',
+      label: 'Files',
     },
     ...(isAdmin
       ? [
