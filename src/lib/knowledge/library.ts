@@ -1,3 +1,4 @@
+import { knowledgeFolderDisplayName } from './folderDisplayName';
 import { isSafeRelativePath } from './paths';
 
 export const KNOWLEDGE_LIBRARIES = ['private', 'public'] as const;
@@ -67,7 +68,10 @@ export function parseKnowledgePin(
   if (text === 'private' || text === 'public') {
     return { library: text, path: '' };
   }
-  return { library: 'private', path: text.replace(/^\/+/, '').replace(/\/+$/, '') };
+  return {
+    library: 'private',
+    path: text.replace(/^\/+/, '').replace(/\/+$/, ''),
+  };
 }
 
 export function knowledgeMentionToken(pin: {
@@ -88,7 +92,13 @@ export function knowledgeMentionMatches(input: {
   if (!query) return true;
   const name = (input.name || '').toLowerCase();
   const path = (input.path || '').toLowerCase();
-  if (name.includes(query) || path.includes(query)) return true;
+  const display = knowledgeFolderDisplayName(
+    input.path,
+    input.name,
+  ).toLowerCase();
+  if (name.includes(query) || path.includes(query) || display.includes(query)) {
+    return true;
+  }
   if (query.includes('/')) {
     return knowledgeMentionToken({
       library: input.library,
@@ -148,7 +158,7 @@ export function knowledgeFolderFromLegacyDocumentId(
 export function pinTitle(pin: KnowledgePin): string {
   if (pin.title) return pin.title;
   if (!pin.path) return pin.library === 'public' ? 'Public' : 'Private';
-  return pin.path.split('/').filter(Boolean).at(-1) || pin.path;
+  return knowledgeFolderDisplayName(pin.path);
 }
 
 export function pinsEqual(
@@ -164,7 +174,9 @@ export const MAX_KNOWLEDGE_PINS = 5;
 
 export const KNOWLEDGE_PIN_CAP_REASON = 'You can pin up to 5 folders.';
 
-function isUsablePin(pin: KnowledgePin | null | undefined): pin is KnowledgePin {
+function isUsablePin(
+  pin: KnowledgePin | null | undefined,
+): pin is KnowledgePin {
   return Boolean(pin && pin.path);
 }
 
@@ -263,7 +275,11 @@ export function toggleKnowledgePin(
   const existing = pins.findIndex((pin) => knowledgePinKey(pin) === key);
   if (existing >= 0) {
     const nextPins = pins.filter((_, index) => index !== existing);
-    return { value: formatKnowledgePins(nextPins), pins: nextPins, added: false };
+    return {
+      value: formatKnowledgePins(nextPins),
+      pins: nextPins,
+      added: false,
+    };
   }
   if (pins.length >= MAX_KNOWLEDGE_PINS) {
     return {
@@ -273,7 +289,10 @@ export function toggleKnowledgePin(
       reason: KNOWLEDGE_PIN_CAP_REASON,
     };
   }
-  const nextPins = [...pins, { library: candidate.library, path: candidate.path }];
+  const nextPins = [
+    ...pins,
+    { library: candidate.library, path: candidate.path },
+  ];
   return { value: formatKnowledgePins(nextPins), pins: nextPins, added: true };
 }
 
@@ -282,7 +301,8 @@ export function removeKnowledgePin(
   key: string,
 ): string {
   const target = parseKnowledgePin(key);
-  if (!isUsablePin(target)) return formatKnowledgePins(parseKnowledgePins(current));
+  if (!isUsablePin(target))
+    return formatKnowledgePins(parseKnowledgePins(current));
   const next = parseKnowledgePins(current).filter(
     (pin) => knowledgePinKey(pin) !== knowledgePinKey(target),
   );

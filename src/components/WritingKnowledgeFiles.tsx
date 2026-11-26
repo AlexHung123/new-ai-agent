@@ -20,11 +20,15 @@ import {
 import { readLibraryTab, writeLibraryTab } from '@/lib/knowledge/libraryTab';
 import { useKnowledgeTree } from '@/lib/knowledge/useKnowledgeTree';
 import KnowledgeLibraryTabs from './KnowledgeLibraryTabs';
+import { knowledgeFolderDisplayName } from '@/lib/knowledge/folderDisplayName';
 import { isStructuredKnowledgeNode } from '@/lib/knowledge/tree';
 import type { KnowledgeTreeNode } from '@/lib/knowledge/types';
 import { useRightPanel } from './RightPanelContext';
 
-function dirPaths(node: KnowledgeTreeNode, library: KnowledgeLibrary): string[] {
+function dirPaths(
+  node: KnowledgeTreeNode,
+  library: KnowledgeLibrary,
+): string[] {
   const out: string[] = [];
   for (const child of node.children || []) {
     if (child.type === 'dir') {
@@ -61,6 +65,7 @@ function TreeRows({
         const pin = formatKnowledgePin({ library, path: child.path });
         if (child.type === 'dir') {
           const structured = isStructuredKnowledgeNode(child);
+          const label = knowledgeFolderDisplayName(child.path, child.name);
           const hasChildren = !structured && (child.children || []).length > 0;
           const open = hasChildren && !collapsed[pin];
           return (
@@ -71,10 +76,14 @@ function TreeRows({
                     type="button"
                     className="writing-knowledge-toggle"
                     aria-expanded={open}
-                    aria-label={open ? `Collapse ${child.name}` : `Expand ${child.name}`}
+                    aria-label={open ? `Collapse ${label}` : `Expand ${label}`}
                     onClick={() => onToggle(pin)}
                   >
-                    {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    {open ? (
+                      <ChevronDown size={14} />
+                    ) : (
+                      <ChevronRight size={14} />
+                    )}
                   </button>
                 ) : (
                   <span className="writing-knowledge-toggle-spacer" />
@@ -99,9 +108,13 @@ function TreeRows({
                       <Folder size={15} />
                     )}
                   </span>
-                  <span className="writing-knowledge-label">{child.name}</span>
+                  <span className="writing-knowledge-label" title={label}>
+                    {label}
+                  </span>
                   {structured ? (
-                    <span className="writing-knowledge-wiki-badge">Structured</span>
+                    <span className="writing-knowledge-wiki-badge">
+                      Structured
+                    </span>
                   ) : null}
                 </button>
               </div>
@@ -150,19 +163,18 @@ function TreeRows({
   );
 }
 
-
 export default function WritingKnowledgeFiles() {
   const { knowledgeFolder, setKnowledgeFolder, toggleKnowledgePin } = useChat();
   const { openKnowledgeFile } = useRightPanel();
-  const [library, setLibrary] = useState<KnowledgeLibrary>(() => readLibraryTab());
+  const [library, setLibrary] = useState<KnowledgeLibrary>(() =>
+    readLibraryTab(),
+  );
   const { privateTree, publicTree, error, loading, loadedLibraries } =
     useKnowledgeTree({ library });
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const lastPinRef = useRef(knowledgeFolder);
   const activePins = new Set(
-    parseKnowledgePins(knowledgeFolder).map((pin) =>
-      formatKnowledgePin(pin),
-    ),
+    parseKnowledgePins(knowledgeFolder).map((pin) => formatKnowledgePin(pin)),
   );
   const activeTree = library === 'public' ? publicTree : privateTree;
   const empty =
@@ -196,8 +208,7 @@ export default function WritingKnowledgeFiles() {
   };
 
   const visibleDirKeys = dirPaths(activeTree, library);
-  const showLoading =
-    !loadedLibraries[library] && (loading || !error);
+  const showLoading = !loadedLibraries[library] && (loading || !error);
 
   return (
     <div className="writing-knowledge-files">

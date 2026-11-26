@@ -1,3 +1,4 @@
+import { knowledgeFolderDisplayName } from './folderDisplayName';
 import { stripQmdMarkdownPath } from './search';
 import type {
   KnowledgeFileMeta,
@@ -65,10 +66,7 @@ export function structuredIndexFile(
   const wikiDir = (node.children || []).find(
     (child) => child.type === 'dir' && child.name === 'wiki',
   );
-  const candidates = [
-    ...(wikiDir?.children || []),
-    ...(node.children || []),
-  ];
+  const candidates = [...(wikiDir?.children || []), ...(node.children || [])];
   const index = candidates.find(
     (child) =>
       child.type === 'file' &&
@@ -264,7 +262,13 @@ export function resolveSearchHitDisplay(
   const rel = stripQmdMarkdownPath(hit.file || '');
   const structured = rel ? enclosingStructuredNode(root, rel) : null;
   return {
-    title: searchHitDisplayTitle(hit, file, structured?.name),
+    title: searchHitDisplayTitle(
+      hit,
+      file,
+      structured
+        ? knowledgeFolderDisplayName(structured.path, structured.name)
+        : null,
+    ),
     file,
   };
 }
@@ -276,7 +280,9 @@ export function stampLibrary(
   return {
     ...node,
     library,
-    children: (node.children || []).map((child) => stampLibrary(child, library)),
+    children: (node.children || []).map((child) =>
+      stampLibrary(child, library),
+    ),
   };
 }
 
@@ -286,6 +292,10 @@ export function filterTree(
 ): KnowledgeTreeNode {
   const children = (node.children || [])
     .map((child) => filterTree(child, keep))
-    .filter((child) => keep(child) || (child.type === 'dir' && (child.children || []).length > 0));
+    .filter(
+      (child) =>
+        keep(child) ||
+        (child.type === 'dir' && (child.children || []).length > 0),
+    );
   return { ...node, children };
 }

@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { FileText, Folder, Globe, Lock } from 'lucide-react';
+import { knowledgeFolderDisplayName } from '@/lib/knowledge/folderDisplayName';
 import {
   knowledgeMentionMatches,
   knowledgeMentionToken,
@@ -40,7 +41,7 @@ function listedNodes(
     }))
     .filter((node) =>
       knowledgeMentionMatches({
-        name: node.name,
+        name: knowledgeFolderDisplayName(node.path, node.name),
         path: node.path,
         library,
         query,
@@ -99,7 +100,9 @@ export default function WritingKnowledgeAtMenu({
                 className={`writing-knowledge-at-item${index === 0 ? ' is-active' : ''}`}
                 onMouseDown={(event) => {
                   event.preventDefault();
-                  onPick(insertMention(text, cursor, mention.start, node.token));
+                  onPick(
+                    insertMention(text, cursor, mention.start, node.token),
+                  );
                 }}
               >
                 <span
@@ -110,9 +113,12 @@ export default function WritingKnowledgeAtMenu({
                 </span>
                 <span className="writing-knowledge-at-text">
                   <span className="writing-knowledge-at-name">
-                    {node.name || node.path}
+                    {knowledgeFolderDisplayName(node.path, node.name) ||
+                      node.path}
                     {structured ? (
-                      <span className="writing-knowledge-wiki-badge">Structured</span>
+                      <span className="writing-knowledge-wiki-badge">
+                        Structured
+                      </span>
                     ) : null}
                   </span>
                   <span className="writing-knowledge-at-path">

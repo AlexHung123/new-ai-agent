@@ -1,5 +1,6 @@
 'use client';
 
+import { knowledgeFolderDisplayName } from '@/lib/knowledge/folderDisplayName';
 import type { KnowledgeTreeNode } from '@/lib/knowledge/types';
 import { isStructuredKnowledgeNode } from '@/lib/knowledge/tree';
 import { FileText } from 'lucide-react';
@@ -25,6 +26,7 @@ function FolderRows({
     <ul className="knowledge-tree-list">
       {folders.map((folder) => {
         const structured = isStructuredKnowledgeNode(folder);
+        const label = knowledgeFolderDisplayName(folder.path, folder.name);
         const hasKids =
           !structured &&
           (folder.children || []).some((child) => child.type === 'dir');
@@ -74,7 +76,9 @@ function FolderRows({
                     📁
                   </span>
                 )}
-                <span className="knowledge-tree-item-name">{folder.name}</span>
+                <span className="knowledge-tree-item-name" title={label}>
+                  {label}
+                </span>
                 {structured ? (
                   <span className="knowledge-structured-badge">Structured</span>
                 ) : null}

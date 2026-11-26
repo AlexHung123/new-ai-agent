@@ -39,6 +39,7 @@ import type {
   KnowledgeTask,
   KnowledgeTreeNode,
 } from '@/lib/knowledge/types';
+import { knowledgeFolderDisplayName } from '@/lib/knowledge/folderDisplayName';
 import type { KnowledgeLibrary } from '@/lib/knowledge/library';
 import { readLibraryTab, writeLibraryTab } from '@/lib/knowledge/libraryTab';
 import KnowledgeLibraryTabs from '@/components/KnowledgeLibraryTabs';
@@ -151,9 +152,12 @@ export default function KnowledgeFileManager() {
 
   const loadTree = useCallback(async (library: KnowledgeLibrary) => {
     try {
-      const res = await fetch(`${TREE_URL}?library=${encodeURIComponent(library)}`, {
-        headers: getAuthHeaders(),
-      });
+      const res = await fetch(
+        `${TREE_URL}?library=${encodeURIComponent(library)}`,
+        {
+          headers: getAuthHeaders(),
+        },
+      );
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
         setBannerError(
@@ -284,7 +288,14 @@ export default function KnowledgeFileManager() {
   const listingItems = useMemo(() => {
     const q = searchDraft.trim().toLowerCase();
     if (!q) return items;
-    return items.filter((item) => item.name.toLowerCase().includes(q));
+    return items.filter((item) => {
+      const name = item.name.toLowerCase();
+      const display = knowledgeFolderDisplayName(
+        item.path,
+        item.name,
+      ).toLowerCase();
+      return name.includes(q) || display.includes(q);
+    });
   }, [items, searchDraft]);
 
   const clearPreview = () => {
@@ -322,7 +333,11 @@ export default function KnowledgeFileManager() {
     if (!enclosed || !isStructuredKnowledgeNode(enclosed)) return;
     const file = structuredIndexFile(enclosed);
     if (file) {
-      void onOpenFile(file.id, enclosed.name || file.original_filename);
+      void onOpenFile(
+        file.id,
+        knowledgeFolderDisplayName(enclosed.path, enclosed.name) ||
+          file.original_filename,
+      );
     }
   };
 
@@ -443,7 +458,9 @@ export default function KnowledgeFileManager() {
             toast.error(uploadErrorMessage(result.body), {
               id: accepted.length === 1 ? batchToastId : item.id,
             });
-            setUploads((prev) => prev.filter((upload) => upload.id !== item.id));
+            setUploads((prev) =>
+              prev.filter((upload) => upload.id !== item.id),
+            );
             continue;
           }
           const task = uploadTaskFromBody(result.body);
@@ -711,14 +728,27 @@ export default function KnowledgeFileManager() {
               <div
                 className="knowledge-folder-avatar knowledge-folder-avatar-lg"
                 style={{
-                  background: folderAvatarColor(currentNode.name),
+                  background: folderAvatarColor(
+                    knowledgeFolderDisplayName(
+                      currentNode.path,
+                      currentNode.name,
+                    ),
+                  ),
                 }}
               >
-                {folderInitial(currentNode.name)}
+                {folderInitial(
+                  knowledgeFolderDisplayName(
+                    currentNode.path,
+                    currentNode.name,
+                  ),
+                )}
               </div>
               <div className="knowledge-detail-folder-info">
                 <div className="knowledge-detail-folder-name">
-                  {currentNode.name}
+                  {knowledgeFolderDisplayName(
+                    currentNode.path,
+                    currentNode.name,
+                  )}
                 </div>
                 <div className="knowledge-detail-folder-meta">
                   {structuredCurrent ? (

@@ -5,6 +5,7 @@ import {
   formatStorageBytes,
 } from '@/lib/knowledge/storage';
 import { parseLabel } from '@/lib/knowledge/taskStatus';
+import { knowledgeFolderDisplayName } from '@/lib/knowledge/folderDisplayName';
 import {
   isStructuredKnowledgeNode,
   resolveSearchHitDisplay,
@@ -62,7 +63,8 @@ export default function KnowledgeListing({
       onDragOver={(event) => event.preventDefault()}
       onDrop={(event) => {
         event.preventDefault();
-        if (event.dataTransfer.files?.length) onDropFiles(event.dataTransfer.files);
+        if (event.dataTransfer.files?.length)
+          onDropFiles(event.dataTransfer.files);
       }}
     >
       {searching && hits ? (
@@ -106,9 +108,7 @@ export default function KnowledgeListing({
                         </button>
                       </td>
                       <td>
-                        {meta
-                          ? formatKnowledgeDateTime(meta.created_at)
-                          : '—'}
+                        {meta ? formatKnowledgeDateTime(meta.created_at) : '—'}
                       </td>
                       <td>
                         {label ? (
@@ -184,6 +184,10 @@ export default function KnowledgeListing({
               })}
               {items.map((item) => {
                 const structured = isStructuredKnowledgeNode(item);
+                const itemLabel =
+                  item.type === 'dir'
+                    ? knowledgeFolderDisplayName(item.path, item.name)
+                    : item.name;
                 const taskId = item.file?.task_id;
                 const label =
                   item.type === 'file'
@@ -209,13 +213,16 @@ export default function KnowledgeListing({
                       >
                         <span className="knowledge-file-name-row">
                           {structured ? (
-                            <span className="knowledge-file-doc-icon" aria-hidden>
+                            <span
+                              className="knowledge-file-doc-icon"
+                              aria-hidden
+                            >
                               📄
                             </span>
                           ) : item.type === 'dir' ? (
                             <span aria-hidden>📁</span>
                           ) : null}
-                          <span>{item.name}</span>
+                          <span title={itemLabel}>{itemLabel}</span>
                           {structured ? (
                             <span className="knowledge-structured-badge">
                               Structured
@@ -268,9 +275,7 @@ export default function KnowledgeListing({
                           <button
                             type="button"
                             className="knowledge-action"
-                            onClick={() =>
-                              onOpenFile(item.file!.id, item.name)
-                            }
+                            onClick={() => onOpenFile(item.file!.id, item.name)}
                           >
                             Preview
                           </button>

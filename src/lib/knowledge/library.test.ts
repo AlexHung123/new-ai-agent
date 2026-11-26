@@ -28,7 +28,9 @@ describe('knowledge library pins', () => {
   });
 
   it('formats and parses private and public pins', () => {
-    expect(formatKnowledgePin({ library: 'public', path: 'spr' })).toBe('public:spr');
+    expect(formatKnowledgePin({ library: 'public', path: 'spr' })).toBe(
+      'public:spr',
+    );
     expect(formatKnowledgePin({ library: 'private', path: 'notes' })).toBe(
       'private:notes',
     );
@@ -67,19 +69,39 @@ describe('knowledge library pins', () => {
     expect(knowledgeMentionMatches({ ...writing, query: 'p' })).toBe(false);
     expect(knowledgeMentionMatches({ ...writing, query: 'pri' })).toBe(false);
     expect(knowledgeMentionMatches({ ...spr, query: 'pu' })).toBe(false);
-    expect(knowledgeMentionMatches({ ...writing, query: 'private' })).toBe(true);
+    expect(knowledgeMentionMatches({ ...writing, query: 'private' })).toBe(
+      true,
+    );
     expect(knowledgeMentionMatches({ ...spr, query: 'public' })).toBe(true);
     expect(knowledgeMentionMatches({ ...spr, query: 'public/spr' })).toBe(true);
     expect(knowledgeMentionMatches({ ...writing, query: 'public/spr' })).toBe(
       false,
     );
+    expect(
+      knowledgeMentionMatches({ ...spr, query: 'procurement regulations' }),
+    ).toBe(true);
+    expect(knowledgeMentionMatches({ ...spr, query: 'csr' })).toBe(false);
   });
 
-  it('hides the reserved sfc public folder and titles pins from the last segment', () => {
+  it('hides the reserved sfc public folder and titles wiki pins from the catalog', () => {
     expect(isHiddenPublicFolder('sfc')).toBe(true);
     expect(isHiddenPublicFolder('sfc/wiki')).toBe(true);
     expect(isHiddenPublicFolder('spr')).toBe(false);
-    expect(pinTitle({ library: 'public', path: 'spr' })).toBe('spr');
+    expect(pinTitle({ library: 'public', path: 'spr' })).toBe(
+      'Stores and Procurement Regulations (SPR)',
+    );
+    expect(pinTitle({ library: 'public', path: 'csr' })).toBe(
+      'Civil Service Regulations (CSR)',
+    );
+    expect(pinTitle({ library: 'private', path: 'fortesting' })).toBe(
+      'fortesting',
+    );
+    expect(pinTitle({ library: 'private', path: 'contracts/2024' })).toBe(
+      '2024',
+    );
+    expect(pinTitle({ library: 'public', path: 'spr', title: 'Custom' })).toBe(
+      'Custom',
+    );
   });
 
   it('does not map a hidden sfc document id onto a Knowledge pin', () => {
@@ -126,9 +148,7 @@ describe('knowledge library pins', () => {
       { library: 'public', path: 'testing1' },
       { library: 'public', path: 'acqn' },
     ]);
-    expect(
-      parseKnowledgePins('["public:spr","private:notes"]'),
-    ).toEqual([
+    expect(parseKnowledgePins('["public:spr","private:notes"]')).toEqual([
       { library: 'public', path: 'spr' },
       { library: 'private', path: 'notes' },
     ]);

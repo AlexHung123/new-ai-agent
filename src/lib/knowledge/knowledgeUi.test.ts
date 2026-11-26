@@ -252,6 +252,25 @@ describe('knowledge UI contracts', () => {
     expect(tree).not.toMatch(/維基/);
   });
 
+  it('shows Agent Document catalog titles for LLM wiki folders', () => {
+    const tree = readSrc('../../components/knowledge/KnowledgeTree.tsx');
+    const listing = readSrc('../../components/knowledge/KnowledgeListing.tsx');
+    const manager = readSrc(
+      '../../components/knowledge/KnowledgeFileManager.tsx',
+    );
+    const files = readSrc('../../components/WritingKnowledgeFiles.tsx');
+    const menu = readSrc('../../components/WritingKnowledgeAtMenu.tsx');
+    const chip = readSrc('../../components/KnowledgeScopeChip.tsx');
+    expect(tree).toMatch(/knowledgeFolderDisplayName/);
+    expect(listing).toMatch(/knowledgeFolderDisplayName/);
+    expect(manager).toMatch(/knowledgeFolderDisplayName/);
+    expect(files).toMatch(/knowledgeFolderDisplayName/);
+    expect(menu).toMatch(/knowledgeFolderDisplayName/);
+    expect(chip).toMatch(/pinTitle/);
+    expect(tree).not.toMatch(/\{folder\.name\}<\/span>/);
+    expect(files).not.toMatch(/writing-knowledge-label">\{child\.name\}/);
+  });
+
   it('shows immediate upload rows and does not blank the Files page', () => {
     const manager = readSrc(
       '../../components/knowledge/KnowledgeFileManager.tsx',

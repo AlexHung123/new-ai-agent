@@ -138,11 +138,15 @@ describe('tree walk', () => {
   });
 
   it('finds a file by markdown, inbox, node path, or qmd prefix', () => {
-    expect(findFileByDochubPath(tree, 'contracts/2024/report.md')?.id).toBe('file-1');
-    expect(findFileByDochubPath(tree, 'qmd://markdown/contracts/2024/report.md')?.id).toBe(
+    expect(findFileByDochubPath(tree, 'contracts/2024/report.md')?.id).toBe(
       'file-1',
     );
-    expect(findFileByDochubPath(tree, 'contracts/2024/report.pdf')?.id).toBe('file-1');
+    expect(
+      findFileByDochubPath(tree, 'qmd://markdown/contracts/2024/report.md')?.id,
+    ).toBe('file-1');
+    expect(findFileByDochubPath(tree, 'contracts/2024/report.pdf')?.id).toBe(
+      'file-1',
+    );
     expect(findFileByDochubPath(tree, 'missing.md')).toBeNull();
   });
 
@@ -177,9 +181,9 @@ describe('tree walk', () => {
         size_bytes: 1,
       }),
     ).toBe('planning heading');
-    expect(
-      searchHitDisplayTitle({ file: 'qmd://markdown/missing.md' }),
-    ).toBe('qmd://markdown/missing.md');
+    expect(searchHitDisplayTitle({ file: 'qmd://markdown/missing.md' })).toBe(
+      'qmd://markdown/missing.md',
+    );
   });
 });
 
@@ -265,15 +269,15 @@ describe('structured knowledge nodes', () => {
     expect(isStructuredKnowledgeNode(acqn)).toBe(true);
     expect(isStructuredKnowledgeNode(csr)).toBe(true);
     expect(isStructuredKnowledgeNode(notes)).toBe(false);
-    expect(isStructuredKnowledgeNode(nodeAtPath(structuredTree, 'acqn/wiki'))).toBe(
-      false,
-    );
+    expect(
+      isStructuredKnowledgeNode(nodeAtPath(structuredTree, 'acqn/wiki')),
+    ).toBe(false);
   });
 
   it('finds the enclosing structured folder and its index file', () => {
-    expect(enclosingStructuredNode(structuredTree, 'acqn/wiki/chapters')?.path).toBe(
-      'acqn',
-    );
+    expect(
+      enclosingStructuredNode(structuredTree, 'acqn/wiki/chapters')?.path,
+    ).toBe('acqn');
     expect(enclosingStructuredNode(structuredTree, 'notes/todo.md')).toBeNull();
     expect(parentKnowledgePath('acqn/wiki/chapters')).toBe('acqn/wiki');
     expect(structuredIndexFile(nodeAtPath(structuredTree, 'acqn')!)?.id).toBe(
@@ -282,9 +286,9 @@ describe('structured knowledge nodes', () => {
   });
 
   it('flattens mentionable nodes without structured internals', () => {
-    expect(flattenVisibleKnowledgeNodes(structuredTree).map((n) => n.path)).toEqual(
-      ['acqn', 'notes', 'notes/todo.md', 'csr'],
-    );
+    expect(
+      flattenVisibleKnowledgeNodes(structuredTree).map((n) => n.path),
+    ).toEqual(['acqn', 'notes', 'notes/todo.md', 'csr']);
     expect(flattenKnowledgeNodes(structuredTree).map((n) => n.path)).toContain(
       'acqn/wiki/chapters/00-introduction.md',
     );
@@ -296,7 +300,9 @@ describe('structured knowledge nodes', () => {
       title: 'Introduction',
       snippet: 'overview of the policy',
     });
-    expect(chapter.title).toBe('acqn');
+    expect(chapter.title).toBe(
+      'Acquisition Procedures for Listing Arrangement for Government Procurement of IT Products (GITP)',
+    );
     expect(chapter.file).toBeNull();
 
     const index = resolveSearchHitDisplay(structuredTree, {
@@ -305,6 +311,8 @@ describe('structured knowledge nodes', () => {
       snippet: 'contents',
     });
     expect(index.file?.id).toBe('idx-1');
-    expect(index.title).toBe('acqn');
+    expect(index.title).toBe(
+      'Acquisition Procedures for Listing Arrangement for Government Procurement of IT Products (GITP)',
+    );
   });
 });
