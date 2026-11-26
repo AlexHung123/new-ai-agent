@@ -15,10 +15,17 @@ import type {
   KnowledgeTask,
   KnowledgeTreeNode,
 } from '@/lib/knowledge/types';
+import {
+  uploadParseLabel,
+  type KnowledgeUploadItem,
+} from '@/lib/knowledge/uploadFile';
 
-function parseClass(label: ReturnType<typeof parseLabel>): string {
+function parseClass(label: ReturnType<typeof parseLabel> | string): string {
   if (label === 'Failed') return 'knowledge-parse is-failed';
   if (label === 'done') return 'knowledge-parse is-done';
+  if (label === 'Uploading' || /%$/.test(label)) {
+    return 'knowledge-parse is-uploading';
+  }
   return 'knowledge-parse';
 }
 
@@ -34,6 +41,7 @@ export default function KnowledgeListing({
   onOpenHit,
   onDownload,
   onDropFiles,
+  uploads = [],
 }: {
   items: KnowledgeTreeNode[];
   hits: KnowledgeSearchHit[] | null;
@@ -46,6 +54,7 @@ export default function KnowledgeListing({
   onOpenHit: (hit: KnowledgeSearchHit) => void;
   onDownload: (file: KnowledgeFileMeta) => void;
   onDropFiles: (files: FileList) => void;
+  uploads?: KnowledgeUploadItem[];
 }) {
   return (
     <div
@@ -131,7 +140,7 @@ export default function KnowledgeListing({
             </table>
           </div>
         )
-      ) : items.length === 0 ? (
+      ) : items.length === 0 && uploads.length === 0 ? (
         <p className="knowledge-empty">Create a folder or drop files here.</p>
       ) : (
         <div className="knowledge-files-table-wrap">
@@ -145,6 +154,34 @@ export default function KnowledgeListing({
               </tr>
             </thead>
             <tbody>
+              {uploads.map((upload) => {
+                const label = uploadParseLabel(upload.progress, upload.status);
+                return (
+                  <tr
+                    key={upload.id}
+                    className="knowledge-upload-row"
+                    aria-busy="true"
+                  >
+                    <td>
+                      <div className="knowledge-file-name">
+                        <span className="knowledge-file-name-row">
+                          <span>{upload.name}</span>
+                        </span>
+                        <span className="knowledge-file-sub">
+                          {formatStorageBytes(upload.sizeBytes)}
+                        </span>
+                      </div>
+                    </td>
+                    <td>—</td>
+                    <td>
+                      <span className={parseClass(label)} aria-live="polite">
+                        {label}
+                      </span>
+                    </td>
+                    <td />
+                  </tr>
+                );
+              })}
               {items.map((item) => {
                 const structured = isStructuredKnowledgeNode(item);
                 const taskId = item.file?.task_id;

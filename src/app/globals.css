@@ -3098,6 +3098,15 @@ body:has(.html-close-itms) .document-preview-tabs {
   color: #b42318;
 }
 
+.knowledge-parse.is-uploading {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.knowledge-upload-row .knowledge-file-name {
+  cursor: default;
+}
+
 .knowledge-preview-dialog {
   width: min(920px, 92vw);
   max-height: 85vh;

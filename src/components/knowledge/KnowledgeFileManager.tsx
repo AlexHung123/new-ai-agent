@@ -45,6 +45,14 @@ import KnowledgeLibraryTabs from '@/components/KnowledgeLibraryTabs';
 import { getAuthBearerHeaders, getAuthHeaders } from '@/lib/utils/auth';
 import KnowledgeCreateFolderDialog from '@/components/KnowledgeCreateFolderDialog';
 import {
+  createKnowledgeUploadId,
+  uploadErrorMessage,
+  uploadKnowledgeFile,
+  uploadTaskFromBody,
+  visibleKnowledgeUploads,
+  type KnowledgeUploadItem,
+} from '@/lib/knowledge/uploadFile';
+import {
   useCallback,
   useEffect,
   useMemo,
@@ -125,7 +133,9 @@ export default function KnowledgeFileManager() {
   const [previewTitle, setPreviewTitle] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const uploadingRef = useRef(false);
   const startedAt = useRef<Record<string, number>>({});
+  const [uploads, setUploads] = useState<KnowledgeUploadItem[]>([]);
   const pathByLibraryRef = useRef<Record<KnowledgeLibrary, string>>({
     private: '',
     public: '',
@@ -360,6 +370,7 @@ export default function KnowledgeFileManager() {
     list: FileList | File[],
     library: KnowledgeLibrary = currentLibrary,
   ) => {
+    if (uploadingRef.current) return;
     if (library === 'public' && !canWritePublic) {
       toast.error('Public folders are read-only for this account.');
       return;
@@ -370,36 +381,115 @@ export default function KnowledgeFileManager() {
       );
       return;
     }
-    const files = Array.from(list);
-    for (const file of files) {
+    const accepted: File[] = [];
+    for (const file of Array.from(list)) {
       if (!isAllowedKnowledgeFilename(file.name)) {
         toast.error(KNOWLEDGE_UNSUPPORTED_TYPE_MESSAGE);
         continue;
       }
-      const form = new FormData();
-      form.set('file', file, file.name);
-      form.set('relative_path', buildRelativePath(folderPath, file.name));
-      form.set('library', library);
-      const res = await fetch(FILES_URL, {
-        method: 'POST',
-        headers: getAuthBearerHeaders(),
-        body: form,
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        toast.error(
-          typeof body.message === 'string'
-            ? body.message
-            : 'Could not upload this file',
-        );
-        continue;
-      }
-      if (body.task?.id) {
-        startedAt.current[body.task.id] = Date.now();
-        setTasks((prev) => ({ ...prev, [body.task.id]: body.task }));
-      }
+      accepted.push(file);
     }
-    await loadTree(library);
+    if (accepted.length === 0) return;
+
+    const nextUploads: KnowledgeUploadItem[] = accepted.map((file) => ({
+      id: createKnowledgeUploadId(),
+      name: file.name,
+      sizeBytes: file.size,
+      folderPath,
+      library,
+      progress: null,
+      status: 'uploading',
+    }));
+    uploadingRef.current = true;
+    setUploads(nextUploads);
+    const batchToastId = createKnowledgeUploadId();
+    toast.loading(
+      accepted.length === 1
+        ? `Uploading ${accepted[0].name}…`
+        : `Uploading ${accepted.length} files…`,
+      { id: batchToastId },
+    );
+
+    let uploadedCount = 0;
+    try {
+      for (let index = 0; index < accepted.length; index += 1) {
+        const file = accepted[index];
+        const item = nextUploads[index];
+        try {
+          const result = await uploadKnowledgeFile({
+            url: FILES_URL,
+            file,
+            relativePath: buildRelativePath(folderPath, file.name),
+            library,
+            headers: getAuthBearerHeaders(),
+            onProgress: (percent) => {
+              setUploads((prev) =>
+                prev.map((upload) =>
+                  upload.id === item.id
+                    ? {
+                        ...upload,
+                        progress: percent,
+                        status:
+                          percent != null && percent >= 100
+                            ? 'processing'
+                            : 'uploading',
+                      }
+                    : upload,
+                ),
+              );
+            },
+          });
+          if (!result.ok) {
+            toast.error(uploadErrorMessage(result.body), {
+              id: accepted.length === 1 ? batchToastId : item.id,
+            });
+            setUploads((prev) => prev.filter((upload) => upload.id !== item.id));
+            continue;
+          }
+          const task = uploadTaskFromBody(result.body);
+          if (task) {
+            startedAt.current[task.id] = Date.now();
+            setTasks((prev) => ({
+              ...prev,
+              [task.id]: task as KnowledgeTask,
+            }));
+          }
+          uploadedCount += 1;
+          setUploads((prev) =>
+            prev.map((upload) =>
+              upload.id === item.id
+                ? { ...upload, progress: 100, status: 'processing' }
+                : upload,
+            ),
+          );
+          try {
+            await loadTree(library);
+          } catch {
+            // The file is already stored; keep the Files chrome visible.
+          }
+          setUploads((prev) => prev.filter((upload) => upload.id !== item.id));
+        } catch {
+          toast.error('Could not upload this file', {
+            id: accepted.length === 1 ? batchToastId : item.id,
+          });
+          setUploads((prev) => prev.filter((upload) => upload.id !== item.id));
+        }
+      }
+      if (accepted.length === 1 && uploadedCount === 1) {
+        toast.success(`Uploaded ${accepted[0].name}`, { id: batchToastId });
+      } else if (accepted.length > 1 && uploadedCount === accepted.length) {
+        toast.success(`Uploaded ${uploadedCount} files`, { id: batchToastId });
+      } else if (accepted.length > 1 && uploadedCount > 0) {
+        toast.success(`Uploaded ${uploadedCount} of ${accepted.length} files`, {
+          id: batchToastId,
+        });
+      } else if (uploadedCount === 0) {
+        toast.error('Could not upload this file', { id: batchToastId });
+      }
+    } finally {
+      uploadingRef.current = false;
+      setUploads([]);
+    }
   };
 
   const onOpenFile = async (id: string, name?: string) => {
@@ -495,6 +585,11 @@ export default function KnowledgeFileManager() {
   };
 
   const storageFull = Boolean(storage && storage.remainingBytes <= 0);
+  const uploading = uploads.length > 0;
+  const listingUploads = useMemo(
+    () => visibleKnowledgeUploads(uploads, listingPath, currentLibrary),
+    [uploads, listingPath, currentLibrary],
+  );
 
   const toolbarSearch = (
     <form
@@ -554,18 +649,20 @@ export default function KnowledgeFileManager() {
       <button
         type="button"
         className="knowledge-btn"
-        disabled={storageFull || publicWriteBlocked}
+        disabled={storageFull || publicWriteBlocked || uploading}
         title={
           publicWriteBlocked
             ? 'Public folders are read-only for this account.'
             : storageFull
               ? 'Storage full — delete files or ask an admin to raise your quota'
-              : 'Upload files'
+              : uploading
+                ? 'Upload in progress'
+                : 'Upload files'
         }
         onClick={() => fileInputRef.current?.click()}
       >
         <Plus size={16} aria-hidden />
-        Add file
+        {uploading ? 'Uploading…' : 'Add file'}
       </button>
       <input
         ref={fileInputRef}
@@ -573,8 +670,9 @@ export default function KnowledgeFileManager() {
         multiple
         accept={KNOWLEDGE_ACCEPT}
         className="knowledge-upload hidden"
+        disabled={storageFull || publicWriteBlocked || uploading}
         onChange={(event) => {
-          if (event.target.files)
+          if (event.target.files && !uploadingRef.current)
             void uploadFiles(listingPath, event.target.files);
           event.target.value = '';
         }}
@@ -593,6 +691,7 @@ export default function KnowledgeFileManager() {
       searching={hits !== null}
       tree={tree}
       tasks={tasks}
+      uploads={listingUploads}
       onOpenDir={selectFolder}
       onOpenStructured={openStructured}
       onOpenFile={(id, name) => void onOpenFile(id, name)}

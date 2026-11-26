@@ -251,4 +251,31 @@ describe('knowledge UI contracts', () => {
     expect(listing).not.toMatch(/維基/);
     expect(tree).not.toMatch(/維基/);
   });
+
+  it('shows immediate upload rows and does not blank the Files page', () => {
+    const manager = readSrc(
+      '../../components/knowledge/KnowledgeFileManager.tsx',
+    );
+    const listing = readSrc('../../components/knowledge/KnowledgeListing.tsx');
+    expect(manager).toMatch(/uploadKnowledgeFile/);
+    expect(manager).toMatch(/toast\.loading/);
+    expect(manager).toMatch(/toast\.success/);
+    expect(manager).toMatch(/Uploading…/);
+    expect(manager).toMatch(/uploadingRef/);
+    expect(manager).toMatch(
+      /disabled=\{storageFull \|\| publicWriteBlocked \|\| uploading\}/,
+    );
+    expect(manager).toMatch(/uploads=\{listingUploads\}/);
+    expect(manager).toMatch(/visibleKnowledgeUploads/);
+    expect(manager).toMatch(/if \(!loadedLibraries\[library\]\)/);
+    expect(manager).toMatch(/setLibraryLoading\(true\)/);
+    expect([...manager.matchAll(/setLibraryLoading\(true\)/g)]).toHaveLength(1);
+    expect(listing).toMatch(/uploads = \[\]/);
+    expect(listing).toMatch(/uploadParseLabel/);
+    expect(listing).toMatch(/knowledge-upload-row/);
+    expect(listing).toMatch(/Uploading/);
+    expect(listing).toMatch(/is-uploading/);
+    const css = readSrc('../../app/globals.css');
+    expect(css).toMatch(/knowledge-parse\.is-uploading/);
+  });
 });
