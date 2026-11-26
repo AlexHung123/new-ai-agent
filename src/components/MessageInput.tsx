@@ -14,6 +14,7 @@ import {
 } from './AttachImageControls';
 import WritingKnowledgeAtMenu from './WritingKnowledgeAtMenu';
 import KnowledgeComposerScope from './KnowledgeComposerScope';
+import { useRegisterWritingComposerMention } from './WritingComposerContext';
 import { atQueryAtCursor } from '@/lib/writing/mentions';
 
 const SendArrow = () => (
@@ -31,19 +32,34 @@ const SendArrow = () => (
 );
 
 const MessageInput = memo(function MessageInput() {
-  const {
-    loading,
-    sendMessage,
-    stop,
-    focusMode,
-    sfcExactMatch,
-  } = useChat();
+  const { loading, sendMessage, stop, focusMode, sfcExactMatch } = useChat();
 
   const [message, setMessage] = useState('');
   const [cursor, setCursor] = useState(0);
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const images = useAttachedImages(focusMode);
+
+  const onPickMention = useCallback(
+    (next: { text: string; cursor: number }) => {
+      setMessage(next.text);
+      setCursor(next.cursor);
+      requestAnimationFrame(() => {
+        const el = inputRef.current;
+        if (!el) return;
+        el.focus();
+        el.setSelectionRange(next.cursor, next.cursor);
+      });
+    },
+    [],
+  );
+
+  useRegisterWritingComposerMention({
+    text: message,
+    cursor,
+    inputRef,
+    onPick: onPickMention,
+  });
 
   const placeholder = useMemo(() => {
     const currentAgent = findDisplayFocusMode(focusMode);
@@ -94,12 +110,9 @@ const MessageInput = memo(function MessageInput() {
     [submit],
   );
 
-  const syncCursor = useCallback(
-    (el: HTMLTextAreaElement | null) => {
-      if (el) setCursor(el.selectionStart ?? 0);
-    },
-    [],
-  );
+  const syncCursor = useCallback((el: HTMLTextAreaElement | null) => {
+    if (el) setCursor(el.selectionStart ?? 0);
+  }, []);
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -138,16 +151,7 @@ const MessageInput = memo(function MessageInput() {
           <WritingKnowledgeAtMenu
             text={message}
             cursor={cursor}
-            onPick={(next) => {
-              setMessage(next.text);
-              setCursor(next.cursor);
-              requestAnimationFrame(() => {
-                const el = inputRef.current;
-                if (!el) return;
-                el.focus();
-                el.setSelectionRange(next.cursor, next.cursor);
-              });
-            }}
+            onPick={onPickMention}
           />
         ) : null}
         <TextareaAutosize

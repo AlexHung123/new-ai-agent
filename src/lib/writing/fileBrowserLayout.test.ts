@@ -9,7 +9,9 @@ function readSrc(...parts: string[]): string {
 describe('writing Knowledge FILES rail', () => {
   it('mounts a preview-only Knowledge tree under the agent card', () => {
     expect(
-      existsSync(path.join(__dirname, '../../components/WritingKnowledgeFiles.tsx')),
+      existsSync(
+        path.join(__dirname, '../../components/WritingKnowledgeFiles.tsx'),
+      ),
     ).toBe(true);
     const rail = readSrc('../../components/WritingLeftRail.tsx');
     expect(rail).toMatch(/AgentCard/);
@@ -17,7 +19,9 @@ describe('writing Knowledge FILES rail', () => {
     const files = readSrc('../../components/WritingKnowledgeFiles.tsx');
     expect(files).toMatch(/FILES/);
     expect(files).toMatch(/useKnowledgeTree/);
-    expect(readSrc('../knowledge/useKnowledgeTree.ts')).toMatch(/\/api\/knowledge\/tree/);
+    expect(readSrc('../knowledge/useKnowledgeTree.ts')).toMatch(
+      /\/api\/knowledge\/tree/,
+    );
     expect(files).toMatch(/openKnowledgeFile/);
     expect(files).toMatch(/Upload documents on Knowledge/);
     expect(files).toMatch(/KnowledgeLibraryTabs/);
@@ -43,10 +47,14 @@ describe('writing Knowledge FILES rail', () => {
 
   it('does not restore writing upload or paperclip', () => {
     expect(
-      existsSync(path.join(__dirname, '../../components/WritingFileBrowser.tsx')),
+      existsSync(
+        path.join(__dirname, '../../components/WritingFileBrowser.tsx'),
+      ),
     ).toBe(false);
     expect(
-      existsSync(path.join(__dirname, '../../components/WritingComposerTools.tsx')),
+      existsSync(
+        path.join(__dirname, '../../components/WritingComposerTools.tsx'),
+      ),
     ).toBe(false);
     const chat = readSrc('../hooks/useChat.tsx');
     expect(chat).not.toMatch(/uploadWritingFile/);
@@ -138,13 +146,38 @@ describe('writing Knowledge FILES rail', () => {
     const menu = readSrc('../../components/WritingKnowledgeAtMenu.tsx');
     expect(files).toMatch(/isStructuredKnowledgeNode/);
     expect(files).toMatch(/writing-knowledge-wiki-badge/);
-    expect(files).toMatch(/>Structured</);
+    expect(files).toMatch(/>\s*Structured\s*</);
     expect(files).toMatch(/structured \? 'is-file' : 'is-folder'/);
     expect(menu).toMatch(/flattenVisibleKnowledgeNodes/);
     expect(menu).toMatch(/isStructuredKnowledgeNode/);
-    expect(menu).toMatch(/>Structured</);
+    expect(menu).toMatch(/>\s*Structured\s*</);
     expect(files).not.toMatch(/維基/);
     expect(menu).not.toMatch(/維基/);
   });
 
+  it('mentions a file from the FILES name click and previews from a trailing icon', () => {
+    const files = readSrc('../../components/WritingKnowledgeFiles.tsx');
+    const windowSrc = readSrc('../../components/ChatWindow.tsx');
+    const css = readSrc('../../app/globals.css');
+    expect(files).toMatch(/knowledgeMentionToken/);
+    expect(files).toMatch(/insertMentionToken/);
+    expect(files).toMatch(/onMentionFile/);
+    expect(files).toMatch(/writing-knowledge-preview/);
+    expect(files).toMatch(/aria-label=\{\`Preview \$\{label\}\`\}/);
+    expect(files).toMatch(/stopPropagation/);
+    expect(files).toMatch(/<Eye size=\{14\} \/>/);
+    expect(files).toMatch(/onOpenFile\(/);
+    expect(files).not.toMatch(
+      /onClick=\{\(\) => \{\s*if \(child\.file\) \{\s*onOpenFile/,
+    );
+    expect(windowSrc).toMatch(/WritingComposerProvider/);
+    expect(css).toMatch(/\.writing-knowledge-preview/);
+    for (const src of [
+      readSrc('../../components/MessageInput.tsx'),
+      readSrc('../../components/EmptyChatMessageInput.tsx'),
+    ]) {
+      expect(src).toMatch(/useRegisterWritingComposerMention/);
+      expect(src).toMatch(/onPickMention/);
+    }
+  });
 });

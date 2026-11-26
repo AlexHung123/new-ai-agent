@@ -3,6 +3,7 @@ import {
   atQueryAtCursor,
   filterFilesByQuery,
   insertMention,
+  insertMentionAtCursor,
   resolveMentionedFiles,
 } from './mentions';
 import type { WritingAttachment } from './types';
@@ -83,5 +84,40 @@ describe('resolveMentionedFiles', () => {
       [resume],
     );
     expect(hits.map((f) => f.fileId)).toEqual(['r1']);
+  });
+});
+
+describe('insertMentionAtCursor', () => {
+  it('completes an active @ query with the token', () => {
+    const next = insertMentionAtCursor(
+      'see @fi',
+      7,
+      'private/notes/file-sample.doc',
+    );
+    expect(next.text).toBe('see @private/notes/file-sample.doc ');
+    expect(next.cursor).toBe('see @private/notes/file-sample.doc '.length);
+  });
+
+  it('inserts a mention at the cursor when no @ query is active', () => {
+    const next = insertMentionAtCursor(
+      'please summarize',
+      16,
+      'private/notes/file-sample.doc',
+    );
+    expect(next.text).toBe('please summarize @private/notes/file-sample.doc ');
+    expect(next.cursor).toBe(
+      'please summarize @private/notes/file-sample.doc '.length,
+    );
+  });
+
+  it('adds a leading space when the cursor is after a word', () => {
+    const next = insertMentionAtCursor('hello', 5, 'public/spr');
+    expect(next.text).toBe('hello @public/spr ');
+  });
+
+  it('inserts at the last known cursor when the composer is empty', () => {
+    const next = insertMentionAtCursor('', 0, 'private/writing/brief.pdf');
+    expect(next.text).toBe('@private/writing/brief.pdf ');
+    expect(next.cursor).toBe('@private/writing/brief.pdf '.length);
   });
 });

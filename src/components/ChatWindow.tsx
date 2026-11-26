@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 import Chat from './Chat';
 import WritingLeftRail from './WritingLeftRail';
+import { WritingComposerProvider } from './WritingComposerContext';
 import ChatRightPanel from './ChatRightPanel';
 import EmptyChat from './EmptyChat';
 import Loader from './ui/Loader';
@@ -107,43 +108,43 @@ const ChatWindow = () => {
   }
 
   return (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key="chat-window"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.3 }}
-        className={
-          messages.length > 0 || split
-            ? 'chat-workspace relative flex h-full overflow-hidden'
-            : 'relative h-full min-h-full'
-        }
-      >
-        <div
+    <WritingComposerProvider>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key="chat-window"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3 }}
           className={
             messages.length > 0 || split
-              ? 'chat-workspace-main'
-              : undefined
+              ? 'chat-workspace relative flex h-full overflow-hidden'
+              : 'relative h-full min-h-full'
           }
         >
-          <WritingLeftRail />
-          {messages.length > 0 ? (
-            <>
-              <Chat />
-              {split ? null : (
-                <div className="message-outline-host hidden xl:block">
-                  <MessageTimeline />
-                </div>
-              )}
-            </>
-          ) : (
-            <EmptyChat />
-          )}
-        </div>
-        <ChatRightPanel />
-      </motion.div>
-    </AnimatePresence>
+          <div
+            className={
+              messages.length > 0 || split ? 'chat-workspace-main' : undefined
+            }
+          >
+            <WritingLeftRail />
+            {messages.length > 0 ? (
+              <>
+                <Chat />
+                {split ? null : (
+                  <div className="message-outline-host hidden xl:block">
+                    <MessageTimeline />
+                  </div>
+                )}
+              </>
+            ) : (
+              <EmptyChat />
+            )}
+          </div>
+          <ChatRightPanel />
+        </motion.div>
+      </AnimatePresence>
+    </WritingComposerProvider>
   );
 };
 

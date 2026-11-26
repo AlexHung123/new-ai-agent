@@ -1303,6 +1303,27 @@
   background: color-mix(in srgb, var(--wiki-border) 55%, transparent);
 }
 
+.writing-knowledge-preview {
+  width: 1.4rem;
+  flex: 0 0 1.4rem;
+  height: 1.4rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--wiki-muted, #64748b);
+  padding: 0;
+  border-radius: 0.2rem;
+  cursor: pointer;
+}
+
+.writing-knowledge-preview:hover,
+.writing-knowledge-row:hover .writing-knowledge-preview {
+  background: color-mix(in srgb, var(--wiki-border) 55%, transparent);
+  color: inherit;
+}
+
 .writing-knowledge-error,
 .writing-knowledge-empty {
   margin: 0;

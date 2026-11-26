@@ -6,6 +6,7 @@ import {
   ChevronRight,
   ChevronsDown,
   ChevronsUp,
+  Eye,
   FileText,
   Folder,
   FolderOpen,
@@ -13,6 +14,7 @@ import {
 import { useChat } from '@/lib/hooks/useChat';
 import {
   formatKnowledgePin,
+  knowledgeMentionToken,
   parseKnowledgePin,
   parseKnowledgePins,
   type KnowledgeLibrary,
@@ -24,6 +26,7 @@ import { knowledgeFolderDisplayName } from '@/lib/knowledge/folderDisplayName';
 import { isStructuredKnowledgeNode } from '@/lib/knowledge/tree';
 import type { KnowledgeTreeNode } from '@/lib/knowledge/types';
 import { useRightPanel } from './RightPanelContext';
+import { useWritingComposer } from './WritingComposerContext';
 
 function dirPaths(
   node: KnowledgeTreeNode,
@@ -47,6 +50,7 @@ function TreeRows({
   collapsed,
   onToggle,
   onSelectFolder,
+  onMentionFile,
   onOpenFile,
 }: {
   node: KnowledgeTreeNode;
@@ -55,6 +59,7 @@ function TreeRows({
   collapsed: Record<string, boolean>;
   onToggle: (key: string) => void;
   onSelectFolder: (library: KnowledgeLibrary, path: string) => void;
+  onMentionFile: (library: KnowledgeLibrary, path: string) => void;
   onOpenFile: (id: string, label: string) => void;
 }) {
   const children = node.children || [];
@@ -126,12 +131,14 @@ function TreeRows({
                   collapsed={collapsed}
                   onToggle={onToggle}
                   onSelectFolder={onSelectFolder}
+                  onMentionFile={onMentionFile}
                   onOpenFile={onOpenFile}
                 />
               ) : null}
             </li>
           );
         }
+        const label = child.file?.original_filename || child.name;
         return (
           <li key={pin || child.name}>
             <div className="writing-knowledge-row">
@@ -140,21 +147,35 @@ function TreeRows({
                 type="button"
                 className="writing-knowledge-item"
                 onClick={() => {
-                  if (child.file) {
-                    onOpenFile(
-                      child.file.id,
-                      child.file.original_filename || child.name,
-                    );
+                  if (child.path) {
+                    onMentionFile(library, child.path);
                   }
                 }}
               >
                 <span className="writing-knowledge-icon is-file" aria-hidden>
                   <FileText size={15} />
                 </span>
-                <span className="writing-knowledge-label">
-                  {child.file?.original_filename || child.name}
+                <span className="writing-knowledge-label" title={label}>
+                  {label}
                 </span>
               </button>
+              {child.file ? (
+                <button
+                  type="button"
+                  className="writing-knowledge-preview"
+                  aria-label={`Preview ${label}`}
+                  title="Preview"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onOpenFile(
+                      child.file!.id,
+                      child.file!.original_filename || child.name,
+                    );
+                  }}
+                >
+                  <Eye size={14} />
+                </button>
+              ) : null}
             </div>
           </li>
         );
@@ -166,6 +187,7 @@ function TreeRows({
 export default function WritingKnowledgeFiles() {
   const { knowledgeFolder, setKnowledgeFolder, toggleKnowledgePin } = useChat();
   const { openKnowledgeFile } = useRightPanel();
+  const { insertMentionToken } = useWritingComposer();
   const [library, setLibrary] = useState<KnowledgeLibrary>(() =>
     readLibraryTab(),
   );
@@ -205,6 +227,10 @@ export default function WritingKnowledgeFiles() {
   const onSelectFolder = (nextLibrary: KnowledgeLibrary, path: string) => {
     const next = formatKnowledgePin({ library: nextLibrary, path });
     toggleKnowledgePin(next);
+  };
+
+  const onMentionFile = (nextLibrary: KnowledgeLibrary, path: string) => {
+    insertMentionToken(knowledgeMentionToken({ library: nextLibrary, path }));
   };
 
   const visibleDirKeys = dirPaths(activeTree, library);
@@ -255,6 +281,7 @@ export default function WritingKnowledgeFiles() {
           collapsed={collapsed}
           onToggle={onToggle}
           onSelectFolder={onSelectFolder}
+          onMentionFile={onMentionFile}
           onOpenFile={openKnowledgeFile}
         />
       )}

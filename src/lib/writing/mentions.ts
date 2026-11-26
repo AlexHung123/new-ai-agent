@@ -68,3 +68,20 @@ export function resolveMentionedFiles(
   }
   return found;
 }
+
+export function insertMentionAtCursor(
+  text: string,
+  cursor: number,
+  token: string,
+): { text: string; cursor: number } {
+  const mention = atQueryAtCursor(text, cursor);
+  if (mention) {
+    return insertMention(text, cursor, mention.start, token);
+  }
+  const pos = Math.max(0, Math.min(cursor, text.length));
+  const before = text.slice(0, pos);
+  const prefix = before.length > 0 && !/\s$/.test(before) ? ' ' : '';
+  const inserted = `${prefix}@${token} `;
+  const next = before + inserted + text.slice(pos);
+  return { text: next, cursor: before.length + inserted.length };
+}

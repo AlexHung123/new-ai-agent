@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import { useChat } from '@/lib/hooks/useChat';
 import {
@@ -14,6 +14,7 @@ import {
 } from './AttachImageControls';
 import WritingKnowledgeAtMenu from './WritingKnowledgeAtMenu';
 import KnowledgeComposerScope from './KnowledgeComposerScope';
+import { useRegisterWritingComposerMention } from './WritingComposerContext';
 import { atQueryAtCursor } from '@/lib/writing/mentions';
 
 const SendArrow = () => (
@@ -36,6 +37,25 @@ const EmptyChatMessageInput = () => {
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const [cursor, setCursor] = useState(0);
   const images = useAttachedImages(focusMode);
+  const onPickMention = useCallback(
+    (next: { text: string; cursor: number }) => {
+      setMessage(next.text);
+      setCursor(next.cursor);
+      requestAnimationFrame(() => {
+        const el = inputRef.current;
+        if (!el) return;
+        el.focus();
+        el.setSelectionRange(next.cursor, next.cursor);
+      });
+    },
+    [],
+  );
+  useRegisterWritingComposerMention({
+    text: message,
+    cursor,
+    inputRef,
+    onPick: onPickMention,
+  });
   const syncCursor = (el: HTMLTextAreaElement | null) => {
     if (el) setCursor(el.selectionStart ?? 0);
   };
@@ -94,16 +114,7 @@ const EmptyChatMessageInput = () => {
           <WritingKnowledgeAtMenu
             text={message}
             cursor={cursor}
-            onPick={(next) => {
-              setMessage(next.text);
-              setCursor(next.cursor);
-              requestAnimationFrame(() => {
-                const el = inputRef.current;
-                if (!el) return;
-                el.focus();
-                el.setSelectionRange(next.cursor, next.cursor);
-              });
-            }}
+            onPick={onPickMention}
           />
         ) : null}
         <TextareaAutosize
