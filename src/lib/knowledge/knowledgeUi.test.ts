@@ -164,6 +164,26 @@ describe('knowledge UI contracts', () => {
     expect(listing).toMatch(/last_error/);
   });
 
+  it('loads only the current library tree until the other tab is opened', () => {
+    const manager = readSrc(
+      '../../components/knowledge/KnowledgeFileManager.tsx',
+    );
+    const hook = readSrc('./useKnowledgeTree.ts');
+    expect(manager).toMatch(/\?library=\$\{encodeURIComponent\(library\)\}/);
+    expect(manager).toMatch(/loadTree\(readLibraryTab\(\)\)/);
+    expect(manager).toMatch(/loadedLibraries/);
+    expect(manager).toMatch(/if \(!loadedLibraries\[library\]\)/);
+    expect(manager).toMatch(/await loadTree\(library\)/);
+    expect(manager).toMatch(/const ids = fileTaskIds\(nextTree\)/);
+    expect(manager).not.toMatch(
+      /fileTaskIds\(nextPrivate\).*fileTaskIds\(nextPublic\)/s,
+    );
+    // Writing surfaces still fetch both trees in one unscoped call.
+    expect(hook).toMatch(/unscoped tree endpoint/);
+    expect(hook).toMatch(/export function knowledgeTreeUrl/);
+    expect(hook).toMatch(/\?library=\$\{encodeURIComponent\(library\)\}/);
+  });
+
   it('uses a create-folder dialog with private and public choices', () => {
     const dialog = readSrc('../../components/KnowledgeCreateFolderDialog.tsx');
     expect(dialog).toMatch(/Create folder/);

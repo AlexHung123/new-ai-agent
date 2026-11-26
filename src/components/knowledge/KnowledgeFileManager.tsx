@@ -131,9 +131,19 @@ export default function KnowledgeFileManager() {
     public: '',
   });
 
-  const loadTree = useCallback(async () => {
+  const [loadedLibraries, setLoadedLibraries] = useState<
+    Record<KnowledgeLibrary, boolean>
+  >({
+    private: false,
+    public: false,
+  });
+  const [libraryLoading, setLibraryLoading] = useState(false);
+
+  const loadTree = useCallback(async (library: KnowledgeLibrary) => {
     try {
-      const res = await fetch(TREE_URL, { headers: getAuthHeaders() });
+      const res = await fetch(`${TREE_URL}?library=${encodeURIComponent(library)}`, {
+        headers: getAuthHeaders(),
+      });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
         setBannerError(
@@ -144,13 +154,21 @@ export default function KnowledgeFileManager() {
         return;
       }
       setBannerError(null);
-      const nextPrivate = body.private?.tree || body.tree || EMPTY_TREE;
-      const nextPublic = body.public?.tree || EMPTY_TREE;
-      setPrivateTree(nextPrivate);
-      setPublicTree(nextPublic);
+      const nextTree =
+        library === 'public'
+          ? body.public?.tree || body.tree || EMPTY_TREE
+          : body.private?.tree || body.tree || EMPTY_TREE;
+      if (library === 'public') {
+        setPublicTree(nextTree);
+      } else {
+        setPrivateTree(nextTree);
+        const nextStorage = body.private?.storage || body.storage;
+        if (nextStorage) setStorage(nextStorage);
+      }
       setCanWritePublic(body.canWritePublic === true);
-      if (body.storage) setStorage(body.storage);
-      const ids = [...fileTaskIds(nextPrivate), ...fileTaskIds(nextPublic)];
+      setLoadedLibraries((prev) => ({ ...prev, [library]: true }));
+      // Only poll parse tasks from libraries that have actually been loaded.
+      const ids = fileTaskIds(nextTree);
       if (ids.length === 0) return;
       setTasks((prev) => {
         const next = { ...prev };
@@ -175,11 +193,12 @@ export default function KnowledgeFileManager() {
       setBannerError('Knowledge service is unavailable.');
     } finally {
       setInitialLoading(false);
+      setLibraryLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    void loadTree();
+    void loadTree(readLibraryTab());
   }, [loadTree]);
 
   useEffect(() => {
@@ -303,6 +322,10 @@ export default function KnowledgeFileManager() {
         ? currentPath
         : pathByLibraryRef.current[library] || '';
     selectFolder(path, library);
+    if (!loadedLibraries[library]) {
+      setLibraryLoading(true);
+      void loadTree(library);
+    }
   };
 
   const createFolder = async (input: {
@@ -328,7 +351,7 @@ export default function KnowledgeFileManager() {
           : 'Could not create folder',
       );
     }
-    await loadTree();
+    await loadTree(library);
     selectFolder(path, library);
   };
 
@@ -376,7 +399,7 @@ export default function KnowledgeFileManager() {
         setTasks((prev) => ({ ...prev, [body.task.id]: body.task }));
       }
     }
-    await loadTree();
+    await loadTree(library);
   };
 
   const onOpenFile = async (id: string, name?: string) => {
@@ -559,7 +582,7 @@ export default function KnowledgeFileManager() {
     </>
   );
 
-  if (initialLoading) {
+  if (initialLoading || libraryLoading) {
     return <KnowledgeLoading />;
   }
 

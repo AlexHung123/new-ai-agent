@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getAuthHeaders } from '@/lib/utils/auth';
+import type { KnowledgeLibrary } from './library';
 import type { KnowledgeTreeNode } from './types';
 
 const EMPTY_TREE: KnowledgeTreeNode = {
@@ -13,6 +14,14 @@ const EMPTY_TREE: KnowledgeTreeNode = {
 
 export const KNOWLEDGE_TREE_API = '/itms/ai/api/knowledge/tree';
 
+/** Append ?library= when a single library is enough. Omit it to fetch both. */
+export function knowledgeTreeUrl(library?: KnowledgeLibrary): string {
+  if (!library) return KNOWLEDGE_TREE_API;
+  return `${KNOWLEDGE_TREE_API}?library=${encodeURIComponent(library)}`;
+}
+
+// Writing pin picker, @ mentions, and the FILES rail still need both
+// libraries at once, so this hook keeps calling the unscoped tree endpoint.
 export function useKnowledgeTree(treeUrl = KNOWLEDGE_TREE_API): {
   tree: KnowledgeTreeNode;
   privateTree: KnowledgeTreeNode;

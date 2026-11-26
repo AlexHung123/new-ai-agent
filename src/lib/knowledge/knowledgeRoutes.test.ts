@@ -169,6 +169,93 @@ describe('knowledge routes', () => {
     expect(names).not.toContain('sfc');
   });
 
+  it('GET tree?library=private fetches only the private library', async () => {
+    canWritePublicLibrary.mockReturnValue(true);
+    getTree.mockImplementation(async (_userId: string, deps?: { library?: string }) => {
+      if (deps?.library === 'public') {
+        throw new Error('public should not be fetched');
+      }
+      return {
+        user_id: '1',
+        tree: {
+          type: 'dir',
+          name: '',
+          path: '',
+          children: [{ type: 'dir', name: 'notes', path: 'notes', children: [] }],
+        },
+      };
+    });
+    const res = await GET_TREE(
+      req('http://localhost/itms/ai/api/knowledge/tree?library=private', {
+        userId: '1',
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(getTree).toHaveBeenCalledTimes(1);
+    expect(getTree).toHaveBeenCalledWith('1', { library: 'private' });
+    const body = await res.json();
+    expect(body.user_id).toBe('1');
+    expect(body.canWritePublic).toBe(true);
+    expect(body.private.tree.children.map((n: { name: string }) => n.name)).toEqual([
+      'notes',
+    ]);
+    expect(body.public).toBeUndefined();
+    expect(body.storage).toMatchObject({
+      usedBytes: 0,
+      quotaBytes: expect.any(Number),
+      remainingBytes: expect.any(Number),
+    });
+    expect(body.private.storage).toEqual(body.storage);
+  });
+
+  it('GET tree?library=public fetches only the public library and hides sfc', async () => {
+    getTree.mockImplementation(async (_userId: string, deps?: { library?: string }) => {
+      if (deps?.library !== 'public') {
+        throw new Error('private should not be fetched');
+      }
+      return {
+        user_id: '1',
+        tree: {
+          type: 'dir',
+          name: '',
+          path: '',
+          children: [
+            { type: 'dir', name: 'spr', path: 'spr', children: [] },
+            { type: 'dir', name: 'sfc', path: 'sfc', children: [] },
+          ],
+        },
+      };
+    });
+    const res = await GET_TREE(
+      req('http://localhost/itms/ai/api/knowledge/tree?library=public', {
+        userId: '1',
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(getTree).toHaveBeenCalledTimes(1);
+    expect(getTree).toHaveBeenCalledWith('1', { library: 'public' });
+    const body = await res.json();
+    expect(body.user_id).toBe('1');
+    expect(body.canWritePublic).toBe(false);
+    expect(body.private).toBeUndefined();
+    const names = (body.public.tree.children || []).map((n: { name: string }) => n.name);
+    expect(names).toEqual(['spr']);
+    expect(body.storage).toEqual(body.public.storage);
+  });
+
+  it('GET tree rejects an invalid library query', async () => {
+    const res = await GET_TREE(
+      req('http://localhost/itms/ai/api/knowledge/tree?library=all', {
+        userId: '1',
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({
+      message: 'library must be private or public',
+    });
+    expect(getTree).not.toHaveBeenCalled();
+  });
+
   it('POST folders rejects traversal paths', async () => {
     const res = await POST_FOLDER(
       req('http://localhost/itms/ai/api/knowledge/folders', {
