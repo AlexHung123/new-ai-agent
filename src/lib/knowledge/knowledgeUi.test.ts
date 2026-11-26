@@ -178,10 +178,10 @@ describe('knowledge UI contracts', () => {
     expect(manager).not.toMatch(
       /fileTaskIds\(nextPrivate\).*fileTaskIds\(nextPublic\)/s,
     );
-    // Writing surfaces still fetch both trees in one unscoped call.
-    expect(hook).toMatch(/unscoped tree endpoint/);
     expect(hook).toMatch(/export function knowledgeTreeUrl/);
     expect(hook).toMatch(/\?library=\$\{encodeURIComponent\(library\)\}/);
+    expect(hook).toMatch(/UseKnowledgeTreeOptions/);
+    expect(hook).toMatch(/enabled !== false/);
   });
 
   it('uses a create-folder dialog with private and public choices', () => {

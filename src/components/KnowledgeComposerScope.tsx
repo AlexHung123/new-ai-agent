@@ -14,9 +14,14 @@ export default function KnowledgeComposerScope() {
     setKnowledgeFolder,
     pinCapMessage,
   } = useChat();
-  const { privateTree, publicTree } = useKnowledgeTree();
-  if (!isKnowledgeFocusMode(focusMode)) return null;
+  const knowledgeMode = isKnowledgeFocusMode(focusMode);
   const pins = parseKnowledgePins(knowledgeFolder);
+  const pinLibraries = Array.from(new Set(pins.map((pin) => pin.library)));
+  const { privateTree, publicTree } = useKnowledgeTree({
+    enabled: knowledgeMode && pins.length > 0,
+    library: pinLibraries.length === 1 ? pinLibraries[0] : undefined,
+  });
+  if (!knowledgeMode) return null;
   if (pins.length === 0 && !pinCapMessage) return null;
   return (
     <div className="knowledge-scope-chips">

@@ -152,10 +152,11 @@ function TreeRows({
 
 
 export default function WritingKnowledgeFiles() {
-  const { privateTree, publicTree, error, loading } = useKnowledgeTree();
   const { knowledgeFolder, setKnowledgeFolder, toggleKnowledgePin } = useChat();
   const { openKnowledgeFile } = useRightPanel();
   const [library, setLibrary] = useState<KnowledgeLibrary>(() => readLibraryTab());
+  const { privateTree, publicTree, error, loading, loadedLibraries } =
+    useKnowledgeTree({ library });
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const lastPinRef = useRef(knowledgeFolder);
   const activePins = new Set(
@@ -196,9 +197,7 @@ export default function WritingKnowledgeFiles() {
 
   const visibleDirKeys = dirPaths(activeTree, library);
   const showLoading =
-    loading &&
-    (privateTree.children || []).length === 0 &&
-    (publicTree.children || []).length === 0;
+    !loadedLibraries[library] && (loading || !error);
 
   return (
     <div className="writing-knowledge-files">
@@ -230,7 +229,9 @@ export default function WritingKnowledgeFiles() {
         </div>
       </div>
       <KnowledgeLibraryTabs value={library} onChange={onSelectTab} />
-      {error ? <p className="writing-knowledge-error">{error}</p> : null}
+      {error && !loadedLibraries[library] ? (
+        <p className="writing-knowledge-error">{error}</p>
+      ) : null}
       {showLoading ? (
         <p className="writing-knowledge-empty">Loading files…</p>
       ) : (activeTree.children || []).length === 0 ? (

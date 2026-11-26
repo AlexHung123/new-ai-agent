@@ -113,9 +113,24 @@ describe('writing Knowledge FILES rail', () => {
       /<WritingLeftRail \/>\s*\{messages\.length > 0 \? /s,
     );
     const files = readSrc('../../components/WritingKnowledgeFiles.tsx');
-    expect(files).toMatch(/privateTree\.children/);
-    expect(files).toMatch(/publicTree\.children/);
+    expect(files).toMatch(/privateTree/);
+    expect(files).toMatch(/publicTree/);
     expect(files).toMatch(/Loading files/);
+  });
+
+  it('loads only the current library tree in the FILES rail until the other tab is opened', () => {
+    const files = readSrc('../../components/WritingKnowledgeFiles.tsx');
+    const menu = readSrc('../../components/WritingKnowledgeAtMenu.tsx');
+    const scope = readSrc('../../components/KnowledgeComposerScope.tsx');
+    expect(files).toMatch(/useKnowledgeTree\(\{ library \}\)/);
+    expect(files).toMatch(/loadedLibraries\[library\]/);
+    expect(files).toMatch(/readLibraryTab\(\)/);
+    expect(menu).toMatch(/enabled: Boolean\(mention\)/);
+    expect(menu).toMatch(/listedNodes\(publicTree, 'public'/);
+    expect(menu).toMatch(/listedNodes\(privateTree, 'private'/);
+    expect(menu).toMatch(/Loading files/);
+    expect(scope).toMatch(/enabled: knowledgeMode && pins\.length > 0/);
+    expect(scope).toMatch(/pinLibraries\.length === 1 \? pinLibraries\[0\]/);
   });
 
   it('renders structured knowledge items as documents, not folder trees', () => {

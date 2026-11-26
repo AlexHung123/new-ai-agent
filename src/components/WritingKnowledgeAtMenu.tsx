@@ -54,7 +54,9 @@ export default function WritingKnowledgeAtMenu({
   onPick,
 }: Props) {
   const mention = atQueryAtCursor(text, cursor);
-  const { privateTree, publicTree } = useKnowledgeTree();
+  const { privateTree, publicTree, loading } = useKnowledgeTree({
+    enabled: Boolean(mention),
+  });
   const query = mention?.query.toLowerCase() ?? '';
   const nodes = mention
     ? [
@@ -80,7 +82,9 @@ export default function WritingKnowledgeAtMenu({
 
   return (
     <ul className="writing-knowledge-at-menu" role="listbox">
-      {nodes.length === 0 ? (
+      {loading && nodes.length === 0 ? (
+        <li className="writing-knowledge-at-empty">Loading files…</li>
+      ) : nodes.length === 0 ? (
         <li className="writing-knowledge-at-empty">No matching files</li>
       ) : (
         nodes.map((node, index) => {
